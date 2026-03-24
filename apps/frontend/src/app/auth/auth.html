@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+    <html>
+        <head>
+            <title>TFG</title>
+        </head>
+        <body>
+            <div class="auth-wrapper">
+                <div class="auth-sidebar">
+                    <div class="auth-card">
+                      
+                        <div class="tabs">
+                            <button [class.active]="isLoginMode" (click)="toggleMode(true)">Login</button>
+                            <button [class.active]="!isLoginMode" (click)="toggleMode(false)">Registro</button>
+                        </div>
+                
+                        @if (isLoginMode) {
+                            <form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="auth-form">
+                                <h2>¡Hola de nuevo!</h2>
+                                <p class="subtitle">Entra para explorar los eventos.</p>
+                
+                                <div class="input-field">
+                                    <label>Email UGR</label>
+                                    <input type="email" formControlName="email" placeholder="ejemplo@correo.ugr.es">
+                                </div>
+                
+                                <div class="input-field">
+                                    <label>Contraseña</label>
+                                    <input type="password" formControlName="password" placeholder="••••••••">
+                                </div>
+                
+                                <button type="submit" class="btn-main">
+                                    Entrar
+                                </button>
+                            </form>
+                        } @else {
+                            <form [formGroup]="registerForm" (ngSubmit)="onRegister()" class="auth-form">
+                                <h2>Crear cuenta</h2>
+                                <p class="subtitle">Únete a la comunidad universitaria.</p>
+                
+                                <div class="input-field">
+                                    <label>Email</label>
+                                    <input type="email" formControlName="email" placeholder="email">
+                                </div>
+                
+                                <div class="input-field">
+                                    <label>Contraseña</label>
+                                    <input type="password" formControlName="password" placeholder="Mínimo 6 caracteres">
+                                    @if (registerSubmitted && registerForm.get('password')?.invalid) {
+                                        <div class="password-hints">
+                                            @if (registerForm.get('password')?.errors?.['uppercase']) {
+                                                <span class="error">Falta mayúscula</span>
+                                            }
+                                            @if (registerForm.get('password')?.errors?.['number']) {
+                                                <span class="error">Falta un número</span>
+                                            }
+                                            @if (registerForm.get('password')?.errors?.['specialCharacter']) {
+                                                <span class="error">Falta carácter especial</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                
+                                <div class="input-field">
+                                    <label>Confirmar Contraseña</label>
+                                    <input type="password" formControlName="confirmPassword" placeholder="Repite la contraseña">
+                                    @if (registerSubmitted && registerForm.hasError('passwordMismatch')) {
+                                        <small class="error">Las contraseñas no coinciden</small>
+                                    }
+                                </div>
+                
+                                <button type="submit" [disabled]="registerForm.invalid" class="btn-main">
+                                    Registrarse
+                                </button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            </div>
+        </body>
+    </html>

@@ -1,16 +1,39 @@
 services:
-  db:
-    image: ankane/pgvector:latest
+  ugr_events_db:
+    image: postgis/postgis:15-3.3
     container_name: ugr_events_db
     restart: always
     environment:
       POSTGRES_DB: events_db
-      POSTGRES_USER: engineer
-      POSTGRES_PASSWORD: local_password
+      POSTGRES_USER: juaner
+      POSTGRES_PASSWORD: juaner0
     ports:
       - "5433:5432" # Usamos 5433 para evitar conflictos con tu otro proyecto
     volumes:
-      - ./infrastructure/postgres_data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql/data
+
+  ugr_backend:
+    build: ./apps/backend
+    container_name: ugr_backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/backend:/app
+      - /app/node_modules # Evita que Windows sobrescriba las librerías de Linux
+    depends_on:
+      - ugr_events_db
+
+  # 3. FRONTEND (Angular)
+  ugr_frontend:
+    build: ./apps/frontend
+    container_name: ugr_frontend
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules
+    depends_on:
+      - ugr_backend
 
   pgadmin:
     image: dpage/pgadmin4
@@ -20,3 +43,6 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
+    
+volumes:
+  db_data:
