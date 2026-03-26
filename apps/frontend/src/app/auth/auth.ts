@@ -15,7 +15,6 @@ export class AuthComponent implements AfterViewInit, OnInit {
     loginForm!: FormGroup;
     registerForm!: FormGroup;
     isLoginMode = true;
-    registerSubmitted = false;
 
     constructor(
         private router: Router,
@@ -63,18 +62,26 @@ export class AuthComponent implements AfterViewInit, OnInit {
 
     toggleMode(mode: boolean): void {
         this.isLoginMode = mode;
-        this.registerSubmitted = false;
     }
 
     onLogin(): void {
         if (this.loginForm.valid) {
           console.log('Datos de Login:', this.loginForm.value);
-          this.goToMap(); // Si todo va bien, al mapa
+          
+          this.authService.login(this.loginForm.value).subscribe({
+            next: (res) => {
+                console.log('¡Respuesta del servidor!', res);
+                this.goToMap(); // Si todo va bien, al mapa
+            },
+            error: (err) => {
+                console.error('Error iniciando sesión',err);
+                alert('Error: ' + (err.error?.message || 'No se ha podido iniciar sesión'));
+            }
+          });
         }
     }
 
     onRegister(): void {
-        this.registerSubmitted = true; // El usuario ya intentó enviar
 
         if (this.registerForm.valid) {
             console.log('Enviando datos al servicio...');
@@ -127,5 +134,7 @@ export class AuthComponent implements AfterViewInit, OnInit {
         }
         return null;
     }
+
+
 
 }

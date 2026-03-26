@@ -33,5 +33,22 @@ export class AuthService {
       }
       throw error;
     }
+  };
+
+  async login(email: string, pass: string) {
+
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) return null;
+
+    const isMatch = await bcrypt.compare(pass, user.password);
+
+    if (isMatch) {
+      const {password, ...result } = user;
+      return user;
+    }
+
+    return null;
+
   }
 }

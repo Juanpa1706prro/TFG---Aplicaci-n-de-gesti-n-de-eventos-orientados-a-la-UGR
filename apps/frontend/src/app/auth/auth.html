@@ -45,25 +45,12 @@
                                 <div class="input-field">
                                     <label>Contraseña</label>
                                     <input type="password" formControlName="password" placeholder="Mínimo 6 caracteres">
-                                    @if (registerSubmitted && registerForm.get('password')?.invalid) {
-                                        <div class="password-hints">
-                                            @if (registerForm.get('password')?.errors?.['uppercase']) {
-                                                <span class="error">Falta mayúscula</span>
-                                            }
-                                            @if (registerForm.get('password')?.errors?.['number']) {
-                                                <span class="error">Falta un número</span>
-                                            }
-                                            @if (registerForm.get('password')?.errors?.['specialCharacter']) {
-                                                <span class="error">Falta carácter especial</span>
-                                            }
-                                        </div>
-                                    }
                                 </div>
                 
                                 <div class="input-field">
                                     <label>Confirmar Contraseña</label>
                                     <input type="password" formControlName="confirmPassword" placeholder="Repite la contraseña">
-                                    @if (registerSubmitted && registerForm.hasError('passwordMismatch')) {
+                                    @if (registerForm.hasError('passwordMismatch')) {
                                         <small class="error">Las contraseñas no coinciden</small>
                                     }
                                 </div>
