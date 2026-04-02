@@ -1,0 +1,26 @@
+<form [formGroup]="registerForm" (ngSubmit)="onRegister()" class="auth-form">
+    <h2>Crear cuenta</h2>
+    <p class="subtitle">Únete a la comunidad universitaria.</p>
+
+    <div class="input-field">
+        <label>Email</label>
+        <input type="email" formControlName="email" placeholder="email">
+    </div>
+
+    <div class="input-field">
+        <label>Contraseña</label>
+        <input type="password" formControlName="password" placeholder="Mínimo 6 caracteres">
+    </div>
+
+    <div class="input-field">
+        <label>Confirmar Contraseña</label>
+        <input type="password" formControlName="confirmPassword" placeholder="Repite la contraseña">
+        @if (registerForm.hasError('passwordMismatch')) {
+            <small class="error">Las contraseñas no coinciden</small>
+        }
+    </div>
+
+    <button type="submit" [disabled]="registerForm.invalid" class="btn-main">
+        Registrarse
+    </button>
+</form>

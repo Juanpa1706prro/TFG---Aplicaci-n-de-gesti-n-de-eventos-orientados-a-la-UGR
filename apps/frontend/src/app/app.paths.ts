@@ -1,4 +1,5 @@
 export const PATHS = {
     AUTH: 'auth',
-    MAP: 'map'
+    MAP: 'u/:userNumber/map',
+    PROFILE: 'u/:userNumber/profile'
 };

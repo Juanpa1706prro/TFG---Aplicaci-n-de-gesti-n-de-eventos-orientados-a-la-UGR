@@ -1,0 +1,18 @@
+<form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="auth-form">
+    <h2>¡Hola de nuevo!</h2>
+    <p class="subtitle">Entra para explorar los eventos.</p>
+
+    <div class="input-field">
+        <label>Email UGR</label>
+        <input type="email" formControlName="email" placeholder="ejemplo@correo.ugr.es">
+    </div>
+
+    <div class="input-field">
+        <label>Contraseña</label>
+        <input type="password" formControlName="password" placeholder="••••••••">
+    </div>
+
+    <button type="submit" class="btn-main">
+        Entrar
+    </button>
+</form>

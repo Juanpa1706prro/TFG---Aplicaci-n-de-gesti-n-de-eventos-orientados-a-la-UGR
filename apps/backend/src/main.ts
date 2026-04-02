@@ -1,15 +1,20 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { Reflector } from '@nestjs/core';
+import { ClassSerializerInterceptor } from '@nestjs/common';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.use(cookieParser());
+
   app.enableCors({
     origin: 'http://localhost:4200',
+    credentials: true
   });
+  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+  //app.useGlobalPipes(new ValidationPipe());
   await app.listen(3000, '0.0.0.0');
-  console.log('--------------------------------------------------');
-  console.log('🚀 Servidor de la UGR corriendo en puerto 3000');
-  console.log('🔓 Interfaz: 0.0.0.0 (Abierto para Docker)');
-  console.log('--------------------------------------------------');
 }
 bootstrap();

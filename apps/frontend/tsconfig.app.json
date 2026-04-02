@@ -4,8 +4,14 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "./out-tsc/app",
-    "types": []
+    "types": [],
+    "baseUrl":"./",
+    "paths": {
+      "@core/*": ["src/app/core/*"],
+      "@shared/*": ["src/app/shared/*"],
+      "@features/*": ["src/app/features/*"],
+    }
   },
-  "include": ["src/**/*.ts", "../backend/src/auth/user.entity.ts"],
+  "include": ["src/**/*.ts", "../backend/src/modules/user/user.entity.ts"],
   "exclude": ["src/**/*.spec.ts"]
 }

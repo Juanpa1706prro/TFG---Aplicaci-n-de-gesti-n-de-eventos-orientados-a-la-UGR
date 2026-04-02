@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm'; // Importar el conector
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AuthModule } from './auth/auth.module';
-import { User } from './auth/user.entity'; // Importar la entidad que movimos antes
+import { AuthModule } from './modules/auth/auth.module';
+import { User } from './modules/user/user.entity'; // Importar la entidad que movimos antes
 
 @Module({
   imports: [

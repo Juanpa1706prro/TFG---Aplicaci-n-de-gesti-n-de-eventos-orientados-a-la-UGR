@@ -15,6 +15,7 @@ services:
   ugr_backend:
     build: ./apps/backend
     container_name: ugr_backend
+    restart: always
     ports:
       - "3000:3000"
     volumes:
@@ -27,6 +28,7 @@ services:
   ugr_frontend:
     build: ./apps/frontend
     container_name: ugr_frontend
+    restart: always
     ports:
       - "4200:4200"
     volumes:
@@ -38,6 +40,7 @@ services:
   pgadmin:
     image: dpage/pgadmin4
     container_name: ugr_pgadmin
+    restart: always
     ports:
       - "5050:80" # Usamos 5050 para no chocar con el puerto 8080 del LAMP
     environment:

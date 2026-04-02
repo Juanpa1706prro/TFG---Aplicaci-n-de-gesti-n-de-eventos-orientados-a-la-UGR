@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>TFG</title>
+    </head>
+    <body>
+        <div class="auth-wrapper">
+            <div class="auth-sidebar">
+                <div class="auth-card">
+                      
+                    <div class="tabs">
+                        <button [class.active]="isLoginMode" (click)="toggleMode(true)">Login</button>
+                        <button [class.active]="!isLoginMode" (click)="toggleMode(false)">Registro</button>
+                    </div>
+                
+                    @if (isLoginMode) {
+                        <app-login></app-login>
+                    } @else {
+                        <app-register></app-register>
+                    }
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
