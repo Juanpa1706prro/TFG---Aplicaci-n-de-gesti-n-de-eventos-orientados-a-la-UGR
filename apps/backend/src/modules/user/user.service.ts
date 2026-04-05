@@ -27,6 +27,16 @@ export class UsersService {
   }
 
   /**
+   * Updates specific fields of an existing user in the database.
+   * @param {number} id - The primary key ID of the user.
+   * @param {Partial<User>} data - The partial object containing the fields to update.
+   * @returns {Promise<User>} The result of the update operation.
+   */
+  async update(id: number, data: Partial<User>) {
+    return this.userRepository.update(id, data);
+  }
+
+  /**
    * Generates a unique, random 6-digit identification number.
    * @returns {Promise<number>} A guaranteed unique 6-digit number.
    */
@@ -47,8 +57,6 @@ export class UsersService {
     }
     return randomNumber;
   }
-
-  
 
   /**
    * Retrieves a user by their email address.

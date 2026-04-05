@@ -21,6 +21,6 @@ export class User {
   userNumber: number;
 
   @Exclude()
-  @Column({ nullable: true })
-  hashedRefreshToken: string;
+  @Column({ type: 'varchar', nullable: true })
+  hashedRefreshToken: string | null;
 }

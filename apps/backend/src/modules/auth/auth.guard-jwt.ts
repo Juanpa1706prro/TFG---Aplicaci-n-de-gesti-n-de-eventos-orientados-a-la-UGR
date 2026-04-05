@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { jwtConstants } from './constants';
+import { Reflector } from '@nestjs/core';
+import { IS_PUBLIC_KEY } from './public.decorator';
 
 // -------------------------------------------------------------------
 // JWT Authentication Guard.
@@ -15,7 +17,9 @@ export class JwtAuthGuard implements CanActivate {
   // ------------------------------------------------------------
   // Constructor: Injects required services.
   // ------------------------------------------------------------
-  constructor(private jwtService: JwtService) {}
+  constructor(private jwtService: JwtService,
+    private reflector: Reflector
+  ) {}
 
   /**
    * Determines whether the current request is allowed to proceed to the route handler.
@@ -24,6 +28,16 @@ export class JwtAuthGuard implements CanActivate {
    * @throws {UnauthorizedException} If the 'access_token' cookie is missing, tampered with, or expired.
    */
   async canActivate(context: ExecutionContext): Promise<boolean> {
+
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    if (isPublic) {
+      return true; // Si es pública, dejamos pasar sin mirar cookies
+    }
+
     const request = context.switchToHttp().getRequest();
     const token = request.cookies['access_token'];
 

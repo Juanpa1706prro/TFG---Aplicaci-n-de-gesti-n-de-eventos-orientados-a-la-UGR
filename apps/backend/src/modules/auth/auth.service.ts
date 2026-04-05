@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   UnauthorizedException,
+  ForbiddenException
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from 'src/modules/user/user.service';
@@ -84,6 +85,8 @@ export class AuthService {
       this.generateRefreshToken(payload),
     ]);
 
+    await this.updateRefreshTokenHash(user.id, refreshToken);
+
     // Return the token and sanitized user details
     return {
       accessToken,
@@ -94,6 +97,37 @@ export class AuthService {
         email: user.email,
       },
     };
+  }
+
+  async logout(userId: number) {
+    await this.usersService.update(userId, { hashedRefreshToken: null });
+  }
+
+  async refreshTokens(userId: number, rtCrudo: string) {
+    const user = await this.usersService.findByID(userId);
+    
+    // Si el usuario no existe o no tiene hash (hizo logout), denegamos
+    if (!user || !user.hashedRefreshToken) {
+      throw new ForbiddenException('Acceso denegado: Sesión no encontrada');
+    }
+
+    // 2. COMPARAR HASH: ¿El token que me envías coincide con el de la DB?
+    const rtMatches = await bcrypt.compare(rtCrudo, user.hashedRefreshToken);
+    if (!rtMatches) {
+      throw new ForbiddenException('Acceso denegado: Token inválido o antiguo');
+    }
+
+    // 3. NUEVA GENERACIÓN: Si todo OK, creamos un par nuevo
+    const payload: JwtPayload = { id: user.id, userNumber: user.userNumber };
+    const [accessToken, refreshToken] = await Promise.all([
+      this.generateAccessToken(payload),
+      this.generateRefreshToken(payload),
+    ]);
+
+    // 4. ROTACIÓN: Actualizamos el hash en la DB con el nuevo token
+    await this.updateRefreshTokenHash(user.id, refreshToken);
+
+    return { accessToken, refreshToken };
   }
 
   async generateAccessToken(payload: JwtPayload): Promise<string> {
@@ -108,6 +142,12 @@ export class AuthService {
       secret: jwtConstants.refreshSecret,
       expiresIn: '7d', // '7d'
     });
+  }
+
+  async updateRefreshTokenHash(userId: number, refreshToken: string) {
+    const salt = await bcrypt.genSalt();
+    const hash = await bcrypt.hash(refreshToken, salt);
+    await this.usersService.update(userId, { hashedRefreshToken: hash });
   }
 
   async verifyRefreshToken(token: string): Promise<JwtPayload> {
