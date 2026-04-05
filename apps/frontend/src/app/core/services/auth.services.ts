@@ -40,16 +40,9 @@ export class AuthService {
   // ---- Methods ----
 
   /**
-   * Initializes the authentication state by checking local storage on application startup.
+   * Initializes the authentication state.
    */
-  public initializeAuth(): void {
-    const userString = localStorage.getItem(this.SESSION_USER);
-    if (userString) {
-      // Restore the state. If the cookie expired, the backend
-      // will return a 401 error on the first protected request.
-      this.currentUserSubject.next(JSON.parse(userString));
-    }
-  }
+  public initializeAuth(): void {}
 
   /**
    * Register new user in the bd.
@@ -68,7 +61,6 @@ export class AuthService {
   public login(credentials: LoginPayload): Observable<UserSession> {
     return this.http.post<UserSession>(`${this.API_URL}/auth/login`, credentials).pipe(
       tap((user: UserSession) => {
-        localStorage.setItem(this.SESSION_USER, JSON.stringify(user));
         this.currentUserSubject.next(user);
       }),
     );
@@ -80,7 +72,6 @@ export class AuthService {
    */
   public logout() {
     this.http.post(`${this.API_URL}/auth/logout`, {}).subscribe();
-    localStorage.removeItem(this.SESSION_USER);
     this.currentUserSubject.next(null);
     this.router.navigate(['/auth']);
 

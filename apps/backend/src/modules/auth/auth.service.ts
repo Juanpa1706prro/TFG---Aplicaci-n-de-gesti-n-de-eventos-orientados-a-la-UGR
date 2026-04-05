@@ -1,6 +1,7 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from 'src/modules/user/user.service';
+import { jwtConstants } from './constants';
 import * as bcrypt from 'bcrypt';
 
 // ------------------------------------------------------------
@@ -75,10 +76,16 @@ export class AuthService {
       // Sign and generate the Access Token
       const accessToken = await this.jwtService.signAsync(payload);
 
+      const refreshToken = await this.jwtService.signAsync(payload, {
+        expiresIn: '7d',
+        secret: jwtConstants.secretRefresh 
+      });
+
 
       // Return the token and sanitized user details
       return {
         accessToken,
+        refreshToken,
         user: {
           id: user.id,
           userNumber: user.userNumber,
