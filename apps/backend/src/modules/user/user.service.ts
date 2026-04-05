@@ -48,6 +48,8 @@ export class UsersService {
     return randomNumber;
   }
 
+  
+
   /**
    * Retrieves a user by their email address.
    * @param {string} email - The exact email address to search for.

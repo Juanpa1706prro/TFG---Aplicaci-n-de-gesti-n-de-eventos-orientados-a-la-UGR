@@ -1,8 +1,17 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from 'src/modules/user/user.service';
 import { jwtConstants } from './constants';
 import * as bcrypt from 'bcrypt';
+
+interface JwtPayload {
+  id: number;
+  userNumber: number;
+}
 
 // ------------------------------------------------------------
 // Authentication Service.
@@ -14,7 +23,7 @@ export class AuthService {
   // ------------------------------------------------------------
   constructor(
     private readonly usersService: UsersService,
-    private jwtService: JwtService,
+    private readonly jwtService: JwtService,
   ) {}
 
   /**
@@ -25,7 +34,6 @@ export class AuthService {
    * @throws {ConflictException} If the email already exists in the database.
    */
   async register(email: string, pass: string) {
-
     // Generate salt and hash the password
     const salt = await bcrypt.genSalt();
     const hashedPassword = await bcrypt.hash(pass, salt);
@@ -56,45 +64,59 @@ export class AuthService {
    * @returns {Promise<{ accessToken: string, user: any } | null>} An object containing the signed JWT and sanitized user data, or null if credentials are invalid.
    */
   async login(email: string, pass: string) {
-
     // Check if user exists
     const user = await this.usersService.findByEmail(email);
     if (!user) return null;
 
     // Verify the provided password against the hashed password in the database
     const isMatch = await bcrypt.compare(pass, user.password);
+    if (!isMatch) return null;
 
+    // Construct the JWT payload using the explicit 'id'
+    const payload = {
+      id: user.id,
+      userNumber: user.userNumber,
+    };
 
-    if (isMatch) {
+    // Sign and generate the Access Token
+    const [accessToken, refreshToken] = await Promise.all([
+      this.generateAccessToken(payload),
+      this.generateRefreshToken(payload),
+    ]);
 
-      // Construct the JWT payload using the explicit 'id'
-      const payload = {
+    // Return the token and sanitized user details
+    return {
+      accessToken,
+      refreshToken,
+      user: {
         id: user.id,
         userNumber: user.userNumber,
-      };
+        email: user.email,
+      },
+    };
+  }
 
-      // Sign and generate the Access Token
-      const accessToken = await this.jwtService.signAsync(payload);
+  async generateAccessToken(payload: JwtPayload): Promise<string> {
+    return this.jwtService.signAsync(payload, {
+      secret: jwtConstants.accessSecret,
+      expiresIn: '15m',
+    });
+  }
 
-      const refreshToken = await this.jwtService.signAsync(payload, {
-        expiresIn: '7d',
-        secret: jwtConstants.secretRefresh 
+  async generateRefreshToken(payload: JwtPayload): Promise<string> {
+    return this.jwtService.signAsync(payload, {
+      secret: jwtConstants.refreshSecret,
+      expiresIn: '7d', // '7d'
+    });
+  }
+
+  async verifyRefreshToken(token: string): Promise<JwtPayload> {
+    try {
+      return await this.jwtService.verifyAsync<JwtPayload>(token, {
+        secret: jwtConstants.refreshSecret,
       });
-
-
-      // Return the token and sanitized user details
-      return {
-        accessToken,
-        refreshToken,
-        user: {
-          id: user.id,
-          userNumber: user.userNumber,
-          email: user.email,
-        },
-      };
+    } catch {
+      throw new UnauthorizedException('Refresh token inválido o expirado');
     }
-
-    // If password does not match
-    return null;
   }
 }

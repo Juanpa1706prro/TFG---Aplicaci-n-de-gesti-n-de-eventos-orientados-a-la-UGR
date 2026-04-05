@@ -17,9 +17,9 @@ export const appConfig: ApplicationConfig = {
     /**
      * * Executes the authentication initialization process before the application starts rendering.
      */
-    provideAppInitializer(() => {
+    provideAppInitializer(async() => {
       const authService = inject(AuthService);
-      authService.initializeAuth();
+      await authService.initializeAuth();
     }),
   ],
 };

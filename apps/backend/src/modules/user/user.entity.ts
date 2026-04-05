@@ -19,4 +19,8 @@ export class User {
 
   @Column({ unique: true })
   userNumber: number;
+
+  @Exclude()
+  @Column({ nullable: true })
+  hashedRefreshToken: string;
 }

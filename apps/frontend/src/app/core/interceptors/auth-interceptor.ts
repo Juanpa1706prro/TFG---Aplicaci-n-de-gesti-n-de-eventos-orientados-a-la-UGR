@@ -1,4 +1,25 @@
-import { HttpInterceptorFn } from '@angular/common/http';
+import {
+  HttpInterceptorFn,
+  HttpErrorResponse,
+  HttpRequest,
+  HttpHandlerFn,
+} from '@angular/common/http';
+import { inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { AuthService } from '@core/services/auth.services';
+import {
+  catchError,
+  switchMap,
+  throwError,
+  BehaviorSubject,
+  filter,
+  take,
+} from 'rxjs';
+
+let isRefreshing = false;
+const refreshDone$ = new BehaviorSubject<boolean>(false);
+
+const API_URL = 'http://localhost:3000';
 
 /**
  * Authentication Interceptor.
@@ -9,10 +30,57 @@ import { HttpInterceptorFn } from '@angular/common/http';
  * @returns An observable of the HTTP event stream.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  // Clone the request to append the flag that allows the browser send cookies.
-  const reqWithCookies = req.clone({
+  
+  const http = inject(HttpClient);
+  const authService = inject(AuthService);
+  const reqWithCredentials = req.clone({
     withCredentials: true,
   });
 
-  return next(reqWithCookies);
+
+  return next(reqWithCredentials).pipe(
+    catchError((error: HttpErrorResponse) => {
+      // Solo manejamos 401 (no autorizado / token expirado)
+      // Ignoramos el propio endpoint de refresh y el de login para evitar
+      // bucles infinitos
+      const isRefreshUrl = req.url.includes('/auth/refresh');
+      const isLoginUrl = req.url.includes('/auth/login');
+
+      if (error.status !== 401 || isRefreshUrl || isLoginUrl) {
+        return throwError(() => error);
+      }
+
+      if (!isRefreshing) {
+        // Primera petición que recibe 401: inicia el proceso de refresh
+        isRefreshing = true;
+        refreshDone$.next(false);
+
+        return http
+          .post(`${API_URL}/auth/refresh`, {}, { withCredentials: true })
+          .pipe(
+            switchMap(() => {
+              // Refresh exitoso: señalamos a las demás peticiones que continúen
+              isRefreshing = false;
+              refreshDone$.next(true);
+              // Reintentamos la petición original con la nueva cookie
+              return next(reqWithCredentials);
+            }),
+            catchError((refreshError) => {
+              // El refresh falló (refresh token expirado): forzamos logout
+              isRefreshing = false;
+              authService.logout();
+              return throwError(() => refreshError);
+            }),
+          );
+      }
+
+      // Si ya hay un refresh en curso, esta petición espera a que termine
+      // y luego se reintenta automáticamente con la nueva cookie
+      return refreshDone$.pipe(
+        filter((done) => done === true),
+        take(1),
+        switchMap(() => next(reqWithCredentials)),
+      );
+    }),
+  );;
 };

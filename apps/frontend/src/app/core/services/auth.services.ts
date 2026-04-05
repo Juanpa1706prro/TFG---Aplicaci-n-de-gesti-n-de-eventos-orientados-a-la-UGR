@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, tap, Observable } from 'rxjs';
+import { BehaviorSubject, tap, Observable, firstValueFrom } from 'rxjs';
 import { UserSession } from '@core/interfaces/user-interface';
 import { LoginPayload, RegisterPayload } from '@core/interfaces/auth-interface';
 import { Router } from '@angular/router';
@@ -42,7 +42,16 @@ export class AuthService {
   /**
    * Initializes the authentication state.
    */
-  public initializeAuth(): void {}
+  public async initializeAuth(): Promise<void> {
+    try {
+      const response = await firstValueFrom(
+        this.http.get<{ user: UserSession }>(`${this.API_URL}/user/profile`),
+      );
+      this.currentUserSubject.next(response.user);
+    } catch {
+      this.currentUserSubject.next(null);
+    }
+  }
 
   /**
    * Register new user in the bd.
