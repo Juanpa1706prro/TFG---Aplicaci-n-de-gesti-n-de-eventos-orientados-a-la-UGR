@@ -1,5 +1,12 @@
 import { Component, OnInit } from '@angular/core';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
+import {
+  ReactiveFormsModule,
+  FormBuilder,
+  FormGroup,
+  Validators,
+  AbstractControl,
+  ValidationErrors,
+} from '@angular/forms';
 import { AuthService } from '@core/services/auth.services';
 
 @Component({
@@ -9,15 +16,14 @@ import { AuthService } from '@core/services/auth.services';
   styleUrl: './register.css',
 })
 export class RegisterComponent implements OnInit {
-
   // ---- Properties ----
   registerForm!: FormGroup;
 
   // ---- Constructor ----
   constructor(
     private fb: FormBuilder,
-    private authService: AuthService
-  ){}
+    private authService: AuthService,
+  ) {}
 
   // ---- Lifecycle Hooks ----
   ngOnInit(): void {
@@ -27,20 +33,21 @@ export class RegisterComponent implements OnInit {
   // ---- Form Initialization ----
   protected buildForms() {
     this.registerForm = this.fb.group(
-        {
-            email: ['', [Validators.required, Validators.email]],
-            password: [
-                '',
-                [   Validators.required,
-                    Validators.minLength(6),
-                    this.hasUppercase,
-                    this.hasNumber,
-                    this.hasSpecialCharacter
-                ]
-            ],
-            confirmPassword: ['', Validators.required],
-        },
-        { validators: this.passwordMatchValidator }
+      {
+        email: ['', [Validators.required, Validators.email]],
+        password: [
+          '',
+          [
+            Validators.required,
+            Validators.minLength(6),
+            this.hasUppercase,
+            this.hasNumber,
+            this.hasSpecialCharacter,
+          ],
+        ],
+        confirmPassword: ['', Validators.required],
+      },
+      { validators: this.passwordMatchValidator },
     );
   }
 
@@ -51,21 +58,20 @@ export class RegisterComponent implements OnInit {
    * Validates the form, sends the payload to the backend, and alerts the user of the result.
    */
   onRegister(): void {
-
     if (this.registerForm.valid) {
-        console.log('Enviando datos al servicio...');
-        
-        // Llamamos al servicio y NOS SUSCRIBIMOS para que se ejecute
-        this.authService.register(this.registerForm.value).subscribe({
-          next: (res) => {
-            console.log('¡Respuesta del servidor!', res);
-            alert('Usuario creado con éxito');
-          },
-          error: (err) => {
-            console.error('El servidor ha rechazado la petición:', err);
-            alert('Error: ' + (err.error?.message || 'No se pudo conectar con el servidor'));
-          }
-        });
+      console.log('Enviando datos al servicio...');
+
+      // Llamamos al servicio y NOS SUSCRIBIMOS para que se ejecute
+      this.authService.register(this.registerForm.value).subscribe({
+        next: (res) => {
+          console.log('¡Respuesta del servidor!', res);
+          alert('Usuario creado con éxito');
+        },
+        error: (err) => {
+          console.error('El servidor ha rechazado la petición:', err);
+          alert('Error: ' + (err.error?.message || 'No se pudo conectar con el servidor'));
+        },
+      });
     }
   }
 
@@ -86,20 +92,20 @@ export class RegisterComponent implements OnInit {
 
   /**
    * Validates that the control's value contains at least one number.
-   * @param {AbstractControl} control - The form control to validate. 
+   * @param {AbstractControl} control - The form control to validate.
    * @returns {ValidationErrors | null} An error object if validation fails, else null.
    */
   protected hasNumber(control: AbstractControl): ValidationErrors | null {
     const value = control.value;
     if (value && !/\d/.test(value)) {
-        return { number: true };
+      return { number: true };
     }
     return null;
   }
 
   /**
    * Validates that the control's value contains at least one special character.
-   * @param {AbstractControl} control - The form control to validate. 
+   * @param {AbstractControl} control - The form control to validate.
    * @returns {ValidationErrors | null} An error object if validation fails, else null.
    */
   protected hasSpecialCharacter(control: AbstractControl): ValidationErrors | null {
@@ -118,11 +124,10 @@ export class RegisterComponent implements OnInit {
   protected passwordMatchValidator(control: AbstractControl): ValidationErrors | null {
     const password = control.get('password')?.value;
     const confirmPassword = control.get('confirmPassword')?.value;
-    
+
     if (password !== confirmPassword) {
       return { passwordMismatch: true };
     }
     return null;
   }
-
 }

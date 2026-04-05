@@ -11,10 +11,10 @@ async function bootstrap() {
 
   app.enableCors({
     origin: 'http://localhost:4200',
-    credentials: true
+    credentials: true,
   });
+
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
-  //app.useGlobalPipes(new ValidationPipe());
   await app.listen(3000, '0.0.0.0');
 }
 bootstrap();

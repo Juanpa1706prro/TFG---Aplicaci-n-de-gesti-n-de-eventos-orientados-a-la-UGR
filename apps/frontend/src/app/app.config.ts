@@ -5,16 +5,13 @@ import { AuthService } from '@core/services/auth.services';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { authInterceptor } from '@core/interceptors/auth-interceptor';
 
-
 export const appConfig: ApplicationConfig = {
   providers: [
     // ---- Routing ----
     provideRouter(routes),
 
     // ---- HTTP and Interceptors ----
-    provideHttpClient(
-      withInterceptors([authInterceptor])
-    ),
+    provideHttpClient(withInterceptors([authInterceptor])),
 
     // ---- App Initialization ----
     /**
@@ -23,6 +20,6 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(() => {
       const authService = inject(AuthService);
       authService.initializeAuth();
-    })
+    }),
   ],
 };

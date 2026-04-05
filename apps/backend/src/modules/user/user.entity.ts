@@ -1,6 +1,10 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 import { Exclude } from 'class-transformer';
 
+// -------------------------------------------------------------------
+// User Entity
+// Represents the 'users' table in the database.
+// -------------------------------------------------------------------
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
@@ -14,5 +18,5 @@ export class User {
   password: string;
 
   @Column({ unique: true })
-  userNumber: number; // El número aleatorio que comentaste
+  userNumber: number;
 }

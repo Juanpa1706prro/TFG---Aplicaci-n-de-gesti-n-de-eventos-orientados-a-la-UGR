@@ -11,7 +11,6 @@ import { UserSession } from '@core/interfaces/user-interface';
   styleUrl: './login.css',
 })
 export class LoginComponent implements OnInit {
-
   // ---- Properties ----
   public loginForm!: FormGroup;
 
@@ -19,9 +18,9 @@ export class LoginComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router
-  ){}
-  
+    private router: Router,
+  ) {}
+
   // ---- Lifecycle Hooks ----
   ngOnInit(): void {
     this.buildForms();
@@ -29,17 +28,10 @@ export class LoginComponent implements OnInit {
 
   // ---- Form Initialization ----
   protected buildForms() {
-    this.loginForm = this.fb.group(
-        {
-            email: ['', [Validators.required, Validators.email]],
-            password: [
-                '',
-                [   
-                    Validators.required
-                ]
-            ]
-        },
-    );
+    this.loginForm = this.fb.group({
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required]],
+    });
   }
 
   // ---- Navigation and actions ----
@@ -48,9 +40,9 @@ export class LoginComponent implements OnInit {
    * Navigation to personal map page.
    * @param {UserSession}res - Session data returned from backend.
    */
-  protected goToMap(res: UserSession): void{
+  protected goToMap(res: UserSession): void {
     if (res?.userNumber) {
-        this.router.navigate(['/u', res.userNumber, 'map']);
+      this.router.navigate(['/u', res.userNumber, 'map']);
     }
   }
 
@@ -62,14 +54,13 @@ export class LoginComponent implements OnInit {
     if (this.loginForm.valid) {
       this.authService.login(this.loginForm.value).subscribe({
         next: (res) => {
-            this.goToMap(res);
+          this.goToMap(res);
         },
         error: (err) => {
-            console.error('Error logging in:',err);
-            alert('Error: ' + (err.error?.message || 'Could not log in'));
-        }
+          console.error('Error logging in:', err);
+          alert('Error: ' + (err.error?.message || 'Could not log in'));
+        },
       });
     }
   }
-
 }

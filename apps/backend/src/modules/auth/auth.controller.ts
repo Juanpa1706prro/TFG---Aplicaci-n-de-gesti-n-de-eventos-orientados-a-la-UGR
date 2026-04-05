@@ -1,48 +1,67 @@
-import { Controller, Post, Body, Res, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import type { Response } from 'express';
 
-@Controller('auth') // La URL será http://localhost:3000/auth
+// -------------------------------------------------------------------
+// Authentication Controller
+// Exposes endpoints for user registration, login, and logout.
+// Base route: /auth
+// -------------------------------------------------------------------
+@Controller('auth')
 export class AuthController {
+  // ------------------------------------------------------------
+  // Constructor: Injects required services.
+  // ------------------------------------------------------------
   constructor(private readonly authService: AuthService) {}
 
-  @Post('register') // La URL final: http://localhost:3000/auth/register
+  /**
+   * Handles user registration.
+   * @param {any} body - The payload containing 'email' and 'password'.
+   * @returns {Promise<any>} The newly created user object.
+   */
+  @Post('register')
   async register(@Body() body: any) {
-    console.log('Petición de registro recibida:', body);
     return this.authService.register(body.email, body.password);
   }
 
+  /**
+   * Authenticates a user and sets an HTTP-only cookie containing the JWT.
+   * @param {any} body - The payload containing 'email' and 'password'.
+   * @param {Response} res - The Express response object used to set the cookie.
+   * @returns {Promise<any>} The sanitized user object (without the token).
+   * @throws {UnauthorizedException} If credentials are invalid.
+   */
   @Post('login')
-  async login(
-    @Body() body: any,
-    @Res({ passthrough: true }) res: Response)
-  {
-
-    console.log('Peticion de login recibida', body);
+  async login(@Body() body: any, @Res({ passthrough: true }) res: Response) {
     const session = await this.authService.login(body.email, body.password);
-    if(!session){
+    if (!session) {
       throw new UnauthorizedException('Credenciales incorrectas');
     }
-
-    console.log('1. [BACKEND] Login exitoso para:', session.user.email);
-    console.log('2. [BACKEND] Seteando cookie "access_token"');
 
     res.cookie('access_token', session.accessToken, {
       httpOnly: true,
       secure: false, // true solo en producción con HTTPS
       sameSite: 'lax',
-      maxAge: 3 * 60 * 60 * 1000, // 3 horas
+      maxAge: 15 * 60 * 1000, // 15 mins
     });
-
-    console.log('3. [BACKEND] Enviando respuesta al Front (sin el token en el JSON)')
 
     return session.user;
   }
 
+  /**
+   * Logs out the user by clearing the authentication cookie.
+   * @param {Response} res - The Express response object used to clear the cookie.
+   * @returns {Object} A success message.
+   */
   @Post('logout')
   async logout(@Res({ passthrough: true }) res: Response) {
     res.clearCookie('access_token');
     return { message: 'Sesión cerrada' };
   }
-
 }

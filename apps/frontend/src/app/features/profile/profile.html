@@ -1,25 +1,23 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-    @if (userProfile) {
-        <div class = "profile-container">
-            <div class="profile-header">
+  @if (userProfile) {
+    <div class="profile-container">
+      <div class="profile-header"></div>
+      <div class="profile-card">
+        <div class="info-group">
+          <label>Email de contacto:</label>
+          <p class="data-value">{{ userProfile.email }}</p>
+        </div>
 
-            </div>
-            <div class="profile-card">
-                <div class="info-group">
-                <label>Email de contacto:</label>
-                <p class="data-value">{{ userProfile.email }}</p>
-                </div>
-            
-                <div class="info-group">
-                <label>Número de Usuario (VIP):</label>
-                <p class="data-value">#{{ userProfile.userNumber }}</p>
-                </div>
-            </div>
+        <div class="info-group">
+          <label>Número de Usuario (VIP):</label>
+          <p class="data-value">#{{ userProfile.userNumber }}</p>
         </div>
-    } @else{
-        <div class="loading-state">
-            <p>⏳ Cargando tu información de perfil...</p>
-        </div>
-    }
+      </div>
+    </div>
+  } @else {
+    <div class="loading-state">
+      <p>⏳ Cargando tu información de perfil...</p>
+    </div>
+  }
 </html>

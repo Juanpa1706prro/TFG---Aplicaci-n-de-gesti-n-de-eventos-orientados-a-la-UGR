@@ -5,15 +5,18 @@ import { AuthController } from './auth.controller';
 import { UsersModule } from '../user/user.module';
 import { jwtConstants } from './constants';
 
+// ------------------------------------------------------------
+// Authentication Module.
+// ------------------------------------------------------------
 @Module({
   imports: [
     UsersModule,
     JwtModule.register({
-      global: true, // Hace que no tengas que importarlo en cada módulo
-      secret: jwtConstants.secret, // En producción esto va en un archivo .env
-      signOptions: { expiresIn: '3h' }, // <-- AQUÍ DECIDES LA CADUCIDAD
+      global: true,
+      secret: jwtConstants.secret,
+      signOptions: { expiresIn: '3h' },
     }),
-  ], // Registramos la entidad aquí
+  ],
   providers: [AuthService],
   controllers: [AuthController],
 })

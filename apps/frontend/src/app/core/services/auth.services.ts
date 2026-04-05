@@ -5,13 +5,12 @@ import { UserSession } from '@core/interfaces/user-interface';
 import { LoginPayload, RegisterPayload } from '@core/interfaces/auth-interface';
 import { Router } from '@angular/router';
 
-@Injectable({ 
-  providedIn: 'root'
-})                        
+@Injectable({
+  providedIn: 'root',
+})
 export class AuthService {
-
   // ---- Constants ----
-  private readonly API_URL = 'http://localhost:3000'; 
+  private readonly API_URL = 'http://localhost:3000';
   private readonly SESSION_USER = 'user_session';
 
   // ---- States Management ----
@@ -20,12 +19,13 @@ export class AuthService {
    * currentUser$: Public observable stream of the current user session. Components can subscribe to this to react to login/logout events.
    */
   private currentUserSubject = new BehaviorSubject<UserSession | null>(null);
-  public readonly currentUser$: Observable<UserSession | null> = this.currentUserSubject.asObservable();
+  public readonly currentUser$: Observable<UserSession | null> =
+    this.currentUserSubject.asObservable();
 
   // ---- Constructor ----
   constructor(
     private http: HttpClient,
-    private router: Router
+    private router: Router,
   ) {}
 
   // ---- Getters ----
@@ -45,7 +45,7 @@ export class AuthService {
   public initializeAuth(): void {
     const userString = localStorage.getItem(this.SESSION_USER);
     if (userString) {
-      // Restore the state. If the cookie expired, the backend 
+      // Restore the state. If the cookie expired, the backend
       // will return a 401 error on the first protected request.
       this.currentUserSubject.next(JSON.parse(userString));
     }
@@ -65,21 +65,21 @@ export class AuthService {
    * @param {LoginPayload} credentials - Data obtained from the login form.
    * @returns {Observable<UserSession>} An observable containing the logged-in user's session data.
    */
-  public login(credentials: LoginPayload): Observable<UserSession>{
-    return this.http.post<UserSession>(`${this.API_URL}/auth/login`,credentials,{ withCredentials: true }).pipe(
+  public login(credentials: LoginPayload): Observable<UserSession> {
+    return this.http.post<UserSession>(`${this.API_URL}/auth/login`, credentials).pipe(
       tap((user: UserSession) => {
         localStorage.setItem(this.SESSION_USER, JSON.stringify(user));
         this.currentUserSubject.next(user);
-      })
+      }),
     );
   }
 
   /**
-   * Logs out the current user by destroying the backend session, clearing local storage, 
+   * Logs out the current user by destroying the backend session, clearing local storage,
    * and redirecting to the authentication view.
    */
   public logout() {
-    this.http.post(`${this.API_URL}/auth/logout`, {}, { withCredentials: true }).subscribe();
+    this.http.post(`${this.API_URL}/auth/logout`, {}).subscribe();
     localStorage.removeItem(this.SESSION_USER);
     this.currentUserSubject.next(null);
     this.router.navigate(['/auth']);
@@ -94,6 +94,4 @@ export class AuthService {
   public isAuthenticated(): boolean {
     return !!this.currentUserValue;
   }
-  
-
 }

@@ -1,30 +1,44 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { jwtConstants } from './constants';
 
+// -------------------------------------------------------------------
+// JWT Authentication Guard.
+// -------------------------------------------------------------------
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
+  // ------------------------------------------------------------
+  // Constructor: Injects required services.
+  // ------------------------------------------------------------
   constructor(private jwtService: JwtService) {}
 
+  /**
+   * Determines whether the current request is allowed to proceed to the route handler.
+   * @param context - The execution context that provides details about the current HTTP request pipeline.
+   * @returns {Promise<boolean>} Resolves to `true` if the token is valid, granting access to the route.
+   * @throws {UnauthorizedException} If the 'access_token' cookie is missing, tampered with, or expired.
+   */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const token = request.cookies['access_token']; // Leemos la cookie
+    const token = request.cookies['access_token'];
 
-    console.log('6. [BACKEND GUARD] El portero está revisando la petición...');
+    if (!token) {
+      throw new UnauthorizedException();
+    }
 
-    if (!token){
-        console.error('7. [BACKEND GUARD] ¡ALERTA! No se encontró la cookie "access_token"');
-        throw new UnauthorizedException();
-    } 
-        
     try {
-        const payload = await this.jwtService.verifyAsync(token, { secret: jwtConstants.secret });
-        console.log('8. [BACKEND GUARD] Token válido. Usuario ID:', payload.sub);
-        request['user'] = payload; // Metemos los datos del usuario en la petición
-        return true;
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: jwtConstants.secret,
+      });
+      request['user'] = payload;
+      return true;
     } catch {
-        console.error('9. [BACKEND GUARD] Token inválido o caducado');
-        throw new UnauthorizedException();
+      throw new UnauthorizedException();
     }
   }
 }
