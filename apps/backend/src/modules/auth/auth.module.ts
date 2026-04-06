@@ -21,6 +21,7 @@ import { JwtAuthGuard } from './auth.guard-jwt';
   providers: [
     AuthService,
     {
+      // Registers the JwtAuthGuard globally. It will automatically protect all endpoints unless they use the @Public() decorator.
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
     }

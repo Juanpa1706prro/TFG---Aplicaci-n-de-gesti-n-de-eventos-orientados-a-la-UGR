@@ -11,10 +11,15 @@ export class UsersService {
   // ------------------------------------------------------------
   // Constructor: Injects required services.
   // ------------------------------------------------------------
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) {}
+
+  // ------------------------------------------------------------
+  // Methods.
+  // ------------------------------------------------------------
 
   /**
    * Creates and saves a new user in the database.

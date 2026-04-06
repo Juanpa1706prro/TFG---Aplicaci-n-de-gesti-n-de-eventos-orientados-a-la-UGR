@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, tap, Observable, firstValueFrom } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, tap, firstValueFrom, of } from 'rxjs';
 import { UserSession } from '@core/interfaces/user-interface';
 import { LoginPayload, RegisterPayload } from '@core/interfaces/auth-interface';
 import { Router } from '@angular/router';
@@ -43,6 +43,13 @@ export class AuthService {
    * Initializes the authentication state.
    */
   public async initializeAuth(): Promise<void> {
+    const hasSession = localStorage.getItem('hasSession');
+
+    if (!hasSession) {
+      this.currentUserSubject.next(null);
+      return;
+    }
+
     try {
       const response = await firstValueFrom(
         this.http.get<{ user: UserSession }>(`${this.API_URL}/user/profile`),
@@ -54,7 +61,7 @@ export class AuthService {
   }
 
   /**
-   * Register new user in the bd.
+   * Register new user in the database.
    * @param {RegisterPayload} credentials - Data obtained from the registration form.
    * @returns {Observable<any>} An observable containing the backend response.
    */
@@ -71,6 +78,7 @@ export class AuthService {
     return this.http.post<UserSession>(`${this.API_URL}/auth/login`, credentials).pipe(
       tap((user: UserSession) => {
         this.currentUserSubject.next(user);
+        localStorage.setItem('hasSession', 'true');
       }),
     );
   }
@@ -80,28 +88,37 @@ export class AuthService {
    * and redirecting to the authentication view.
    */
   public logout() {
-    this.http.post(`${this.API_URL}/auth/logout`, {}).subscribe();
+    return this.http
+      .post(`${this.API_URL}/auth/logout`, {})
+      .pipe(
+        catchError(() => of(null)), // Ignore network/server errors during logout
+        tap(() => this.purgeAuth()), // Always clean up local state
+      )
+      .subscribe();
+  }
+
+  /**
+   * Destroys local memory, removes session flags, and redirects the user.
+   */
+  public purgeAuth() {
+    localStorage.removeItem('hasSession');
     this.currentUserSubject.next(null);
     this.router.navigate(['/auth']);
-
-    console.log('Sesión cerrada y estado limpiado.');
   }
 
   /**
    * Checks if there is a currently logged-in user based on the local state.
-   * @returns {boolean} True if a user session exists, else false.
+   * @returns {boolean} True if a user session exists, otherwise false.
    */
   public isAuthenticated(): boolean {
     return !!this.currentUserValue;
   }
 
+  /**
+   * Requests a new access token from the backend.
+   * @returns {Observable<any>} An observable containing the backend response.
+   */
   public refreshToken(): Observable<any> {
-    return this.http.post(`${this.API_URL}/auth/refresh`, {}).pipe(
-      tap(() => {
-        // Si el refresh tiene éxito, podrías opcionalmente actualizar
-        // los datos del usuario aquí si el backend devolviera algo nuevo.
-        console.log('Tokens rotados exitosamente');
-      }),
-    );
+    return this.http.post(`${this.API_URL}/auth/refresh`, {});
   }
 }

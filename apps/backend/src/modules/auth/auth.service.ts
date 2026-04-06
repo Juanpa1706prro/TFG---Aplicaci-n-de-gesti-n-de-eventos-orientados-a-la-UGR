@@ -2,7 +2,7 @@ import {
   Injectable,
   ConflictException,
   UnauthorizedException,
-  ForbiddenException
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from 'src/modules/user/user.service';
@@ -22,10 +22,15 @@ export class AuthService {
   // ------------------------------------------------------------
   // Constructor: Injects required services.
   // ------------------------------------------------------------
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
   ) {}
+
+  // ------------------------------------------------------------
+  // Methods.
+  // ------------------------------------------------------------
 
   /**
    * Registers a new user in the system.
@@ -52,7 +57,7 @@ export class AuthService {
     } catch (error) {
       // Catch PostgreSQL unique constraint violation
       if (error.code === '23505') {
-        throw new ConflictException('Este correo ya está registrado.');
+        throw new ConflictException('This email is already registered.');
       }
       throw error;
     }
@@ -62,7 +67,7 @@ export class AuthService {
    * Authenticates a user on the system.
    * @param {string} email - The user's email address.
    * @param {string} pass - The user's plain-text password.
-   * @returns {Promise<{ accessToken: string, user: any } | null>} An object containing the signed JWT and sanitized user data, or null if credentials are invalid.
+   * @returns {Promise<{ accessToken: string, refreshToken: string, user: any } | null>} An object containing the signed JWT and sanitized user data, or null if credentials are invalid.
    */
   async login(email: string, pass: string) {
     // Check if user exists
@@ -79,12 +84,13 @@ export class AuthService {
       userNumber: user.userNumber,
     };
 
-    // Sign and generate the Access Token
+    // Sign and generate the Access Token and Refresh Tokens
     const [accessToken, refreshToken] = await Promise.all([
       this.generateAccessToken(payload),
       this.generateRefreshToken(payload),
     ]);
 
+    // Store the hashed refresh token in the database.
     await this.updateRefreshTokenHash(user.id, refreshToken);
 
     // Return the token and sanitized user details
@@ -99,57 +105,90 @@ export class AuthService {
     };
   }
 
+  /**
+   * Logs out the user by removing their refresh token hash from the database.
+   * @param {number} userId - The ID of the user logging out.
+   */
   async logout(userId: number) {
     await this.usersService.update(userId, { hashedRefreshToken: null });
   }
 
-  async refreshTokens(userId: number, rtCrudo: string) {
+  /**
+   * Generates a short-lived access token.
+   * @param {JwtPayload} payload - The user data to embed in the token.
+   * @returns {Promise<string>} The signed JWT access token.
+   */
+  async generateAccessToken(payload: JwtPayload): Promise<string> {
+    return this.jwtService.signAsync(payload, {
+      secret: jwtConstants.accessSecret,
+      expiresIn: '30s',
+    });
+  }
+
+  /**
+   * Generates a long-lived refresh token.
+   * @param payload - The user data to embed in the refresh token.
+   * @returns {Promise<string>} The signed JWT access token.
+   */
+  async generateRefreshToken(payload: JwtPayload): Promise<string> {
+    return this.jwtService.signAsync(payload, {
+      secret: jwtConstants.refreshSecret,
+      expiresIn: '1m', // '7d'
+    });
+  }
+
+  /**
+   * Validates an existing refresh token and generates a fresh pair of tokens.
+   * Implements token rotation for enhanced security.
+   * @param {number} userId - The ID of the user requesting token refresh.
+   * @param {string} rawToken - The raw refresh token provided by the client (from cookie).
+   * @returns {Promise<{ accessToken: string, refreshToken: string }>} The new token pair.
+   * @throws {ForbiddenException} If the token is invalid, old, or the user is logged out.
+   */
+  async refreshTokens(userId: number, rawToken: string) {
     const user = await this.usersService.findByID(userId);
-    
-    // Si el usuario no existe o no tiene hash (hizo logout), denegamos
+
+    // Deny access if user does not exist or has no refresh token hash (logged out)
     if (!user || !user.hashedRefreshToken) {
-      throw new ForbiddenException('Acceso denegado: Sesión no encontrada');
+      throw new ForbiddenException('Access denied: Session not found');
     }
 
-    // 2. COMPARAR HASH: ¿El token que me envías coincide con el de la DB?
-    const rtMatches = await bcrypt.compare(rtCrudo, user.hashedRefreshToken);
+    // Compare the provided plain-text token against the database hash
+    const rtMatches = await bcrypt.compare(rawToken, user.hashedRefreshToken);
     if (!rtMatches) {
-      throw new ForbiddenException('Acceso denegado: Token inválido o antiguo');
+      throw new ForbiddenException('Access denied: Invalid or outdated token');
     }
 
-    // 3. NUEVA GENERACIÓN: Si todo OK, creamos un par nuevo
+    // Generate a new pair of tokens if validation succeeds
     const payload: JwtPayload = { id: user.id, userNumber: user.userNumber };
     const [accessToken, refreshToken] = await Promise.all([
       this.generateAccessToken(payload),
       this.generateRefreshToken(payload),
     ]);
 
-    // 4. ROTACIÓN: Actualizamos el hash en la DB con el nuevo token
+    // Token Rotation: Update the database hash with the newly generated refresh token
     await this.updateRefreshTokenHash(user.id, refreshToken);
 
     return { accessToken, refreshToken };
   }
 
-  async generateAccessToken(payload: JwtPayload): Promise<string> {
-    return this.jwtService.signAsync(payload, {
-      secret: jwtConstants.accessSecret,
-      expiresIn: '15m',
-    });
-  }
-
-  async generateRefreshToken(payload: JwtPayload): Promise<string> {
-    return this.jwtService.signAsync(payload, {
-      secret: jwtConstants.refreshSecret,
-      expiresIn: '7d', // '7d'
-    });
-  }
-
+  /**
+   * Hashes a plain-text refresh token and stores it in the database.
+   * @param {number} userId - The ID of the user.
+   * @param {string} refreshToken - The plain-text refresh token to hash.
+   */
   async updateRefreshTokenHash(userId: number, refreshToken: string) {
     const salt = await bcrypt.genSalt();
     const hash = await bcrypt.hash(refreshToken, salt);
     await this.usersService.update(userId, { hashedRefreshToken: hash });
   }
 
+  /**
+   * Verifies the cryptographic signature and expiration of a refresh token.
+   * @param token - The raw refresh token to validate.
+   * @returns {Promise<JwtPayload>} The decoded payload if the token is valid.
+   * @throws {UnauthorizedException} If the token is invalid or expired.
+   */
   async verifyRefreshToken(token: string): Promise<JwtPayload> {
     try {
       return await this.jwtService.verifyAsync<JwtPayload>(token, {

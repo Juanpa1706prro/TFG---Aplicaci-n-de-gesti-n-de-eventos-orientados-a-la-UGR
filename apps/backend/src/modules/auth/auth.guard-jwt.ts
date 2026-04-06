@@ -17,8 +17,9 @@ export class JwtAuthGuard implements CanActivate {
   // ------------------------------------------------------------
   // Constructor: Injects required services.
   // ------------------------------------------------------------
-  constructor(private jwtService: JwtService,
-    private reflector: Reflector
+  constructor(
+    private jwtService: JwtService,
+    private reflector: Reflector,
   ) {}
 
   /**
@@ -28,23 +29,27 @@ export class JwtAuthGuard implements CanActivate {
    * @throws {UnauthorizedException} If the 'access_token' cookie is missing, tampered with, or expired.
    */
   async canActivate(context: ExecutionContext): Promise<boolean> {
-
+    // Check if the route is marked as public using the @Public() decorator
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
+    // If the route is public, bypass cookie verification
     if (isPublic) {
-      return true; // Si es pública, dejamos pasar sin mirar cookies
+      return true;
     }
 
+    // Extract the request object and the access token cookie
     const request = context.switchToHttp().getRequest();
     const token = request.cookies['access_token'];
 
+    // Ensure the token actually exists
     if (!token) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Access token not found');
     }
 
+    // Cryptographic verification of the token
     try {
       const payload = await this.jwtService.verifyAsync(token, {
         secret: jwtConstants.accessSecret,
@@ -52,7 +57,7 @@ export class JwtAuthGuard implements CanActivate {
       request['user'] = payload;
       return true;
     } catch {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Invalid or expired token');
     }
   }
 }

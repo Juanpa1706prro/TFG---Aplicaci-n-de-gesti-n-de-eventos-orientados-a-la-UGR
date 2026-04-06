@@ -4,6 +4,7 @@ import {
   Request,
   UseGuards,
   NotFoundException,
+  UnauthorizedException
 } from '@nestjs/common';
 import { UsersService } from './user.service';
 import { JwtAuthGuard } from '../auth/auth.guard-jwt';
@@ -13,9 +14,12 @@ import { Public } from '../auth/public.decorator';
 export class UsersController {
   constructor(private readonly userService: UsersService) {}
 
-  @Public() // <--- ¡LA CERRADURA ESTÁ ECHADA!
   @Get('profile')
   async getProfile(@Request() req) {
+
+    if (!req.user || !req.user.id) {
+      throw new UnauthorizedException('No se pudo identificar al usuario');
+    }
     console.log('\n--- 🕵️‍♂️ INICIO DEBUG PROFILE ---');
     console.log(
       '1. [GUARD] El token desencriptado contiene este Payload:',
