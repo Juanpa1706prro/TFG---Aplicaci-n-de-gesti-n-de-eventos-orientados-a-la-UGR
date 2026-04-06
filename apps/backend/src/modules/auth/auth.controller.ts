@@ -27,7 +27,7 @@ export class AuthController {
   // ------------------------------------------------------------
   constructor(
     private readonly authService: AuthService,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
   ) {}
 
   private readonly baseCookieOptions: CookieOptions = {
@@ -85,11 +85,9 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const refreshToken = req.cookies['refres_token'];
+    const refreshToken = req.cookies['refresh_token'];
 
-    if (!refreshToken) {
-      throw new UnauthorizedException('No hay refresh token');
-    }
+    if (!refreshToken) throw new UnauthorizedException('No hay refresh token');
 
     try {
       const payload = await this.authService.verifyRefreshToken(refreshToken);
@@ -107,12 +105,13 @@ export class AuthController {
       res.cookie('refresh_token', tokens.refreshToken, {
         ...this.baseCookieOptions,
         maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/auth/refresh',
       });
 
       return { message: 'Tokens rotados con éxito' };
     } catch {
       res.clearCookie('access_token');
-      res.clearCookie('refresh_token');
+      res.clearCookie('refresh_token', { path: '/auth/refresh' });
       throw new ForbiddenException('Sesión inválida o expirada');
     }
   }
@@ -123,13 +122,10 @@ export class AuthController {
    * @returns {Object} A success message.
    */
   @Post('logout')
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response
-  ) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const token = req.cookies['access_token'];
 
-    if(token){
+    if (token) {
       try {
         const payload = await this.jwtService.verifyAsync(token, {
           secret: jwtConstants.accessSecret,
@@ -141,7 +137,7 @@ export class AuthController {
     }
 
     res.clearCookie('access_token');
-    res.clearCookie('refresh_token');
+    res.clearCookie('refresh_token', { path: '/auth/refresh' });
     return { message: 'Sesión cerrada' };
   }
 }

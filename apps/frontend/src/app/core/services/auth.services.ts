@@ -96,12 +96,12 @@ export class AuthService {
   }
 
   public refreshToken(): Observable<any> {
-    return this.http.post(`${this.API_URL}/auth/refresh`, {}, { withCredentials: true }).pipe(
+    return this.http.post(`${this.API_URL}/auth/refresh`, {}).pipe(
       tap(() => {
-        // Si el refresh tiene éxito, podrías opcionalmente actualizar 
+        // Si el refresh tiene éxito, podrías opcionalmente actualizar
         // los datos del usuario aquí si el backend devolviera algo nuevo.
         console.log('Tokens rotados exitosamente');
-      })
+      }),
     );
   }
 }

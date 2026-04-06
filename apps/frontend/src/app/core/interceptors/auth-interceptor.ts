@@ -24,7 +24,6 @@ const API_URL = 'http://localhost:3000';
  * @returns An observable of the HTTP event stream.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const http = inject(HttpClient);
   const authService = inject(AuthService);
   const reqWithCredentials = req.clone({
     withCredentials: true,

@@ -7,12 +7,13 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './user.service';
 import { JwtAuthGuard } from '../auth/auth.guard-jwt';
+import { Public } from '../auth/public.decorator';
 
 @Controller('user')
 export class UsersController {
   constructor(private readonly userService: UsersService) {}
 
-  @UseGuards(JwtAuthGuard) // <--- ¡LA CERRADURA ESTÁ ECHADA!
+  @Public() // <--- ¡LA CERRADURA ESTÁ ECHADA!
   @Get('profile')
   async getProfile(@Request() req) {
     console.log('\n--- 🕵️‍♂️ INICIO DEBUG PROFILE ---');
