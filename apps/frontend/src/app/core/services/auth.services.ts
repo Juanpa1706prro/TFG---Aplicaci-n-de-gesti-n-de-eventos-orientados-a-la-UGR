@@ -92,7 +92,7 @@ export class AuthService {
       .post(`${this.API_URL}/auth/logout`, {})
       .pipe(
         catchError(() => of(null)), // Ignore network/server errors during logout
-        tap(() => this.purgeAuth()), // Always clean up local state
+        tap(() => this.cleanLocalAuth()), // Always clean up local state
       )
       .subscribe();
   }
@@ -100,7 +100,7 @@ export class AuthService {
   /**
    * Destroys local memory, removes session flags, and redirects the user.
    */
-  public purgeAuth() {
+  public cleanLocalAuth() {
     localStorage.removeItem('hasSession');
     this.currentUserSubject.next(null);
     this.router.navigate(['/auth']);

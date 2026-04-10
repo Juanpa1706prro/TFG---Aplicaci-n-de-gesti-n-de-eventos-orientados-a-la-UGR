@@ -129,11 +129,11 @@ export class AuthController {
         path: '/auth/refresh',
       });
 
-      return { message: 'Tokens rotados con éxito' };
+      return { message: 'Tokens rotated' };
     } catch {
       // If the refresh token is completely invalid/expired, force a clean logout
       this.logout(req, res);
-      throw new ForbiddenException('Sesión inválida o expirada');
+      throw new ForbiddenException('Session invalid or outdated');
     }
   }
 

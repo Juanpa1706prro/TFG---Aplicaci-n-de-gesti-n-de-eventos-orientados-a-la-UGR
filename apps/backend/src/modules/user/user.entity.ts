@@ -1,5 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToOne,
+} from 'typeorm';
 import { Exclude } from 'class-transformer';
+import { UserRole } from './roles';
+import { UserProfile } from './user-profile.entity';
 
 // -------------------------------------------------------------------
 // User Entity
@@ -7,6 +16,10 @@ import { Exclude } from 'class-transformer';
 // -------------------------------------------------------------------
 @Entity('users')
 export class User {
+  // ------------------------------------------------------------
+  // Atributes.
+  // ------------------------------------------------------------
+
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -20,7 +33,25 @@ export class User {
   @Column({ unique: true })
   userNumber: number;
 
+  @Column({ type: 'enum', enum: UserRole, default: UserRole.STUDENT })
+  role: UserRole;
+
   @Exclude()
   @Column({ type: 'varchar', nullable: true })
   hashedRefreshToken: string | null;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+  
+  // ------------------------------------------------------------
+  // Relations.
+  // ------------------------------------------------------------
+
+  @OneToOne(() => UserProfile, (profile) => profile.user, {
+    cascade: true,
+  })
+  profile: UserProfile;
 }

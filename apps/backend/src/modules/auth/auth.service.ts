@@ -195,7 +195,7 @@ export class AuthService {
         secret: jwtConstants.refreshSecret,
       });
     } catch {
-      throw new UnauthorizedException('Refresh token inválido o expirado');
+      throw new UnauthorizedException('Invalid or outdated Refresh token');
     }
   }
 }

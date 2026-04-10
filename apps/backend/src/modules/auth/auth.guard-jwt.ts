@@ -42,16 +42,16 @@ export class JwtAuthGuard implements CanActivate {
 
     // Extract the request object and the access token cookie
     const request = context.switchToHttp().getRequest();
-    const token = request.cookies['access_token'];
+    const accessToken = request.cookies['access_token'];
 
     // Ensure the token actually exists
-    if (!token) {
+    if (!accessToken) {
       throw new UnauthorizedException('Access token not found');
     }
 
     // Cryptographic verification of the token
     try {
-      const payload = await this.jwtService.verifyAsync(token, {
+      const payload = await this.jwtService.verifyAsync(accessToken, {
         secret: jwtConstants.accessSecret,
       });
       request['user'] = payload;
