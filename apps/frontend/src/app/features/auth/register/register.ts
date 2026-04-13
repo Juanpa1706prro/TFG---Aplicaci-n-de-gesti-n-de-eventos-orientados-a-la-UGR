@@ -61,8 +61,10 @@ export class RegisterComponent implements OnInit {
     if (this.registerForm.valid) {
       console.log('Enviando datos al servicio...');
 
+      const { email, password } = this.registerForm.value;
+
       // Llamamos al servicio y NOS SUSCRIBIMOS para que se ejecute
-      this.authService.register(this.registerForm.value).subscribe({
+      this.authService.register({ email, password }).subscribe({
         next: (res) => {
           console.log('¡Respuesta del servidor!', res);
           alert('Usuario creado con éxito');

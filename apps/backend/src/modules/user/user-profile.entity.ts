@@ -1,23 +1,34 @@
-import{
-    Column,
-    Entity,
-    JoinColumn,
-    OneToOne,
-    PrimaryGeneratedColumn,} from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  OneToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { User } from './user.entity';
+import { UserFaculty } from './user-enums';
 
 @Entity('user_profiles')
 export class UserProfile {
-    @PrimaryGeneratedColumn()
-    id: number;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column({ nullable: true })
-    firstName: string;
+  @Column({ unique: true })
+  username: string;
 
-    @Column({ nullable: true })
-    lastName: string;
+  @Column({ nullable: true })
+  firstName: string;
 
-    @OneToOne(() => User, { onDelete: 'CASCADE' })
-    @JoinColumn()
-    user: User;
+  @Column({ nullable: true })
+  lastName: string;
+
+  @Column({ unique: true })
+  userNumber: number;
+
+  @Column({ type: 'enum', enum: UserFaculty, nullable: true })
+  faculty: UserFaculty;
+
+  @OneToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn()
+  user: User;
 }

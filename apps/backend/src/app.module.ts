@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { User } from './modules/user/user.entity';
+import { UserProfile } from './modules/user/user-profile.entity';
 
 // ------------------------------------------------------------
 // Root application module that bundles all feature modules and 
@@ -21,7 +22,7 @@ import { User } from './modules/user/user.entity';
       username: 'juaner',       // Database username
       password: 'juaner0',      // Database password
       database: 'events_db',    // Target database name
-      entities: [User],         // Registered entities
+      entities: [User, UserProfile],         // Registered entities
       synchronize: true,        // Auto-crea las tablas (útil en desarrollo) . Set to false in production.
     }),
     // ------------------------------------------------------------

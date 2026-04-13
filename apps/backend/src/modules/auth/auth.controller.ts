@@ -114,18 +114,18 @@ export class AuthController {
       const payload = await this.authService.verifyRefreshToken(refreshToken);
 
       const tokens = await this.authService.refreshTokens(
-        payload.id,
+        payload.sub,
         refreshToken,
       );
 
       res.cookie('access_token', tokens.accessToken, {
         ...this.baseCookieOptions,
-        maxAge: 30 * 1000,
+        maxAge: 15 * 60 * 1000,
       });
 
       res.cookie('refresh_token', tokens.refreshToken, {
         ...this.baseCookieOptions,
-        maxAge: 60 * 1000,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
         path: '/auth/refresh',
       });
 
@@ -154,7 +154,7 @@ export class AuthController {
           secret: jwtConstants.accessSecret,
         });
         // Invalidate the refresh token in the database
-        await this.authService.logout(payload.id);
+        await this.authService.logout(payload.sub);
       } catch {}
     }
 

@@ -7,7 +7,7 @@ import {
   OneToOne,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
-import { UserRole } from './roles';
+import { UserRole } from './user-enums';
 import { UserProfile } from './user-profile.entity';
 
 // -------------------------------------------------------------------
@@ -29,9 +29,6 @@ export class User {
   @Exclude()
   @Column()
   password: string;
-
-  @Column({ unique: true })
-  userNumber: number;
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.STUDENT })
   role: UserRole;

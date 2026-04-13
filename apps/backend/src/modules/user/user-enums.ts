@@ -6,3 +6,7 @@ export enum UserRole {
   MANAGER = 'MANAGER',
   ADMIN = 'ADMIN',
 }
+
+export enum UserFaculty {
+  ETSIIT = 'ETSIIT',
+}

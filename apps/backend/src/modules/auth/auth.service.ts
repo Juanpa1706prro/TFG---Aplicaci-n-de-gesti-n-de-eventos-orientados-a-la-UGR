@@ -10,8 +10,7 @@ import { jwtConstants } from './constants';
 import * as bcrypt from 'bcrypt';
 
 interface JwtPayload {
-  id: number;
-  userNumber: number;
+  sub: number;
 }
 
 // ------------------------------------------------------------
@@ -80,8 +79,7 @@ export class AuthService {
 
     // Construct the JWT payload using the explicit 'id'
     const payload = {
-      id: user.id,
-      userNumber: user.userNumber,
+      sub: user.id,
     };
 
     // Sign and generate the Access Token and Refresh Tokens
@@ -121,7 +119,7 @@ export class AuthService {
   async generateAccessToken(payload: JwtPayload): Promise<string> {
     return this.jwtService.signAsync(payload, {
       secret: jwtConstants.accessSecret,
-      expiresIn: '30s',
+      expiresIn: '15m',
     });
   }
 
@@ -133,7 +131,7 @@ export class AuthService {
   async generateRefreshToken(payload: JwtPayload): Promise<string> {
     return this.jwtService.signAsync(payload, {
       secret: jwtConstants.refreshSecret,
-      expiresIn: '1m', // '7d'
+      expiresIn: '7d', 
     });
   }
 
@@ -160,7 +158,7 @@ export class AuthService {
     }
 
     // Generate a new pair of tokens if validation succeeds
-    const payload: JwtPayload = { id: user.id, userNumber: user.userNumber };
+    const payload: JwtPayload = { sub: user.id };
     const [accessToken, refreshToken] = await Promise.all([
       this.generateAccessToken(payload),
       this.generateRefreshToken(payload),

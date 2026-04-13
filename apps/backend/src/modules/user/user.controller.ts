@@ -17,7 +17,9 @@ export class UsersController {
   @Get('profile')
   async getProfile(@Request() req) {
 
-    if (!req.user || !req.user.id) {
+    console.log('Raro',req)
+    if (!req.user || !req.user.sub) {
+      
       throw new UnauthorizedException('No se pudo identificar al usuario');
     }
     console.log('\n--- 🕵️‍♂️ INICIO DEBUG PROFILE ---');
@@ -26,7 +28,7 @@ export class UsersController {
       req.user,
     );
 
-    const userID = req.user.id;
+    const userID = req.user.sub;
     console.log(`2. [CONTROLLER] Buscando en BD el ID exacto: ${userID}`);
 
     const user = await this.userService.findByID(userID);
