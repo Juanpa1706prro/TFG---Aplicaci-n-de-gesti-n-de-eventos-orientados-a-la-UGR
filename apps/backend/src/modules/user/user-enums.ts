@@ -10,3 +10,4 @@ export enum UserRole {
 export enum UserFaculty {
   ETSIIT = 'ETSIIT',
 }
+

@@ -14,7 +14,10 @@ export class UserProfile {
   id: number;
 
   @Column({ unique: true })
-  username: string;
+  userName: string;
+
+  @Column({ unique: true })
+  userNumber: number;
 
   @Column({ nullable: true })
   firstName: string;
@@ -22,8 +25,10 @@ export class UserProfile {
   @Column({ nullable: true })
   lastName: string;
 
-  @Column({ unique: true })
-  userNumber: number;
+  @Column({ nullable: true })
+  gender: string;
+
+  
 
   @Column({ type: 'enum', enum: UserFaculty, nullable: true })
   faculty: UserFaculty;
