@@ -6,8 +6,11 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from 'src/modules/user/user.service';
+import { User } from '../user/user.entity';
 import { jwtConstants } from './constants';
 import * as bcrypt from 'bcrypt';
+import { UserRole } from '../user/user-enums';
+import { UserProfile } from '../user/user-profile.entity';
 
 interface JwtPayload {
   sub: number;
@@ -42,19 +45,23 @@ export class AuthService {
     // Generate salt and hash the password
     const salt = await bcrypt.genSalt();
     const hashedPassword = await bcrypt.hash(pass, salt);
-
-    // Generate a unique user number
     const randomUserNumber = await this.usersService.generateUniqueUserNumber();
+
+    const user = new User();
+    user.email = email;
+    user.password = hashedPassword;
+    user.role = UserRole.STUDENT;
+
+    const profile = new UserProfile();
+    profile.userNumber = randomUserNumber;
+    profile.userName = email.split('@')[0];
+
+    user.profile = profile;
 
     try {
       // Save the user in the database
-      return await this.usersService.create({
-        email,
-        password: hashedPassword,
-        userNumber: randomUserNumber,
-      });
+      return await this.usersService.create(user);
     } catch (error) {
-      // Catch PostgreSQL unique constraint violation
       if (error.code === '23505') {
         throw new ConflictException('This email is already registered.');
       }
@@ -69,38 +76,38 @@ export class AuthService {
    * @returns {Promise<{ accessToken: string, refreshToken: string, user: any } | null>} An object containing the signed JWT and sanitized user data, or null if credentials are invalid.
    */
   async login(email: string, pass: string) {
-    // Check if user exists
+
     const user = await this.usersService.findByEmail(email);
     if (!user) return null;
 
-    // Verify the provided password against the hashed password in the database
+
     const isMatch = await bcrypt.compare(pass, user.password);
     if (!isMatch) return null;
 
-    // Construct the JWT payload using the explicit 'id'
     const payload = {
       sub: user.id,
     };
 
-    // Sign and generate the Access Token and Refresh Tokens
     const [accessToken, refreshToken] = await Promise.all([
       this.generateAccessToken(payload),
       this.generateRefreshToken(payload),
     ]);
 
-    // Store the hashed refresh token in the database.
     await this.updateRefreshTokenHash(user.id, refreshToken);
 
-    // Return the token and sanitized user details
     return {
       accessToken,
       refreshToken,
       user: {
         id: user.id,
-        userNumber: user.userNumber,
         email: user.email,
+        userNumber: user.profile.userNumber,
       },
     };
+  }
+  catch(error) {
+    console.error('Error during login:', error);
+    throw new UnauthorizedException('An error occurred during login');
   }
 
   /**
@@ -131,7 +138,7 @@ export class AuthService {
   async generateRefreshToken(payload: JwtPayload): Promise<string> {
     return this.jwtService.signAsync(payload, {
       secret: jwtConstants.refreshSecret,
-      expiresIn: '7d', 
+      expiresIn: '7d',
     });
   }
 

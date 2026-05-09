@@ -1,7 +1,8 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
+import { UserProfile } from './user-profile.entity';
 
 // ------------------------------------------------------------
 // User Service.
@@ -41,6 +42,29 @@ export class UsersService {
     return this.userRepository.update(id, data);
   }
 
+  async updateProfile(userId: number, updateData: Partial<UserProfile>) {
+    // 1. Buscamos el usuario con su perfil
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['profile'],
+    });
+  
+    if (!user || !user.profile) {
+      throw new NotFoundException('Usuario o perfil no encontrado');
+    }
+  
+    // 2. Fusionamos los datos nuevos en el perfil existente
+    Object.assign(user.profile, updateData);
+  
+    // 3. Guardamos el perfil actualizado
+    await this.userRepository.save(user);
+
+    return {
+      message: 'Perfil actualizado correctamente',
+      profile: user.profile,
+    };
+  }
+
   /**
    * Generates a unique, random 6-digit identification number.
    * @returns {Promise<number>} A guaranteed unique 6-digit number.
@@ -55,7 +79,11 @@ export class UsersService {
 
       // Check for collision in the database
       const user = await this.userRepository.findOne({
-        where: { userNumber: randomNumber },
+        where: { 
+          profile: {
+              userNumber: randomNumber
+          } 
+        },
       });
 
       if (!user) exists = false;
@@ -68,17 +96,11 @@ export class UsersService {
    * @param {string} email - The exact email address to search for.
    * @returns {Promise<User | null>} The user entity, or null if not found.
    */
-  async findByEmail(email: string) {
-    return this.userRepository.findOne({ where: { email } });
-  }
-
-  /**
-   * Retrieves a user by their unique 6-digit VIP number.
-   * @param {number} userNumber - The VIP number to search for.
-   * @returns {Promise<User | null>} The user entity, or null if not found.
-   */
-  async findByNumber(userNumber: number) {
-    return this.userRepository.findOne({ where: { userNumber } });
+  async findByEmail(email: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { email },
+      relations: ['profile'],
+    });
   }
 
   /**
@@ -86,7 +108,9 @@ export class UsersService {
    * @param {number} id - The primary key ID.
    * @returns {Promise<User | null>} The user entity, or null if not found.
    */
-  async findByID(id: number) {
-    return this.userRepository.findOne({ where: { id } });
+  async findByID(id: number): Promise<User | null> {
+    return this.userRepository.findOne({ 
+      where: { id },
+      relations: ['profile'],});
   }
 }

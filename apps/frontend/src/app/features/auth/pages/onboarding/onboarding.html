@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <head>
+    <title>TFG</title>
+  </head>
+  <body>
+    <div class="onboarding-container">
+      <h1>¡Bienvenido a la comunidad UGR! 🎓</h1>
+      <p>Para empezar, necesitamos completar unos datos básicos de tu perfil.</p>
+
+      <form [formGroup]="onboardingForm" (ngSubmit)="submitProfile()">
+        <div class="row">
+          <input formControlName="firstName" placeholder="Nombre" />
+          <input formControlName="lastName" placeholder="Apellidos" />
+        </div>
+
+        <select formControlName="gender">
+          <option [ngValue]="null" disabled>Selecciona tu Género</option>
+          <option *ngFor="let g of genders" [value]="g">{{ g }}</option>
+        </select>
+
+        <select formControlName="faculty">
+          <option [ngValue]="null" disabled>Selecciona tu Facultad</option>
+          <option *ngFor="let f of faculties" [value]="f">{{ f }}</option>
+        </select>
+
+        <textarea
+          formControlName="bio"
+          placeholder="Cuéntanos un poco sobre ti (opcional)..."
+        ></textarea>
+
+        <button type="submit" [disabled]="onboardingForm.invalid">
+          Completar Registro y entrar al Mapa
+        </button>
+      </form>
+    </div>
+  </body>
+</html>

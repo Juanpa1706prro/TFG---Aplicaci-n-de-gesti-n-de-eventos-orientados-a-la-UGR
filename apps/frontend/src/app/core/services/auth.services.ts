@@ -121,4 +121,17 @@ export class AuthService {
   public refreshToken(): Observable<any> {
     return this.http.post(`${this.API_URL}/auth/refresh`, {});
   }
+
+  public isProfileIncomplete(user: any): boolean {
+    return (
+      !user.firstName ||
+      !user.lastName ||
+      !user.faculty ||
+      !user.gender ||
+      !user.campus ||
+      !user.degree ||
+      !user.phoneNumber ||
+      !user.birthDate
+    );
+  }
 }

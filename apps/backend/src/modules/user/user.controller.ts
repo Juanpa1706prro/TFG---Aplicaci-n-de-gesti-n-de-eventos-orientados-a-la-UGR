@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Request,
+  Patch,
+  Body,
   UseGuards,
   NotFoundException,
   UnauthorizedException
@@ -9,8 +11,10 @@ import {
 import { UsersService } from './user.service';
 import { JwtAuthGuard } from '../auth/auth.guard-jwt';
 import { Public } from '../auth/public.decorator';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Controller('user')
+@UseGuards(JwtAuthGuard) 
 export class UsersController {
   constructor(private readonly userService: UsersService) {}
 
@@ -39,16 +43,20 @@ export class UsersController {
     }
 
     console.log(
-      `3. [DATABASE] Encontrado! Pertenece a: ${user.email} (VIP: ${user.userNumber})`,
+      `3. [DATABASE] Encontrado! Pertenece a: ${user.email}`,
     );
     console.log('--- 🏁 FIN DEBUG PROFILE ---\n');
 
     return {
       message: 'Full profile retrieved',
       user: {
-        email: user.email,
-        userNumber: user.userNumber,
+        email: user.email
       },
     };
+  }
+  @Patch('profile')
+  async updateProfile(@Request() req, @Body() body: UpdateProfileDto) {
+    const userId = req.user.sub; 
+    return this.userService.updateProfile(userId, body);
   }
 }
