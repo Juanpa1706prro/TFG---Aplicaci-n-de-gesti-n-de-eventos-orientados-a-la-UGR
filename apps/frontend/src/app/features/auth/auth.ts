@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
-import { LoginComponent } from './login/login';
-import { RegisterComponent } from './register/register';
+import { LoginComponent } from './pages/login/login';
+import { RegisterComponent } from './pages/register/register';
 
 @Component({
   selector: 'app-auth',

@@ -129,7 +129,6 @@ export class AuthService {
       !user.faculty ||
       !user.gender ||
       !user.campus ||
-      !user.degree ||
       !user.phoneNumber ||
       !user.birthDate
     );

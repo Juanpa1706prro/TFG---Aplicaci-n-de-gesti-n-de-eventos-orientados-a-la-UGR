@@ -50,7 +50,14 @@ export class AuthService {
     const user = new User();
     user.email = email;
     user.password = hashedPassword;
-    user.role = UserRole.STUDENT;
+
+    if (email.endsWith('@correo.ugr.es')) {
+      user.role = UserRole.STUDENT;
+    } else if (email.endsWith('@ugr.es')) {
+      user.role = UserRole.PROFESSOR;
+    } else {
+      user.role = UserRole.STUDENT; // Fallback por defecto
+    }
 
     const profile = new UserProfile();
     profile.userNumber = randomUserNumber;

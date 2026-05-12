@@ -52,11 +52,11 @@ export class UpdateProfileDto {
   })
   phoneNumber?: string;
 
-  @IsNotEmpty({ message: 'El nombre es obligatorio' })
+  @IsOptional()
   @IsEnum(UserCampus, { message: 'El campus seleccionado no es válido' })
   campus?: UserCampus;
 
-  @IsNotEmpty({ message: 'El nombre es obligatorio' })
+  @IsOptional()
   @IsEnum(UserDegree, { message: 'La titulación seleccionada no es válida' })
   degree?: UserDegree;
 
