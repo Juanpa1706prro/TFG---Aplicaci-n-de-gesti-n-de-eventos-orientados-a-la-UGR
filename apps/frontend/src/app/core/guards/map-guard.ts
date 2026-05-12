@@ -3,35 +3,25 @@ import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '@core/services/auth.services';
 
 /**
- * Map Guard.
- * Look that the user is authenticated and is only accessing their own private map.
- * @param route - Current route
- * @returns {boolean} True if the user with active session tries to access his own map. False else.
+ * El mapa es privado: solo el propio número de usuario.
+ * (Perfil completo lo controla profileCompleteGuard en la ruta.)
  */
 export const mapGuard: CanActivateFn = (route) => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
 
-    // ---- Injections ----
-    const authService = inject(AuthService);
-    const router = inject(Router);
+  const loggedUser = authService.currentUserValue;
+  const userNumberInUrl = route.paramMap.get('userNumber');
 
-    //Get current user session and user number from URL
-    const loggedUser = authService.currentUserValue;
-    const userNumberInUrl = route.paramMap.get('userNumber');
+  if (!loggedUser) {
+    void router.navigate(['/auth']);
+    return false;
+  }
 
-    // ---- Authentication ----
-    if (!loggedUser) {
-        router.navigate(['/auth']);
-        return false;
-    }
+  if (loggedUser.userNumber.toString() !== userNumberInUrl) {
+    void router.navigate(['/u', loggedUser.userNumber, 'map']);
+    return false;
+  }
 
-    // ---- Authorization ----
-    if (loggedUser.userNumber.toString() !== userNumberInUrl) {
-        console.error('Acceso denegado: El mapa es privado.');
-
-        router.navigate(['/u', loggedUser.userNumber, 'map']);
-        return false;
-    }
-
-    return true;
-
+  return true;
 };

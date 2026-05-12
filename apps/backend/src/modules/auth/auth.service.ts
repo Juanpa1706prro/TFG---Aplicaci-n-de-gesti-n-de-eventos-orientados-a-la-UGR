@@ -50,14 +50,8 @@ export class AuthService {
     const user = new User();
     user.email = email;
     user.password = hashedPassword;
-
-    if (email.endsWith('@correo.ugr.es')) {
-      user.role = UserRole.STUDENT;
-    } else if (email.endsWith('@ugr.es')) {
-      user.role = UserRole.PROFESSOR;
-    } else {
-      user.role = UserRole.STUDENT; // Fallback por defecto
-    }
+    user.role = UserRole.USER;
+    user.onboardingCompleted = false;
 
     const profile = new UserProfile();
     profile.userNumber = randomUserNumber;
@@ -105,16 +99,8 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        userNumber: user.profile.userNumber,
-      },
+      user: this.usersService.toPublicSession(user),
     };
-  }
-  catch(error) {
-    console.error('Error during login:', error);
-    throw new UnauthorizedException('An error occurred during login');
   }
 
   /**

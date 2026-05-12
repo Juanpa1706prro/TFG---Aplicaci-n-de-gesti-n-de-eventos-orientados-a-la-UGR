@@ -34,7 +34,7 @@ export class RegisterComponent implements OnInit {
   protected buildForms() {
     this.registerForm = this.fb.group(
       {
-        email: ['', [Validators.required, Validators.email]],
+        email: ['', [Validators.required, Validators.email, this.ugrEmail]],
         password: [
           '',
           [
@@ -59,15 +59,12 @@ export class RegisterComponent implements OnInit {
    */
   onRegister(): void {
     if (this.registerForm.valid) {
-      console.log('Enviando datos al servicio...');
-
       const { email, password } = this.registerForm.value;
 
       // Llamamos al servicio y NOS SUSCRIBIMOS para que se ejecute
       this.authService.register({ email, password }).subscribe({
-        next: (res) => {
-          console.log('¡Respuesta del servidor!', res);
-          alert('Usuario creado con éxito');
+        next: () => {
+          alert('Usuario creado. Ya puedes iniciar sesión.');
         },
         error: (err) => {
           console.error('El servidor ha rechazado la petición:', err);
@@ -77,7 +74,16 @@ export class RegisterComponent implements OnInit {
     }
   }
 
-  // ---- Custom Validators ----
+  protected ugrEmail(control: AbstractControl): ValidationErrors | null {
+    const raw = (control.value as string)?.trim().toLowerCase();
+    if (!raw) {
+      return null;
+    }
+    if (raw.endsWith('@correo.ugr.es') || raw.endsWith('@ugr.es')) {
+      return null;
+    }
+    return { ugrEmail: true };
+  }
 
   /**
    * Validates that the control's value contains at least one uppercase letter.

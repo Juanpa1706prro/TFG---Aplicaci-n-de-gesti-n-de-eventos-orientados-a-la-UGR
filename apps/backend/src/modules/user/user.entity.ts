@@ -5,10 +5,13 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToOne,
+  OneToMany,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { UserRole } from './user-enums';
 import { UserProfile } from './user-profile.entity';
+import { StudentProfile } from './student-profile.entity';
+import { UserStaffFunction } from './user-staff-function.entity';
 
 // -------------------------------------------------------------------
 // User Entity
@@ -30,8 +33,11 @@ export class User {
   @Column()
   password: string;
 
-  @Column({ type: 'enum', enum: UserRole, default: UserRole.STUDENT })
+  @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
   role: UserRole;
+
+  @Column({ default: false })
+  onboardingCompleted: boolean;
 
   @Exclude()
   @Column({ type: 'varchar', nullable: true })
@@ -51,4 +57,10 @@ export class User {
     cascade: true,
   })
   profile: UserProfile;
+
+  @OneToOne(() => StudentProfile, (sp) => sp.user, { cascade: true })
+  studentProfile: StudentProfile | null;
+
+  @OneToMany(() => UserStaffFunction, (link) => link.user)
+  staffFunctionLinks: UserStaffFunction[];
 }

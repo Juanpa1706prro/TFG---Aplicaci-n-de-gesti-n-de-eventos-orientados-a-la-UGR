@@ -4,59 +4,91 @@ import {
   Request,
   Patch,
   Body,
+  Param,
+  ParseIntPipe,
   UseGuards,
   NotFoundException,
-  UnauthorizedException
+  UnauthorizedException,
 } from '@nestjs/common';
 import { UsersService } from './user.service';
 import { JwtAuthGuard } from '../auth/auth.guard-jwt';
-import { Public } from '../auth/public.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
 
 @Controller('user')
-@UseGuards(JwtAuthGuard) 
+@UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(private readonly userService: UsersService) {}
 
   @Get('profile')
-  async getProfile(@Request() req) {
-
-    console.log('Raro',req)
-    if (!req.user || !req.user.sub) {
-      
+  async getProfile(@Request() req: { user: { sub: number } }) {
+    if (!req.user?.sub) {
       throw new UnauthorizedException('No se pudo identificar al usuario');
     }
-    console.log('\n--- 🕵️‍♂️ INICIO DEBUG PROFILE ---');
-    console.log(
-      '1. [GUARD] El token desencriptado contiene este Payload:',
-      req.user,
-    );
 
-    const userID = req.user.sub;
-    console.log(`2. [CONTROLLER] Buscando en BD el ID exacto: ${userID}`);
-
-    const user = await this.userService.findByID(userID);
+    const user = await this.userService.findByID(req.user.sub);
 
     if (!user) {
-      console.log('❌ [ERROR] Usuario no encontrado en BD para ese ID');
       throw new NotFoundException('El usuario no existe en la base de datos');
     }
-
-    console.log(
-      `3. [DATABASE] Encontrado! Pertenece a: ${user.email}`,
-    );
-    console.log('--- 🏁 FIN DEBUG PROFILE ---\n');
 
     return {
       message: 'Full profile retrieved',
       user: {
-        email: user.email
+        ...this.userService.toPublicSession(user),
+        profile: {
+          userName: user.profile.userName,
+          userNumber: user.profile.userNumber,
+          firstName: user.profile.firstName,
+          lastName: user.profile.lastName,
+          birthDate: user.profile.birthDate,
+          gender: user.profile.gender,
+          phoneNumber: user.profile.phoneNumber,
+          bio: user.profile.bio,
+          profilePicture: user.profile.profilePicture,
+        },
+        staffFunctions: (user.staffFunctionLinks ?? []).map((l) => l.function),
+        studentProfile: user.studentProfile
+          ? {
+              faculty: user.studentProfile.faculty,
+              campus: user.studentProfile.campus,
+              degree: user.studentProfile.degree,
+            }
+          : null,
       },
     };
   }
+
+  /** Perfil visible para cualquier usuario autenticado (email solo si es el propio). */
+  @Get('public/:userNumber')
+  async getPublicProfile(
+    @Request() req: { user: { sub: number } },
+    @Param('userNumber', ParseIntPipe) userNumber: number,
+  ) {
+    if (!req.user?.sub) {
+      throw new UnauthorizedException('No se pudo identificar al usuario');
+    }
+    const profile = await this.userService.getPublicProfileByUserNumber(
+      userNumber,
+      req.user.sub,
+    );
+    return { message: 'Perfil público', profile };
+  }
+
   @Patch('profile')
-  async updateProfile(@Request() req, @Body() body: UpdateProfileDto) {
-    const userId = req.user.sub; 
+  async updateProfile(
+    @Request() req: { user: { sub: number } },
+    @Body() body: UpdateProfileDto,
+  ) {
+    const userId = req.user.sub;
     return this.userService.updateProfile(userId, body);
+  }
+
+  @Patch('onboarding')
+  async completeOnboarding(
+    @Request() req: { user: { sub: number } },
+    @Body() body: CompleteOnboardingDto,
+  ) {
+    return this.userService.completeOnboarding(req.user.sub, body);
   }
 }

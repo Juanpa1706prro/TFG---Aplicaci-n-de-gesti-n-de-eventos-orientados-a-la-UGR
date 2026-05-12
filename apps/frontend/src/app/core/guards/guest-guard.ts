@@ -3,23 +3,19 @@ import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '@core/services/auth.services';
 
 /**
- * Guest Guard.
- * Prevents authenticated users from accessing public routes like Login/Register.
- * If a session exists, redirect to the map.
- * @returns  {boolean | Promise<boolean>} True if the user is a guest.
+ * Solo invitados en /auth. Si hay sesión, redirige al onboarding o al mapa.
  */
 export const guestGuard: CanActivateFn = () => {
-
-  // ---- Injections ----
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  // Get the current user session snapshot
   const loggedUser = authService.currentUserValue;
-  
-  // ---- Access Control ----
+
   if (loggedUser) {
-    return router.navigate(['/u', loggedUser.userNumber, 'map']); 
+    if (!loggedUser.profileComplete) {
+      return router.navigate(['/auth/onboarding']);
+    }
+    return router.navigate(['/u', loggedUser.userNumber, 'map']);
   }
 
   return true;

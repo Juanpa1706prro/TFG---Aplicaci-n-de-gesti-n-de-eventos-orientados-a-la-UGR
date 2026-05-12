@@ -3,8 +3,15 @@
   <p class="subtitle">Únete a la comunidad universitaria.</p>
 
   <div class="input-field">
-    <label>Email</label>
-    <input type="email" formControlName="email" placeholder="email" />
+    <label>Correo UGR</label>
+    <input
+      type="email"
+      formControlName="email"
+      placeholder="usuario@correo.ugr.es o usuario@ugr.es"
+    />
+    @if (registerForm.get('email')?.touched && registerForm.get('email')?.errors?.['ugrEmail']) {
+      <small class="error">Debe ser un correo @correo.ugr.es o @ugr.es</small>
+    }
   </div>
 
   <div class="input-field">

@@ -2,46 +2,48 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, catchError, tap, firstValueFrom, of } from 'rxjs';
 import { UserSession } from '@core/interfaces/user-interface';
-import { LoginPayload, RegisterPayload } from '@core/interfaces/auth-interface';
+import {
+  CompleteOnboardingPayload,
+  LoginPayload,
+  RegisterPayload,
+} from '@core/interfaces/auth-interface';
+import { FullUserPayload } from '@core/interfaces/user.profile-interface';
 import { Router } from '@angular/router';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
-  // ---- Constants ----
   private readonly API_URL = 'http://localhost:3000';
-  private readonly SESSION_USER = 'user_session';
 
-  // ---- States Management ----
-  /**
-   * currentUserSubject: Private behavior subject that holds the current user session state.
-   * currentUser$: Public observable stream of the current user session. Components can subscribe to this to react to login/logout events.
-   */
   private currentUserSubject = new BehaviorSubject<UserSession | null>(null);
   public readonly currentUser$: Observable<UserSession | null> =
     this.currentUserSubject.asObservable();
 
-  // ---- Constructor ----
   constructor(
     private http: HttpClient,
     private router: Router,
   ) {}
 
-  // ---- Getters ----
-
-  /**
-   * Returns current user session values, maybe it can be null.
-   */
   public get currentUserValue(): UserSession | null {
     return this.currentUserSubject.value;
   }
 
-  // ---- Methods ----
+  private sessionFromApiUser(
+    u: Pick<
+      FullUserPayload,
+      'id' | 'email' | 'userNumber' | 'profileComplete' | 'role'
+    >,
+  ): UserSession {
+    return {
+      id: u.id,
+      email: u.email,
+      userNumber: u.userNumber,
+      profileComplete: u.profileComplete,
+      role: u.role,
+    };
+  }
 
-  /**
-   * Initializes the authentication state.
-   */
   public async initializeAuth(): Promise<void> {
     const hasSession = localStorage.getItem('hasSession');
 
@@ -52,28 +54,18 @@ export class AuthService {
 
     try {
       const response = await firstValueFrom(
-        this.http.get<{ user: UserSession }>(`${this.API_URL}/user/profile`),
+        this.http.get<{ user: FullUserPayload }>(`${this.API_URL}/user/profile`),
       );
-      this.currentUserSubject.next(response.user);
+      this.currentUserSubject.next(this.sessionFromApiUser(response.user));
     } catch {
       this.currentUserSubject.next(null);
     }
   }
 
-  /**
-   * Register new user in the database.
-   * @param {RegisterPayload} credentials - Data obtained from the registration form.
-   * @returns {Observable<any>} An observable containing the backend response.
-   */
-  public register(credentials: RegisterPayload): Observable<any> {
+  public register(credentials: RegisterPayload): Observable<unknown> {
     return this.http.post(`${this.API_URL}/auth/register`, credentials);
   }
 
-  /**
-   * Authenticates a user, stores the session data locally, and updates the reactive state.
-   * @param {LoginPayload} credentials - Data obtained from the login form.
-   * @returns {Observable<UserSession>} An observable containing the logged-in user's session data.
-   */
   public login(credentials: LoginPayload): Observable<UserSession> {
     return this.http.post<UserSession>(`${this.API_URL}/auth/login`, credentials).pipe(
       tap((user: UserSession) => {
@@ -83,54 +75,43 @@ export class AuthService {
     );
   }
 
-  /**
-   * Logs out the current user by destroying the backend session, clearing local storage,
-   * and redirecting to the authentication view.
-   */
-  public logout() {
+  public completeOnboarding(
+    payload: CompleteOnboardingPayload,
+  ): Observable<{ message: string; user: UserSession }> {
     return this.http
-      .post(`${this.API_URL}/auth/logout`, {})
-      .pipe(
-        catchError(() => of(null)), // Ignore network/server errors during logout
-        tap(() => this.cleanLocalAuth()), // Always clean up local state
+      .patch<{ message: string; user: UserSession }>(
+        `${this.API_URL}/user/onboarding`,
+        payload,
       )
-      .subscribe();
+      .pipe(
+        tap((res) => {
+          this.currentUserSubject.next(res.user);
+        }),
+      );
   }
 
-  /**
-   * Destroys local memory, removes session flags, and redirects the user.
-   */
+  public logout() {
+    return this.http.post(`${this.API_URL}/auth/logout`, {}).pipe(
+      catchError(() => of(null)),
+      tap(() => this.cleanLocalAuth()),
+    );
+  }
+
   public cleanLocalAuth() {
     localStorage.removeItem('hasSession');
     this.currentUserSubject.next(null);
     this.router.navigate(['/auth']);
   }
 
-  /**
-   * Checks if there is a currently logged-in user based on the local state.
-   * @returns {boolean} True if a user session exists, otherwise false.
-   */
   public isAuthenticated(): boolean {
     return !!this.currentUserValue;
   }
 
-  /**
-   * Requests a new access token from the backend.
-   * @returns {Observable<any>} An observable containing the backend response.
-   */
-  public refreshToken(): Observable<any> {
+  public refreshToken(): Observable<unknown> {
     return this.http.post(`${this.API_URL}/auth/refresh`, {});
   }
 
-  public isProfileIncomplete(user: any): boolean {
-    return (
-      !user.firstName ||
-      !user.lastName ||
-      !user.faculty ||
-      !user.gender ||
-      !user.campus ||
-      !user.phoneNumber ||
-      !user.birthDate
-    );
+  public needsProfileCompletion(user: UserSession | null): boolean {
+    return !!user && !user.profileComplete;
   }
 }

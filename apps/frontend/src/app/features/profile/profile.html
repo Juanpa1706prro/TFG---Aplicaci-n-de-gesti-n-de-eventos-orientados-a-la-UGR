@@ -1,23 +1,57 @@
-<!doctype html>
-<html>
-  @if (userProfile) {
-    <div class="profile-container">
-      <div class="profile-header"></div>
-      <div class="profile-card">
-        <div class="info-group">
-          <label>Email de contacto:</label>
-          <p class="data-value">{{ userProfile.email }}</p>
-        </div>
+@if (profileView) {
+  <div class="profile-container">
+    <div class="profile-card">
+      <h1>Perfil #{{ profileView.userNumber }}</h1>
 
-        <div class="info-group">
-          <label>Número de Usuario (VIP):</label>
-          <p class="data-value">#{{ userProfile.userNumber }}</p>
-        </div>
+      <div class="info-group">
+        <label>Nombre</label>
+        <p class="data-value">
+          {{ profileView.firstName ?? '—' }} {{ profileView.lastName ?? '' }}
+        </p>
       </div>
+
+      @if (profileView.email) {
+        <div class="info-group">
+          <label>Email</label>
+          <p class="data-value">{{ profileView.email }}</p>
+        </div>
+      }
+
+      @if (profileView.studentProfile) {
+        <div class="info-group">
+          <label>Facultad</label>
+          <p class="data-value">{{ profileView.studentProfile.faculty }}</p>
+        </div>
+        <div class="info-group">
+          <label>Campus</label>
+          <p class="data-value">{{ profileView.studentProfile.campus }}</p>
+        </div>
+        <div class="info-group">
+          <label>Titulación</label>
+          <p class="data-value">{{ profileView.studentProfile.degree }}</p>
+        </div>
+      }
+
+      @if (profileView.staffFunctions?.length) {
+        <div class="info-group">
+          <label>Funciones en la UGR</label>
+          <p class="data-value">{{ profileView.staffFunctions.join(', ') }}</p>
+        </div>
+      }
+
+      @if (profileView.viewerIsOwner) {
+        <p class="account-actions">
+          <a [routerLink]="['/u', profileView.userNumber, 'account']">Mi cuenta y seguridad</a>
+        </p>
+      }
     </div>
-  } @else {
-    <div class="loading-state">
-      <p>⏳ Cargando tu información de perfil...</p>
-    </div>
-  }
-</html>
+  </div>
+} @else if (loadError) {
+  <div class="loading-state">
+    <p>No se ha podido cargar este perfil.</p>
+  </div>
+} @else {
+  <div class="loading-state">
+    <p>Cargando perfil…</p>
+  </div>
+}

@@ -6,7 +6,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { User } from './user.entity';
-import { UserFaculty, UserGender, UserCampus, UserDegree } from './user-enums';
+import { UserGender } from './user-enums';
 
 @Entity('user_profiles')
 export class UserProfile {
@@ -34,21 +34,10 @@ export class UserProfile {
   birthDate: Date;
 
   @Column({ type: 'enum', enum: UserGender, nullable: true })
-  gender: UserGender; 
+  gender: UserGender;
 
   @Column({ nullable: true })
   phoneNumber: string;
-
-  // --- Academic Data ---
-
-  @Column({ type: 'enum', enum: UserFaculty, nullable: true })
-  faculty: UserFaculty;
-
-  @Column({ type: 'enum', enum: UserCampus, nullable: true })
-  campus: UserCampus;
-
-  @Column({ type: 'enum', enum: UserDegree, nullable: true })
-  degree: UserDegree;
 
   // --- Other data ---
 

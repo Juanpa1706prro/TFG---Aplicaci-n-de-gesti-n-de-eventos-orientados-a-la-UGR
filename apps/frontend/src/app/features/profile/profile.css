@@ -1,0 +1,51 @@
+.profile-container {
+  max-width: 640px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.profile-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.5rem 2rem;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
+}
+
+.profile-card h1 {
+  margin: 0 0 1.25rem;
+  font-size: 1.35rem;
+}
+
+.info-group {
+  margin-bottom: 1rem;
+}
+
+.info-group label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.data-value {
+  margin: 0;
+  color: #0f172a;
+}
+
+.account-actions {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.account-actions a {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #64748b;
+}

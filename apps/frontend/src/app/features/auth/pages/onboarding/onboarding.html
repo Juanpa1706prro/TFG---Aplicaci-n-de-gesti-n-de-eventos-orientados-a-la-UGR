@@ -1,38 +1,149 @@
-<!doctype html>
-<html>
-  <head>
-    <title>TFG</title>
-  </head>
-  <body>
-    <div class="onboarding-container">
-      <h1>¡Bienvenido a la comunidad UGR! 🎓</h1>
-      <p>Para empezar, necesitamos completar unos datos básicos de tu perfil.</p>
+<div class="onboarding-layout">
+  <div class="onboarding-card">
+    <h1>Completa tu perfil</h1>
 
-      <form [formGroup]="onboardingForm" (ngSubmit)="submitProfile()">
-        <div class="row">
-          <input formControlName="firstName" placeholder="Nombre" />
-          <input formControlName="lastName" placeholder="Apellidos" />
+    @if (isCorreoStudent) {
+      <p class="subtitle">
+        Tu correo es de <strong>estudiante</strong> (@correo.ugr.es). Indica nombre, apellidos y datos
+        académicos. Los campos de la sección «Opcional» no son necesarios para continuar.
+      </p>
+    } @else {
+      <p class="subtitle">
+        Cuenta de personal UGR (@ugr.es). Elige <strong>todas las funciones</strong> que te representan.
+        Si marcas Estudiante, completa también facultad, campus y titulación.
+      </p>
+    }
+
+    @if (errorMessage) {
+      <p class="error-banner">{{ errorMessage }}</p>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="submit()" class="onboarding-form">
+      <h2>Datos personales</h2>
+
+      <div class="row">
+        <div class="input-field">
+          <label>Nombre <span class="req">*</span></label>
+          <input type="text" formControlName="firstName" />
+        </div>
+        <div class="input-field">
+          <label>Apellidos <span class="req">*</span></label>
+          <input type="text" formControlName="lastName" />
+        </div>
+      </div>
+
+      @if (isCorreoStudent) {
+        <h2>Datos académicos <span class="req">*</span></h2>
+
+        <div class="input-field">
+          <label>Facultad / Escuela</label>
+          <select formControlName="faculty">
+            <option [ngValue]="null" disabled>Selecciona</option>
+            @for (kv of facultyEntries; track kv[0]) {
+              <option [ngValue]="kv[1]">{{ kv[1] }}</option>
+            }
+          </select>
         </div>
 
+        <div class="input-field">
+          <label>Campus principal</label>
+          <select formControlName="campus">
+            <option [ngValue]="null" disabled>Selecciona</option>
+            @for (kv of campusEntries; track kv[0]) {
+              <option [ngValue]="kv[1]">{{ kv[1] }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="input-field">
+          <label>Titulación</label>
+          <select formControlName="degree">
+            <option [ngValue]="null" disabled>Selecciona</option>
+            @for (kv of degreeEntries; track kv[0]) {
+              <option [ngValue]="kv[1]">{{ kv[1] }}</option>
+            }
+          </select>
+        </div>
+      }
+
+      @if (!isCorreoStudent) {
+        <h2>Función en la UGR <span class="req">*</span></h2>
+        <p class="hint">Puedes marcar varias.</p>
+
+        <div class="chip-grid">
+          @for (opt of staffOptions; track opt.key) {
+            <button
+              type="button"
+              class="chip"
+              [class.chip-active]="isSelected(opt.key)"
+              (click)="toggleFn(opt.key)"
+            >
+              {{ opt.label }}
+            </button>
+          }
+        </div>
+
+        @if (includesStudent()) {
+          <h2>Datos académicos (estudiante) <span class="req">*</span></h2>
+
+          <div class="input-field">
+            <label>Facultad / Escuela</label>
+            <select formControlName="faculty">
+              <option [ngValue]="null" disabled>Selecciona</option>
+              @for (kv of facultyEntries; track kv[0]) {
+                <option [ngValue]="kv[1]">{{ kv[1] }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="input-field">
+            <label>Campus principal</label>
+            <select formControlName="campus">
+              <option [ngValue]="null" disabled>Selecciona</option>
+              @for (kv of campusEntries; track kv[0]) {
+                <option [ngValue]="kv[1]">{{ kv[1] }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="input-field">
+            <label>Titulación</label>
+            <select formControlName="degree">
+              <option [ngValue]="null" disabled>Selecciona</option>
+              @for (kv of degreeEntries; track kv[0]) {
+                <option [ngValue]="kv[1]">{{ kv[1] }}</option>
+              }
+            </select>
+          </div>
+        }
+      }
+
+      <h2>Opcional</h2>
+      <p class="hint">No son obligatorios para salir de esta pantalla.</p>
+
+      <div class="input-field">
+        <label>Género</label>
         <select formControlName="gender">
-          <option [ngValue]="null" disabled>Selecciona tu Género</option>
-          <option *ngFor="let g of genders" [value]="g">{{ g }}</option>
+          <option [ngValue]="null">Prefiero no indicar / más tarde</option>
+          @for (g of genderOptions; track g) {
+            <option [ngValue]="g">{{ g }}</option>
+          }
         </select>
+      </div>
 
-        <select formControlName="faculty">
-          <option [ngValue]="null" disabled>Selecciona tu Facultad</option>
-          <option *ngFor="let f of faculties" [value]="f">{{ f }}</option>
-        </select>
+      <div class="input-field">
+        <label>Fecha de nacimiento</label>
+        <input type="date" formControlName="birthDate" />
+      </div>
 
-        <textarea
-          formControlName="bio"
-          placeholder="Cuéntanos un poco sobre ti (opcional)..."
-        ></textarea>
+      <div class="input-field">
+        <label>Teléfono</label>
+        <input type="tel" formControlName="phoneNumber" placeholder="+34 600 000 000" />
+      </div>
 
-        <button type="submit" [disabled]="onboardingForm.invalid">
-          Completar Registro y entrar al Mapa
-        </button>
-      </form>
-    </div>
-  </body>
-</html>
+      <button type="submit" class="btn-main" [disabled]="submitting">
+        {{ submitting ? 'Guardando…' : 'Guardar y continuar' }}
+      </button>
+    </form>
+  </div>
+</div>

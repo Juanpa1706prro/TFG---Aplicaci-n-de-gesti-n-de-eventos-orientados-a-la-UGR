@@ -37,13 +37,17 @@ export class LoginComponent implements OnInit {
   // ---- Navigation and actions ----
 
   /**
-   * Navigation to personal map page.
-   * @param {UserSession}res - Session data returned from backend.
+   * Navigation after login: onboarding first time, then map.
    */
-  protected goToMap(res: UserSession): void {
-    if (res?.userNumber) {
-      this.router.navigate(['/u', res.userNumber, 'map']);
+  protected navigateAfterAuth(res: UserSession): void {
+    if (!res?.userNumber) {
+      return;
     }
+    if (!res.profileComplete) {
+      void this.router.navigate(['/auth/onboarding']);
+      return;
+    }
+    void this.router.navigate(['/u', res.userNumber, 'map']);
   }
 
   /**
@@ -54,7 +58,7 @@ export class LoginComponent implements OnInit {
     if (this.loginForm.valid) {
       this.authService.login(this.loginForm.value).subscribe({
         next: (res) => {
-          this.goToMap(res);
+          this.navigateAfterAuth(res);
         },
         error: (err) => {
           console.error('Error logging in:', err);
