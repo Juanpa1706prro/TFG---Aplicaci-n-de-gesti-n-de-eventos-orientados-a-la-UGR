@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Body,
   Res,
@@ -30,6 +31,19 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly jwtService: JwtService,
   ) {}
+
+  /**
+   * Devuelve la sesión del usuario autenticado por cookie (mismo payload que tras login).
+   * No es público: requiere JWT de acceso válido.
+   */
+  @Get('me')
+  async me(@Req() req: { user?: { sub: number } }) {
+    const sub = req.user?.sub;
+    if (sub == null) {
+      throw new UnauthorizedException('No autenticado');
+    }
+    return this.authService.getMe(sub);
+  }
 
   // ------------------------------------------------------------
   // Properties

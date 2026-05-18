@@ -5,7 +5,6 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { Router } from '@angular/router';
 import { AuthService } from '@core/services/auth.services';
 import { CompleteOnboardingPayload } from '@core/interfaces/auth-interface';
 import {
@@ -14,6 +13,8 @@ import {
   UserFaculty,
   UserCampus,
   UserDegree,
+  USER_FACULTY_LABELS,
+  USER_DEGREE_LABELS,
 } from '@core/constants/user-enums';
 
 @Component({
@@ -26,9 +27,11 @@ import {
 export class OnboardingComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly authService = inject(AuthService);
-  private readonly router = inject(Router);
 
   isCorreoStudent = false;
+
+  /** Personal @ugr: paso 1 = funciones, paso 2 = datos. */
+  ugrWizardStep: 1 | 2 = 1;
 
   readonly staffOptions: { key: StaffFunction; label: string }[] = [
     { key: StaffFunction.ESTUDIANTE, label: 'Estudiante' },
@@ -49,14 +52,12 @@ export class OnboardingComponent implements OnInit {
     keyof typeof UserCampus,
     UserCampus,
   ][];
-  readonly facultyEntries = Object.entries(UserFaculty) as [
-    keyof typeof UserFaculty,
-    UserFaculty,
-  ][];
-  readonly degreeEntries = Object.entries(UserDegree) as [
-    keyof typeof UserDegree,
-    UserDegree,
-  ][];
+  readonly facultyOptions = (Object.values(UserFaculty) as UserFaculty[]).map(
+    (code) => ({ code, label: USER_FACULTY_LABELS[code] }),
+  );
+  readonly degreeOptions = (Object.values(UserDegree) as UserDegree[]).map(
+    (code) => ({ code, label: USER_DEGREE_LABELS[code] }),
+  );
 
   readonly StaffFunction = StaffFunction;
 
@@ -74,13 +75,14 @@ export class OnboardingComponent implements OnInit {
     faculty: [null as UserFaculty | null],
     campus: [null as UserCampus | null],
     degree: [null as UserDegree | null],
+    department: [''],
   });
 
   ngOnInit(): void {
     const email = this.authService.currentUserValue?.email ?? '';
     this.isCorreoStudent = email.toLowerCase().endsWith('@correo.ugr.es');
 
-    const { faculty, campus, degree, gender, birthDate, phoneNumber } =
+    const { faculty, campus, degree, gender, birthDate, phoneNumber, department } =
       this.form.controls;
 
     if (this.isCorreoStudent) {
@@ -90,10 +92,12 @@ export class OnboardingComponent implements OnInit {
       gender.clearValidators();
       birthDate.clearValidators();
       phoneNumber.clearValidators();
+      department.clearValidators();
     } else {
       faculty.clearValidators();
       campus.clearValidators();
       degree.clearValidators();
+      department.clearValidators();
     }
 
     faculty.updateValueAndValidity({ emitEvent: false });
@@ -102,13 +106,19 @@ export class OnboardingComponent implements OnInit {
     gender.updateValueAndValidity({ emitEvent: false });
     birthDate.updateValueAndValidity({ emitEvent: false });
     phoneNumber.updateValueAndValidity({ emitEvent: false });
+    department.updateValueAndValidity({ emitEvent: false });
   }
 
   toggleFn(fn: StaffFunction): void {
-    if (this.selectedFunctions.has(fn)) {
-      this.selectedFunctions.delete(fn);
+    const next = new Set(this.selectedFunctions);
+    if (next.has(fn)) {
+      next.delete(fn);
     } else {
-      this.selectedFunctions.add(fn);
+      next.add(fn);
+    }
+    this.selectedFunctions = next;
+    if (!this.isCorreoStudent && this.ugrWizardStep === 2) {
+      this.applyUgrStep2Validators();
     }
   }
 
@@ -120,8 +130,70 @@ export class OnboardingComponent implements OnInit {
     return this.selectedFunctions.has(StaffFunction.ESTUDIANTE);
   }
 
+  includesTeachingOrResearch(): boolean {
+    return (
+      this.selectedFunctions.has(StaffFunction.PROFESOR) ||
+      this.selectedFunctions.has(StaffFunction.PDI_INVESTIGACION)
+    );
+  }
+
+  continueUgrStep1(): void {
+    this.errorMessage = null;
+    if (this.selectedFunctions.size === 0) {
+      this.errorMessage =
+        'Selecciona al menos una función (estudiante, profesor, etc.).';
+      return;
+    }
+    this.ugrWizardStep = 2;
+    this.applyUgrStep2Validators();
+  }
+
+  backUgrStep1(): void {
+    this.errorMessage = null;
+    this.ugrWizardStep = 1;
+    const { faculty, campus, degree, department } = this.form.controls;
+    faculty.clearValidators();
+    campus.clearValidators();
+    degree.clearValidators();
+    department.clearValidators();
+    faculty.updateValueAndValidity({ emitEvent: false });
+    campus.updateValueAndValidity({ emitEvent: false });
+    degree.updateValueAndValidity({ emitEvent: false });
+    department.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private applyUgrStep2Validators(): void {
+    const { faculty, campus, degree, department } = this.form.controls;
+    if (this.includesStudent()) {
+      faculty.setValidators([Validators.required]);
+      campus.setValidators([Validators.required]);
+      degree.setValidators([Validators.required]);
+    } else {
+      faculty.clearValidators();
+      campus.clearValidators();
+      degree.clearValidators();
+    }
+    if (this.includesTeachingOrResearch()) {
+      department.setValidators([
+        Validators.required,
+        Validators.minLength(2),
+        Validators.maxLength(200),
+      ]);
+    } else {
+      department.clearValidators();
+    }
+    faculty.updateValueAndValidity({ emitEvent: false });
+    campus.updateValueAndValidity({ emitEvent: false });
+    degree.updateValueAndValidity({ emitEvent: false });
+    department.updateValueAndValidity({ emitEvent: false });
+  }
+
   submit(): void {
     this.errorMessage = null;
+
+    if (!this.isCorreoStudent && this.ugrWizardStep === 1) {
+      return;
+    }
 
     if (this.form.controls.firstName.invalid || this.form.controls.lastName.invalid) {
       this.form.markAllAsTouched();
@@ -140,7 +212,7 @@ export class OnboardingComponent implements OnInit {
         return;
       }
 
-      const payload = {
+      const payload: CompleteOnboardingPayload = {
         firstName: v.firstName,
         lastName: v.lastName,
         faculty: v.faculty as UserFaculty,
@@ -163,6 +235,11 @@ export class OnboardingComponent implements OnInit {
       return;
     }
 
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
     if (this.includesStudent()) {
       if (!v.faculty || !v.campus || !v.degree) {
         this.errorMessage =
@@ -171,7 +248,16 @@ export class OnboardingComponent implements OnInit {
       }
     }
 
-    const payload = {
+    if (this.includesTeachingOrResearch()) {
+      const d = v.department?.trim() ?? '';
+      if (d.length < 2) {
+        this.errorMessage =
+          'Indica departamento o instituto (obligatorio para profesorado o PDI/investigación).';
+        return;
+      }
+    }
+
+    const payload: CompleteOnboardingPayload = {
       firstName: v.firstName,
       lastName: v.lastName,
       staffFunctions: [...this.selectedFunctions],
@@ -181,6 +267,9 @@ export class OnboardingComponent implements OnInit {
             campus: v.campus as UserCampus,
             degree: v.degree as UserDegree,
           }
+        : {}),
+      ...(this.includesTeachingOrResearch() && v.department?.trim()
+        ? { department: v.department.trim() }
         : {}),
       ...(v.gender ? { gender: v.gender as UserGender } : {}),
       ...(v.birthDate ? { birthDate: v.birthDate } : {}),
@@ -197,7 +286,7 @@ export class OnboardingComponent implements OnInit {
     this.authService.completeOnboarding(payload).subscribe({
       next: (res) => {
         this.submitting = false;
-        void this.router.navigate(['/u', res.user.userNumber, 'map']);
+        this.authService.navigateToAppHome(res.user);
       },
       error: (err) => {
         this.submitting = false;

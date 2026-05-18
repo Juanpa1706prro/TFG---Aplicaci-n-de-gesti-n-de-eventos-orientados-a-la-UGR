@@ -7,10 +7,14 @@
         Tu correo es de <strong>estudiante</strong> (@correo.ugr.es). Indica nombre, apellidos y datos
         académicos. Los campos de la sección «Opcional» no son necesarios para continuar.
       </p>
+    } @else if (ugrWizardStep === 1) {
+      <p class="subtitle">
+        Cuenta de personal UGR (@ugr.es). <strong>Paso 1:</strong> indica todas las funciones que te representan
+        (puedes marcar varias). En el siguiente paso completarás los datos que correspondan.
+      </p>
     } @else {
       <p class="subtitle">
-        Cuenta de personal UGR (@ugr.es). Elige <strong>todas las funciones</strong> que te representan.
-        Si marcas Estudiante, completa también facultad, campus y titulación.
+        <strong>Paso 2:</strong> datos personales y los bloques obligatorios según las funciones elegidas.
       </p>
     }
 
@@ -18,33 +22,30 @@
       <p class="error-banner">{{ errorMessage }}</p>
     }
 
-    <form [formGroup]="form" (ngSubmit)="submit()" class="onboarding-form">
-      <h2>Datos personales</h2>
-
-      <div class="row">
-        <div class="input-field">
-          <label>Nombre <span class="req">*</span></label>
-          <input type="text" formControlName="firstName" />
+    @if (isCorreoStudent) {
+      <form [formGroup]="form" (ngSubmit)="submit()" class="onboarding-form">
+        <h2>Datos personales</h2>
+        <div class="row">
+          <div class="input-field">
+            <label>Nombre <span class="req">*</span></label>
+            <input type="text" formControlName="firstName" />
+          </div>
+          <div class="input-field">
+            <label>Apellidos <span class="req">*</span></label>
+            <input type="text" formControlName="lastName" />
+          </div>
         </div>
-        <div class="input-field">
-          <label>Apellidos <span class="req">*</span></label>
-          <input type="text" formControlName="lastName" />
-        </div>
-      </div>
 
-      @if (isCorreoStudent) {
         <h2>Datos académicos <span class="req">*</span></h2>
-
         <div class="input-field">
           <label>Facultad / Escuela</label>
           <select formControlName="faculty">
             <option [ngValue]="null" disabled>Selecciona</option>
-            @for (kv of facultyEntries; track kv[0]) {
-              <option [ngValue]="kv[1]">{{ kv[1] }}</option>
+            @for (opt of facultyOptions; track opt.code) {
+              <option [ngValue]="opt.code">{{ opt.label }}</option>
             }
           </select>
         </div>
-
         <div class="input-field">
           <label>Campus principal</label>
           <select formControlName="campus">
@@ -54,22 +55,44 @@
             }
           </select>
         </div>
-
         <div class="input-field">
           <label>Titulación</label>
           <select formControlName="degree">
             <option [ngValue]="null" disabled>Selecciona</option>
-            @for (kv of degreeEntries; track kv[0]) {
-              <option [ngValue]="kv[1]">{{ kv[1] }}</option>
+            @for (opt of degreeOptions; track opt.code) {
+              <option [ngValue]="opt.code">{{ opt.label }}</option>
             }
           </select>
         </div>
-      }
 
-      @if (!isCorreoStudent) {
+        <h2>Opcional</h2>
+        <p class="hint">No son obligatorios para salir de esta pantalla.</p>
+        <div class="input-field">
+          <label>Género</label>
+          <select formControlName="gender">
+            <option [ngValue]="null">Prefiero no indicar / más tarde</option>
+            @for (g of genderOptions; track g) {
+              <option [ngValue]="g">{{ g }}</option>
+            }
+          </select>
+        </div>
+        <div class="input-field">
+          <label>Fecha de nacimiento</label>
+          <input type="date" formControlName="birthDate" />
+        </div>
+        <div class="input-field">
+          <label>Teléfono</label>
+          <input type="tel" formControlName="phoneNumber" placeholder="+34 600 000 000" />
+        </div>
+
+        <button type="submit" class="btn-main" [disabled]="submitting">
+          {{ submitting ? 'Guardando…' : 'Guardar y continuar' }}
+        </button>
+      </form>
+    } @else if (ugrWizardStep === 1) {
+      <div class="onboarding-form">
         <h2>Función en la UGR <span class="req">*</span></h2>
         <p class="hint">Puedes marcar varias.</p>
-
         <div class="chip-grid">
           @for (opt of staffOptions; track opt.key) {
             <button
@@ -82,20 +105,45 @@
             </button>
           }
         </div>
+        <button type="button" class="btn-main" (click)="continueUgrStep1()">
+          Continuar
+        </button>
+      </div>
+    } @else {
+      <button type="button" class="btn-back" (click)="backUgrStep1()">← Cambiar funciones</button>
+
+      <form [formGroup]="form" (ngSubmit)="submit()" class="onboarding-form">
+        <h2>Datos personales</h2>
+        <div class="row">
+          <div class="input-field">
+            <label>Nombre <span class="req">*</span></label>
+            <input type="text" formControlName="firstName" />
+          </div>
+          <div class="input-field">
+            <label>Apellidos <span class="req">*</span></label>
+            <input type="text" formControlName="lastName" />
+          </div>
+        </div>
+
+        @if (includesTeachingOrResearch()) {
+          <h2>Docencia / investigación <span class="req">*</span></h2>
+          <div class="input-field">
+            <label>Departamento o instituto</label>
+            <input type="text" formControlName="department" placeholder="Ej.: Departamento de Lenguajes y Sistemas Informáticos" />
+          </div>
+        }
 
         @if (includesStudent()) {
           <h2>Datos académicos (estudiante) <span class="req">*</span></h2>
-
           <div class="input-field">
             <label>Facultad / Escuela</label>
             <select formControlName="faculty">
               <option [ngValue]="null" disabled>Selecciona</option>
-              @for (kv of facultyEntries; track kv[0]) {
-                <option [ngValue]="kv[1]">{{ kv[1] }}</option>
+              @for (opt of facultyOptions; track opt.code) {
+                <option [ngValue]="opt.code">{{ opt.label }}</option>
               }
             </select>
           </div>
-
           <div class="input-field">
             <label>Campus principal</label>
             <select formControlName="campus">
@@ -105,45 +153,41 @@
               }
             </select>
           </div>
-
           <div class="input-field">
             <label>Titulación</label>
             <select formControlName="degree">
               <option [ngValue]="null" disabled>Selecciona</option>
-              @for (kv of degreeEntries; track kv[0]) {
-                <option [ngValue]="kv[1]">{{ kv[1] }}</option>
+              @for (opt of degreeOptions; track opt.code) {
+                <option [ngValue]="opt.code">{{ opt.label }}</option>
               }
             </select>
           </div>
         }
-      }
 
-      <h2>Opcional</h2>
-      <p class="hint">No son obligatorios para salir de esta pantalla.</p>
+        <h2>Opcional</h2>
+        <p class="hint">No son obligatorios para salir de esta pantalla.</p>
+        <div class="input-field">
+          <label>Género</label>
+          <select formControlName="gender">
+            <option [ngValue]="null">Prefiero no indicar / más tarde</option>
+            @for (g of genderOptions; track g) {
+              <option [ngValue]="g">{{ g }}</option>
+            }
+          </select>
+        </div>
+        <div class="input-field">
+          <label>Fecha de nacimiento</label>
+          <input type="date" formControlName="birthDate" />
+        </div>
+        <div class="input-field">
+          <label>Teléfono</label>
+          <input type="tel" formControlName="phoneNumber" placeholder="+34 600 000 000" />
+        </div>
 
-      <div class="input-field">
-        <label>Género</label>
-        <select formControlName="gender">
-          <option [ngValue]="null">Prefiero no indicar / más tarde</option>
-          @for (g of genderOptions; track g) {
-            <option [ngValue]="g">{{ g }}</option>
-          }
-        </select>
-      </div>
-
-      <div class="input-field">
-        <label>Fecha de nacimiento</label>
-        <input type="date" formControlName="birthDate" />
-      </div>
-
-      <div class="input-field">
-        <label>Teléfono</label>
-        <input type="tel" formControlName="phoneNumber" placeholder="+34 600 000 000" />
-      </div>
-
-      <button type="submit" class="btn-main" [disabled]="submitting">
-        {{ submitting ? 'Guardando…' : 'Guardar y continuar' }}
-      </button>
-    </form>
+        <button type="submit" class="btn-main" [disabled]="submitting">
+          {{ submitting ? 'Guardando…' : 'Guardar y continuar' }}
+        </button>
+      </form>
+    }
   </div>
 </div>

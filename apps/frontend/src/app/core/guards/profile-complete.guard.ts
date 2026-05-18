@@ -1,21 +1,21 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
+import { map } from 'rxjs';
 import { AuthService } from '@core/services/auth.services';
 
-/** Solo rutas que exigen perfil completo (p. ej. el mapa). */
 export const profileCompleteGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  if (!authService.isAuthenticated()) {
-    void router.navigate(['/auth']);
-    return false;
-  }
-
-  if (!authService.currentUserValue?.profileComplete) {
-    void router.navigate(['/auth/onboarding']);
-    return false;
-  }
-
-  return true;
+  return authService.waitForHydration().pipe(
+    map(() => {
+      if (!authService.isAuthenticated()) {
+        return router.createUrlTree(['/auth']);
+      }
+      if (authService.currentUserValue?.profileComplete !== true) {
+        return router.createUrlTree(['/auth/onboarding']);
+      }
+      return true;
+    }),
+  );
 };

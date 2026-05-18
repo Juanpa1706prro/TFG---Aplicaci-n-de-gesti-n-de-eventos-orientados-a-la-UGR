@@ -1,38 +1,82 @@
-import { Component, AfterViewInit, ElementRef, ViewChild, OnInit } from '@angular/core';
+import {
+  Component,
+  AfterViewInit,
+  ElementRef,
+  ViewChild,
+  DestroyRef,
+  inject,
+} from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { interval } from 'rxjs';
 import maplibregl from 'maplibre-gl';
-import { Router, ActivatedRoute } from '@angular/router';
-import { AuthService } from '@core/services/auth.services';
-import { UserSession } from '@core/interfaces/user-interface';
-import { PATHS } from '../../app.paths';
-
+import { EventsService } from '@core/services/events.service';
+import { MapMarkerDto } from '@core/interfaces/event-interface';
+import { EventVisibility } from '@core/constants/event-enums';
+import { eventCountdownText } from '@core/utils/event-time.utils';
 @Component({
   selector: 'app-map',
   standalone: true,
+  imports: [CommonModule],
   templateUrl: './map.html',
   styleUrl: './map.css',
 })
-export class MapComponent implements AfterViewInit, OnInit {
+export class MapComponent implements AfterViewInit {
   // ---- View References ----
   @ViewChild('mapContainer') mapContainer!: ElementRef;
 
+  private readonly destroyRef = inject(DestroyRef);
+
   // ---- Properties ----
   public map!: maplibregl.Map;
-  public userData: UserSession | null = null;
+  mapMarkers: MapMarkerDto[] = [];
+  nowMs = Date.now();
 
   // ---- Constructor ----
   constructor(
-    private router: Router,
-    private route: ActivatedRoute,
-    private authService: AuthService,
-  ) {}
+    private eventsService: EventsService,
+  ) {
+    interval(1000)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.nowMs = Date.now();
+      });
+  }
 
+  countdownLabel(m: MapMarkerDto): string {
+    return eventCountdownText(m.startsAt, m.durationMinutes, this.nowMs);
+  }
   // ---- Lifecycle Hooks ----
 
   /**
-   * Initializes user session data from the authentication service.
+   * Escapa texto de usuario para HTML en popups de MapLibre.
    */
-  ngOnInit(): void {
-    this.userData = this.authService.currentUserValue;
+  private escapeHtml(raw: string): string {
+    return raw
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  private addEventMarkers(map: maplibregl.Map): void {
+    this.eventsService.getMapMarkers().subscribe({
+      next: (markers) => {
+        this.mapMarkers = markers;
+        for (const m of markers) {          const isPrivate = m.visibility === EventVisibility.PRIVATE;
+          const color = isPrivate ? '#7C3AED' : '#DC2626';
+          const kindLabel = isPrivate ? 'Privado' : 'Público';
+          const html = `<strong>${this.escapeHtml(m.title)}</strong><br/><span>${this.escapeHtml(m.location)}</span><br/><em>${kindLabel}</em>`;
+          new maplibregl.Marker({ color })
+            .setLngLat([m.longitude, m.latitude])
+            .setPopup(new maplibregl.Popup({ maxWidth: '280px' }).setHTML(html))
+            .addTo(map);
+        }
+      },
+      error: (err) => {
+        this.mapMarkers = [];
+        console.warn('No se pudieron cargar los eventos en el mapa:', err);
+      },    });
   }
 
   /**
@@ -69,6 +113,10 @@ export class MapComponent implements AfterViewInit, OnInit {
     // Añadimos controles de navegación (zoom, rotación)
     map.addControl(new maplibregl.NavigationControl());
 
+    map.on('load', () => {
+      this.addEventMarkers(map);
+    });
+
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -102,30 +150,7 @@ export class MapComponent implements AfterViewInit, OnInit {
       );
     }
 
-    // RF-14: Marcador de prueba donde estaría un evento
-    new maplibregl.Marker({ color: '#ff0000' })
-      .setLngLat([-3.6245, 37.197])
-      .setPopup(new maplibregl.Popup().setHTML('<h1>Evento TFG: Presentación</h1>'))
-      .addTo(map);
+    this.map = map;
   }
 
-  // ---- Navigation ----
-
-  /**
-   * Logs out the user and redirects to the authentication view.
-   */
-  public logOut() {
-    this.authService.logout();
-    this.router.navigate(['/auth']);
-  }
-
-  /**
-   * Navigates to the user's profile view.
-   */
-  public goToProfile() {
-    const loggedUser = this.authService.currentUserValue;
-    if (loggedUser) {
-      this.router.navigate(['/u', loggedUser.userNumber, 'profile']);
-    }
-  }
 }

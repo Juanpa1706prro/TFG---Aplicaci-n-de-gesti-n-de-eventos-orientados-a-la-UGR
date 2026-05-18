@@ -4,6 +4,12 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { filter, map, switchMap } from 'rxjs';
 import { AuthService } from '@core/services/auth.services';
 import { PublicProfileView } from '@core/interfaces/user.profile-interface';
+import {
+  UserDegree,
+  UserFaculty,
+  USER_DEGREE_LABELS,
+  USER_FACULTY_LABELS,
+} from '@core/constants/user-enums';
 
 @Component({
   selector: 'app-profile',
@@ -49,5 +55,19 @@ export class ProfileComponent implements OnInit {
           this.cdr.detectChanges();
         },
       });
+  }
+
+  studentFacultyLabel(code: UserFaculty | undefined | null): string {
+    if (code == null) {
+      return '—';
+    }
+    return USER_FACULTY_LABELS[code] ?? String(code);
+  }
+
+  studentDegreeLabel(code: UserDegree | undefined | null): string {
+    if (code == null) {
+      return '—';
+    }
+    return USER_DEGREE_LABELS[code] ?? String(code);
   }
 }

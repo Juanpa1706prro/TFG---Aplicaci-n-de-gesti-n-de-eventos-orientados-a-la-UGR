@@ -17,6 +17,7 @@ export interface UserProfileDetails {
   phoneNumber: string | null;
   bio: string | null;
   profilePicture: string | null;
+  department?: string | null;
 }
 
 export interface StudentProfileDto {
@@ -27,7 +28,6 @@ export interface StudentProfileDto {
 
 export interface FullUserPayload extends UserSession {
   profile: UserProfileDetails;
-  staffFunctions: StaffFunction[];
   studentProfile: StudentProfileDto | null;
 }
 
@@ -40,4 +40,5 @@ export interface PublicProfileView {
   viewerIsOwner: boolean;
   staffFunctions: StaffFunction[];
   studentProfile: StudentProfileDto | null;
+  department?: string | null;
 }

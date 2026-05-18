@@ -9,7 +9,7 @@ import { UsersService } from 'src/modules/user/user.service';
 import { User } from '../user/user.entity';
 import { jwtConstants } from './constants';
 import * as bcrypt from 'bcrypt';
-import { UserRole } from '../user/user-enums';
+import { SystemRole } from '../user/user-enums';
 import { UserProfile } from '../user/user-profile.entity';
 
 interface JwtPayload {
@@ -50,7 +50,7 @@ export class AuthService {
     const user = new User();
     user.email = email;
     user.password = hashedPassword;
-    user.role = UserRole.USER;
+    user.role = SystemRole.USER;
     user.onboardingCompleted = false;
 
     const profile = new UserProfile();
@@ -96,12 +96,33 @@ export class AuthService {
 
     await this.updateRefreshTokenHash(user.id, refreshToken);
 
+    await this.usersService.resetActivePersonaAfterLoginIfMultipleStaffFunctions(
+      user.id,
+    );
+    await this.usersService.ensureDefaultActivePersonaIfMissing(user.id);
+    const hydrated = await this.usersService.findByEmail(email);
+    if (!hydrated) {
+      return null;
+    }
+
     return {
       accessToken,
       refreshToken,
-      user: this.usersService.toPublicSession(user),
+      user: this.usersService.toPublicSession(hydrated),
     };
   }
+
+  /**
+   * Sesión actual a partir del JWT (cookies): mismo shape que el usuario devuelto en el login.
+   */
+  async getMe(userId: number) {
+    await this.usersService.ensureDefaultActivePersonaIfMissing(userId);
+    const user = await this.usersService.findByID(userId);
+    if (!user) {
+      throw new UnauthorizedException('Usuario no encontrado');
+    }
+    return this.usersService.toPublicSession(user);
+   }
 
   /**
    * Logs out the user by removing their refresh token hash from the database.

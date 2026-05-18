@@ -35,10 +35,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
       const isRefreshUrl = req.url.includes('/auth/refresh');
       const isLoginUrl = req.url.includes('/auth/login');
+      const isAuthMeUrl = req.url.includes('/auth/me');
 
       // Only handle 401 Unauthorized errors.
-      // Ignore login and refresh endpoints to prevent infinite loops.
-      if (error.status !== 401 || isRefreshUrl || isLoginUrl) {
+      // Ignore login, refresh, and /auth/me: "me" must fail fast so APP_INITIALIZER can clear
+      // session without a refresh race; refresh failure must still run logout (subscribed).
+      if (error.status !== 401 || isRefreshUrl || isLoginUrl || isAuthMeUrl) {
         return throwError(() => error);
       }
 
@@ -57,9 +59,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
             return next(reqWithCredentials);
           }),
           catchError((refreshError) => {
-            // Refresh failed: clean state and force logout
+            // Refresh failed: clean state and force logout (must subscribe for tap to run).
             isRefreshing = false;
-            authService.logout();
+            void authService.logout().subscribe();
             return throwError(() => refreshError);
           }),
         );

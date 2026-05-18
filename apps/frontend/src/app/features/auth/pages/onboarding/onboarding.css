@@ -1,9 +1,26 @@
+/**
+ * body tiene overflow:hidden (mapa). Este host es el scrollport de la pantalla.
+ */
+:host {
+  display: block;
+  box-sizing: border-box;
+  height: 100vh;
+  max-height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
 .onboarding-layout {
-  min-height: 100vh;
+  min-height: 100%;
+  box-sizing: border-box;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 2rem 1rem;
+  padding-bottom: max(2rem, env(safe-area-inset-bottom, 0px));
   background: #f4f6fb;
 }
 
@@ -95,6 +112,7 @@ h2 {
   padding: 0.45rem 0.9rem;
   cursor: pointer;
   font-size: 0.9rem;
+  touch-action: manipulation;
 }
 
 .chip-active {
@@ -119,4 +137,19 @@ h2 {
 .btn-main:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.btn-back {
+  margin-bottom: 1rem;
+  border: none;
+  background: none;
+  color: #1d4ed8;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  font-size: 0.95rem;
+}
+
+.btn-back:hover {
+  text-decoration: underline;
 }

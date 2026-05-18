@@ -8,9 +8,10 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
-import { UserRole } from './user-enums';
+import { StaffFunction, SystemRole } from './user-enums';
 import { UserProfile } from './user-profile.entity';
 import { StudentProfile } from './student-profile.entity';
+import { StaffProfile } from './staff-profile.entity';
 import { UserStaffFunction } from './user-staff-function.entity';
 
 // -------------------------------------------------------------------
@@ -33,11 +34,17 @@ export class User {
   @Column()
   password: string;
 
-  @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
-  role: UserRole;
+  @Column({ type: 'enum', enum: SystemRole, default: SystemRole.USER })
+  role: SystemRole;
 
   @Column({ default: false })
   onboardingCompleted: boolean;
+
+  /**
+   * Función con la que actúa la sesión. Si hay varias funciones en staff, queda null hasta que el usuario elija.
+   */
+  @Column({ type: 'enum', enum: StaffFunction, nullable: true })
+  activeStaffFunction: StaffFunction | null;
 
   @Exclude()
   @Column({ type: 'varchar', nullable: true })
@@ -60,6 +67,9 @@ export class User {
 
   @OneToOne(() => StudentProfile, (sp) => sp.user, { cascade: true })
   studentProfile: StudentProfile | null;
+
+  @OneToOne(() => StaffProfile, (sp) => sp.user, { cascade: true })
+  staffProfile: StaffProfile | null;
 
   @OneToMany(() => UserStaffFunction, (link) => link.user)
   staffFunctionLinks: UserStaffFunction[];

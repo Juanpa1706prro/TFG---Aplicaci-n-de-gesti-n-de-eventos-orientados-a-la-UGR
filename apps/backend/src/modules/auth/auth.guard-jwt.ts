@@ -40,16 +40,7 @@ export class JwtAuthGuard implements CanActivate {
       return true;
     }
 
-    // Extract the request object and the access token cookie
     const request = context.switchToHttp().getRequest();
-
-    // --- NUEVOS LOGS ---
-    console.log('----------------------------------------------------');
-    console.log('🕵️‍♂️ [GUARD] 1. Petición entrante a URL:', request.url);
-    console.log('🕵️‍♂️ [GUARD] 2. Cabecera origin:', request.headers['origin']);
-    console.log('🕵️‍♂️ [GUARD] 3. Cabecera cookie (Raw):', request.headers['cookie']);
-    console.log('🕵️‍♂️ [GUARD] 4. Cookies parseadas por cookie-parser:', request.cookies);
-    // -------------------
 
     const accessToken = request.cookies['access_token'];
 

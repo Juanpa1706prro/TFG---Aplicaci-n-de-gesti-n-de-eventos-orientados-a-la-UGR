@@ -1,5 +1,5 @@
 import { ApplicationConfig, provideAppInitializer, inject } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, withEnabledBlockingInitialNavigation } from '@angular/router';
 import { routes } from './app.routes';
 import { AuthService } from '@core/services/auth.services';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
@@ -8,7 +8,7 @@ import { authInterceptor } from '@core/interceptors/auth-interceptor';
 export const appConfig: ApplicationConfig = {
   providers: [
     // ---- Routing ----
-    provideRouter(routes),
+    provideRouter(routes, withEnabledBlockingInitialNavigation()),
 
     // ---- HTTP and Interceptors ----
     provideHttpClient(withInterceptors([authInterceptor])),

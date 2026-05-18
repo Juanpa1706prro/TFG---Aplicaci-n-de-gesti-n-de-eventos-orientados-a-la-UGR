@@ -6,6 +6,10 @@ import {
   StaffFunction,
 } from '@core/constants/user-enums';
 
+export interface SetSessionPersonaPayload {
+  staffFunction: StaffFunction;
+}
+
 export interface LoginPayload {
   email: string;
   password: string;
@@ -23,6 +27,7 @@ export interface CompleteOnboardingPayload {
   faculty?: UserFaculty;
   campus?: UserCampus;
   degree?: UserDegree;
+  department?: string;
   gender?: UserGender;
   birthDate?: string;
   phoneNumber?: string;

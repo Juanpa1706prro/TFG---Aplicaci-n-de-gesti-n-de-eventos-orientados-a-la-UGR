@@ -43,8 +43,12 @@ export class LoginComponent implements OnInit {
     if (!res?.userNumber) {
       return;
     }
-    if (!res.profileComplete) {
+    if (res.profileComplete !== true) {
       void this.router.navigate(['/auth/onboarding']);
+      return;
+    }
+    if (res.needsPersonaSelection === true) {
+      void this.router.navigate(['/auth/select-profile']);
       return;
     }
     void this.router.navigate(['/u', res.userNumber, 'map']);

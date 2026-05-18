@@ -1,0 +1,68 @@
+<div class="app-shell">
+  <aside class="sidebar" aria-label="Navegación principal">
+    <div class="sidebar-brand">UGR Eventos</div>
+
+    <div class="sidebar-user">
+      @if (profile?.profilePicture) {
+        <img
+          class="sidebar-avatar"
+          [src]="profile?.profilePicture"
+          alt="Foto de perfil"
+        />
+      } @else {
+        <div class="sidebar-avatar sidebar-avatar-fallback" aria-hidden="true">
+          {{ avatarInitials }}
+        </div>
+      }
+
+      <div class="sidebar-username">{{ username }}</div>
+      @if (user?.email) {
+        <div class="sidebar-email">{{ user?.email }}</div>
+      }
+    </div>
+
+    @if (user) {
+      <nav class="sidebar-nav">
+        <a
+          class="sidebar-link"
+          [routerLink]="['/u', user.userNumber, 'map']"
+          routerLinkActive="sidebar-link-active"
+        >
+          Mapa
+        </a>
+        <a
+          class="sidebar-link"
+          [routerLink]="['/u', user.userNumber, 'profile']"
+          routerLinkActive="sidebar-link-active"
+        >
+          Ver perfil
+        </a>
+        <a
+          class="sidebar-link"
+          [routerLink]="['/u', user.userNumber, 'account']"
+          routerLinkActive="sidebar-link-active"
+        >
+          Cuenta
+        </a>
+
+        @if (canCreateEvents) {
+          <a
+            class="sidebar-link sidebar-link-accent"
+            [routerLink]="['/u', user.userNumber, 'events', 'new']"
+            routerLinkActive="sidebar-link-active"
+          >
+            Crear evento
+          </a>
+        }
+      </nav>
+    }
+
+    <button type="button" class="sidebar-logout" (click)="logout()">
+      Cerrar sesión
+    </button>
+  </aside>
+
+  <main class="shell-content">
+    <router-outlet></router-outlet>
+  </main>
+</div>

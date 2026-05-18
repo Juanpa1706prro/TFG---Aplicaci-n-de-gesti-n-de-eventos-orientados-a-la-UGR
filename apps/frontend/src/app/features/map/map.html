@@ -1,5 +1,19 @@
-<button class="back-btn" (click)="logOut()">← Salir al Login (Test)</button>
-
-<button (click)="goToProfile()" class="btn-profile">👤 Ir a mi Perfil</button>
-
-<div #mapContainer class="map-container"></div>
+<div class="map-page">
+  <div class="map-body">
+    <div #mapContainer class="map-container"></div>
+    @if (mapMarkers.length) {
+      <aside class="map-aside" aria-label="Lista de eventos y tiempos">
+        <h2 class="map-aside-title">Eventos activos</h2>
+        <p class="map-aside-hint">Tiempos calculados en el dispositivo (1 s).</p>
+        @for (m of mapMarkers; track m.id) {
+          <div class="map-event-card">
+            <div class="map-event-title">{{ m.title }}</div>
+            <div class="map-event-countdown">{{ countdownLabel(m) }}</div>
+            <div class="map-event-created">Alta: {{ m.createdAt | date : 'short' }} · Inicio: {{ m.startsAt | date : 'short' }}</div>
+            <div class="map-event-loc">{{ m.location }}</div>
+          </div>
+        }
+      </aside>
+    }
+  </div>
+</div>

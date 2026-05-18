@@ -20,7 +20,7 @@
       @if (profileView.studentProfile) {
         <div class="info-group">
           <label>Facultad</label>
-          <p class="data-value">{{ profileView.studentProfile.faculty }}</p>
+          <p class="data-value">{{ studentFacultyLabel(profileView.studentProfile.faculty) }}</p>
         </div>
         <div class="info-group">
           <label>Campus</label>
@@ -28,7 +28,7 @@
         </div>
         <div class="info-group">
           <label>Titulación</label>
-          <p class="data-value">{{ profileView.studentProfile.degree }}</p>
+          <p class="data-value">{{ studentDegreeLabel(profileView.studentProfile.degree) }}</p>
         </div>
       }
 

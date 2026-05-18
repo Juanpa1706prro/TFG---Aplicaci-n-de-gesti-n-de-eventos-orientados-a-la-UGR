@@ -1,24 +1,27 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
+import { map } from 'rxjs';
 import { AuthService } from '@core/services/auth.services';
 
-/** Solo el propietario de la cuenta (mismo número de usuario que la sesión). */
 export const accountOwnerGuard: CanActivateFn = (route) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  const logged = authService.currentUserValue;
-  const userNumberInUrl = route.paramMap.get('userNumber');
+  return authService.waitForHydration().pipe(
+    map(() => {
+      const logged = authService.currentUserValue;
+      const userNumberInUrl =
+        route.paramMap.get('userNumber') ?? route.parent?.paramMap.get('userNumber');
 
-  if (!logged) {
-    void router.navigate(['/auth']);
-    return false;
-  }
+      if (!logged) {
+        return router.createUrlTree(['/auth']);
+      }
 
-  if (logged.userNumber.toString() !== userNumberInUrl) {
-    void router.navigate(['/u', logged.userNumber, 'account']);
-    return false;
-  }
+      if (logged.userNumber.toString() !== userNumberInUrl) {
+        return router.createUrlTree(['/u', logged.userNumber, 'account']);
+      }
 
-  return true;
+      return true;
+    }),
+  );
 };

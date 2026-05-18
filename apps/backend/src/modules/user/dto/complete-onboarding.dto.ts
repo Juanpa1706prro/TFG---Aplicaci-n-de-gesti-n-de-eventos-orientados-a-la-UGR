@@ -6,6 +6,8 @@ import {
   IsArray,
   ArrayUnique,
   Matches,
+  MinLength,
+  MaxLength,
 } from 'class-validator';
 import {
   UserFaculty,
@@ -57,4 +59,10 @@ export class CompleteOnboardingDto {
   @IsOptional()
   @IsEnum(UserDegree)
   degree?: UserDegree;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(200)
+  department?: string;
 }

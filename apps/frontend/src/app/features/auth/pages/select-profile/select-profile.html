@@ -1,0 +1,26 @@
+<div class="onboarding-layout">
+  <div class="onboarding-card">
+    <h1>Perfil de sesión</h1>
+    <p class="subtitle">
+      Tienes <strong>varias funciones</strong> en la UGR. Elige con cuál quieres actuar en esta sesión (puedes cambiarlo más adelante).
+    </p>
+
+    @if (errorMessage) {
+      <p class="error-banner">{{ errorMessage }}</p>
+    }
+
+    <h2>Tu función activa</h2>
+    <div class="persona-grid">
+      @for (opt of availableOptions(); track opt.fn) {
+        <button
+          type="button"
+          class="persona-card"
+          [disabled]="submitting"
+          (click)="choose(opt.fn)"
+        >
+          <span class="persona-label">{{ opt.label }}</span>
+        </button>
+      }
+    </div>
+  </div>
+</div>

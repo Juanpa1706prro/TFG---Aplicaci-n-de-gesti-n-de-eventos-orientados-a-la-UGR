@@ -1,0 +1,159 @@
+<div class="create-event-page">
+  <div class="create-event-card">
+    <h1>Nuevo evento</h1>
+    <p class="subtitle">
+      Opcional: elige un centro UGR y se rellenan el nombre de la sede y el punto del mapa; o deja «manual» y escribe la ubicación y coloca la marca tú mismo.
+      Los eventos privados (p. ej. tutorías) solo aparecen en el mapa general para el creador y los gestores.
+    </p>
+
+    @if (errorMessage) {
+      <p class="error-banner">{{ errorMessage }}</p>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="submit()" class="form">
+      <div class="field">
+        <label>Título <span class="req">*</span></label>
+        <input type="text" formControlName="title" maxlength="300" />
+      </div>
+
+      <div class="field">
+        <label>Descripción <span class="req">*</span></label>
+        <textarea formControlName="description" rows="5" maxlength="8000"></textarea>
+      </div>
+
+      <div class="field">
+        <label>URL de la foto</label>
+        <input type="url" formControlName="photoUrl" placeholder="https://…" />
+      </div>
+
+      <div class="field">
+        <label>Inicio del evento <span class="req">*</span></label>
+        <input type="datetime-local" formControlName="startsAt" />
+      </div>
+
+      <div class="field">
+        <label>Duración (minutos) <span class="req">*</span></label>
+        <input type="number" formControlName="durationMinutes" min="1" max="525600" step="1" />
+        <p class="hint">
+          Al terminar (inicio + duración) el evento se elimina del sistema. La cuenta atrás en el mapa se calcula en el navegador.
+        </p>
+      </div>
+
+      <div class="field">
+        <label for="faculty-preset">Centro / facultad (opcional)</label>
+        <select id="faculty-preset" class="select-preset" formControlName="facultyPreset">
+          <option [ngValue]="''">Otro — ubicación y mapa manualmente</option>
+          @for (code of facultyPresetList; track code) {
+            <option [ngValue]="code">{{ USER_FACULTY_LABELS[code] }}</option>
+          }
+        </select>
+        <p class="hint preset-hint">
+          Si eliges un centro, se rellena el texto de ubicación y las coordenadas; puedes editarlos o mover el pin después.
+          Si ajustas el mapa a mano, el desplegable pasa a «manual».
+        </p>
+      </div>
+
+      <div class="field">
+        <label>Ubicación (texto) <span class="req">*</span></label>
+        <input type="text" formControlName="location" placeholder="Ej.: Aula C1, ETSIIT, UGR" />
+      </div>
+
+      <fieldset class="map-fields">
+        <legend>Punto en el mapa</legend>
+        <p class="hint">
+          Pulsa el botón para abrir un mapa a pantalla completa: un clic coloca la marca; también puedes arrastrarla.
+          Los números de abajo se actualizan solos (puedes retocarlos a mano si lo necesitas).
+        </p>
+        <button type="button" class="btn-map-picker" (click)="openLocationPicker()">
+          Abrir mapa y colocar la marca
+        </button>
+        <div class="coord-row">
+          <div class="field">
+            <label>Latitud <span class="req">*</span></label>
+            <input type="number" step="any" formControlName="latitude" />
+          </div>
+          <div class="field">
+            <label>Longitud <span class="req">*</span></label>
+            <input type="number" step="any" formControlName="longitude" />
+          </div>
+        </div>
+        <div class="field">
+          <span class="label-block">Visibilidad</span>
+          <label class="radio">
+            <input type="radio" formControlName="visibility" [value]="EventVisibility.PUBLIC" />
+            Público (visible para la comunidad en el mapa)
+          </label>
+          <label class="radio">
+            <input type="radio" formControlName="visibility" [value]="EventVisibility.PRIVATE" />
+            Privado (tutoría u otro; en el mapa solo creador y gestores; más adelante: invitar alumnos o grupos)
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="field">
+        <label class="checkbox">
+          <input type="checkbox" formControlName="unlimitedAttendees" />
+          Sin límite de asistentes
+        </label>
+      </div>
+
+      <div class="field">
+        <label>Máximo de asistentes</label>
+        <input type="number" formControlName="maxAttendees" min="1" max="1000000" />
+      </div>
+
+      <h2>Editores y moderadores</h2>
+      <p class="hint">
+        Opcional: añade el <strong>número de usuario UGR</strong> (el de 6 dígitos del perfil) de quien pueda
+        ayudar a gestionar el evento.
+      </p>
+
+      @for (row of managerRows; track $index) {
+        <div class="manager-row">
+          <input
+            type="text"
+            inputmode="numeric"
+            maxlength="6"
+            placeholder="Nº usuario"
+            [(ngModel)]="row.userNumber"
+            [ngModelOptions]="{ standalone: true }"
+          />
+          <select [(ngModel)]="row.role" [ngModelOptions]="{ standalone: true }">
+            <option [ngValue]="EventManagerAssignmentRole.EDITOR">{{ roleLabels[EventManagerAssignmentRole.EDITOR] }}</option>
+            <option [ngValue]="EventManagerAssignmentRole.MODERATOR">{{ roleLabels[EventManagerAssignmentRole.MODERATOR] }}</option>
+          </select>
+          <button type="button" class="btn-remove" (click)="removeManagerRow($index)">Quitar</button>
+        </div>
+      }
+
+      <button type="button" class="btn-secondary" (click)="addManagerRow()">
+        + Añadir editor o moderador
+      </button>
+
+      <div class="actions">
+        <button type="button" class="btn-secondary" (click)="cancel()">Cancelar</button>
+        <button type="submit" class="btn-primary" [disabled]="submitting">
+          {{ submitting ? 'Creando…' : 'Crear evento' }}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  @if (locationPickerOpen) {
+    <div class="location-picker-overlay" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+      <div class="location-picker-top">
+        <div>
+          <h2 id="picker-title">Elegir ubicación</h2>
+          <p class="picker-help">Pulsa en el mapa para colocar la marca. Puedes arrastrarla o volver a pulsar en otro sitio.</p>
+        </div>
+        <button type="button" class="picker-close" (click)="closeLocationPicker()" aria-label="Cerrar">✕</button>
+      </div>
+      <div #pickerMapHost class="location-picker-map-host"></div>
+      <div class="location-picker-footer">
+        <span class="picker-coords">Lat {{ form.controls.latitude.value | number : '1.0-5' }}</span>
+        <span class="picker-coords">Lon {{ form.controls.longitude.value | number : '1.0-5' }}</span>
+        <button type="button" class="btn-primary picker-done" (click)="closeLocationPicker()">Hecho</button>
+      </div>
+    </div>
+  }
+</div>

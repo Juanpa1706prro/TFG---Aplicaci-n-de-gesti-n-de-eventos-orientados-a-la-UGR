@@ -1,13 +1,22 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, catchError, tap, firstValueFrom, of } from 'rxjs';
+import {
+  BehaviorSubject,
+  Observable,
+  catchError,
+  tap,
+  firstValueFrom,
+  of,
+  filter,
+  take,
+} from 'rxjs';
 import { UserSession } from '@core/interfaces/user-interface';
 import {
   CompleteOnboardingPayload,
   LoginPayload,
   RegisterPayload,
+  SetSessionPersonaPayload,
 } from '@core/interfaces/auth-interface';
-import { FullUserPayload } from '@core/interfaces/user.profile-interface';
 import { Router } from '@angular/router';
 
 @Injectable({
@@ -15,6 +24,12 @@ import { Router } from '@angular/router';
 })
 export class AuthService {
   private readonly API_URL = 'http://localhost:3000';
+
+  /**
+   * Pasa a true cuando ha terminado el primer intento de rehidratar la sesión
+   * (con o sin cookies). Los guards deben esperar esto antes de leer currentUser.
+   */
+  private readonly sessionHydrated$ = new BehaviorSubject<boolean>(false);
 
   private currentUserSubject = new BehaviorSubject<UserSession | null>(null);
   public readonly currentUser$: Observable<UserSession | null> =
@@ -29,36 +44,60 @@ export class AuthService {
     return this.currentUserSubject.value;
   }
 
-  private sessionFromApiUser(
-    u: Pick<
-      FullUserPayload,
-      'id' | 'email' | 'userNumber' | 'profileComplete' | 'role'
-    >,
-  ): UserSession {
+  /** Emite una vez cuando la hidratación inicial ha terminado. */
+  waitForHydration(): Observable<boolean> {
+    return this.sessionHydrated$.pipe(
+      filter((done) => done === true),
+      take(1),
+    );
+  }
+
+  private normalizeSession(user: UserSession): UserSession {
     return {
-      id: u.id,
-      email: u.email,
-      userNumber: u.userNumber,
-      profileComplete: u.profileComplete,
-      role: u.role,
+      ...user,
+      profileComplete: user.profileComplete === true,
+      needsPersonaSelection: user.needsPersonaSelection === true,
+      staffFunctions: Array.isArray(user.staffFunctions) ? user.staffFunctions : [],
+      activeStaffFunction: user.activeStaffFunction ?? null,
+      globalCapabilities: Array.isArray(user.globalCapabilities)
+        ? user.globalCapabilities
+        : [],
     };
   }
 
-  public async initializeAuth(): Promise<void> {
-    const hasSession = localStorage.getItem('hasSession');
-
-    if (!hasSession) {
-      this.currentUserSubject.next(null);
+  /** Tras login u onboarding: onboarding → elección de perfil (si aplica) → mapa. */
+  navigateToAppHome(user?: UserSession | null): void {
+    const u = user ?? this.currentUserValue;
+    if (!u?.userNumber) {
+      void this.router.navigate(['/auth']);
       return;
     }
+    if (u.profileComplete !== true) {
+      void this.router.navigate(['/auth/onboarding']);
+      return;
+    }
+    if (u.needsPersonaSelection === true) {
+      void this.router.navigate(['/auth/select-profile']);
+      return;
+    }
+    void this.router.navigate(['/u', u.userNumber, 'map']);
+  }
 
+  /**
+   * Llamar una vez al arranque (APP_INITIALIZER). Recupera sesión vía cookies con GET /auth/me.
+   */
+  public async initializeAuth(): Promise<void> {
     try {
-      const response = await firstValueFrom(
-        this.http.get<{ user: FullUserPayload }>(`${this.API_URL}/user/profile`),
+      const me = await firstValueFrom(
+        this.http.get<UserSession>(`${this.API_URL}/auth/me`),
       );
-      this.currentUserSubject.next(this.sessionFromApiUser(response.user));
+      this.currentUserSubject.next(this.normalizeSession(me));
+      localStorage.setItem('hasSession', 'true');
     } catch {
+      localStorage.removeItem('hasSession');
       this.currentUserSubject.next(null);
+    } finally {
+      this.sessionHydrated$.next(true);
     }
   }
 
@@ -69,7 +108,7 @@ export class AuthService {
   public login(credentials: LoginPayload): Observable<UserSession> {
     return this.http.post<UserSession>(`${this.API_URL}/auth/login`, credentials).pipe(
       tap((user: UserSession) => {
-        this.currentUserSubject.next(user);
+        this.currentUserSubject.next(this.normalizeSession(user));
         localStorage.setItem('hasSession', 'true');
       }),
     );
@@ -85,7 +124,22 @@ export class AuthService {
       )
       .pipe(
         tap((res) => {
-          this.currentUserSubject.next(res.user);
+          this.currentUserSubject.next(this.normalizeSession(res.user));
+        }),
+      );
+  }
+
+  public setSessionPersona(
+    payload: SetSessionPersonaPayload,
+  ): Observable<{ message: string; user: UserSession }> {
+    return this.http
+      .patch<{ message: string; user: UserSession }>(
+        `${this.API_URL}/user/session-persona`,
+        payload,
+      )
+      .pipe(
+        tap((res) => {
+          this.currentUserSubject.next(this.normalizeSession(res.user));
         }),
       );
   }
@@ -100,11 +154,22 @@ export class AuthService {
   public cleanLocalAuth() {
     localStorage.removeItem('hasSession');
     this.currentUserSubject.next(null);
-    this.router.navigate(['/auth']);
+    void this.router.navigate(['/auth']);
   }
 
   public isAuthenticated(): boolean {
-    return !!this.currentUserValue;
+    const u = this.currentUserValue;
+    if (u == null) return false;
+    if (typeof u.id !== 'number' || !Number.isFinite(u.id) || u.id <= 0) {
+      return false;
+    }
+    if (typeof u.userNumber !== 'number' || !Number.isFinite(u.userNumber)) {
+      return false;
+    }
+    if (typeof u.email !== 'string' || u.email.trim().length < 3) {
+      return false;
+    }
+    return true;
   }
 
   public refreshToken(): Observable<unknown> {
@@ -112,6 +177,6 @@ export class AuthService {
   }
 
   public needsProfileCompletion(user: UserSession | null): boolean {
-    return !!user && !user.profileComplete;
+    return !!user && user.profileComplete !== true;
   }
 }

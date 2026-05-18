@@ -14,6 +14,7 @@ import { UsersService } from './user.service';
 import { JwtAuthGuard } from '../auth/auth.guard-jwt';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
+import { SetSessionPersonaDto } from './dto/set-session-persona.dto';
 
 @Controller('user')
 @UseGuards(JwtAuthGuard)
@@ -46,8 +47,8 @@ export class UsersController {
           phoneNumber: user.profile.phoneNumber,
           bio: user.profile.bio,
           profilePicture: user.profile.profilePicture,
+          department: user.staffProfile?.department ?? null,
         },
-        staffFunctions: (user.staffFunctionLinks ?? []).map((l) => l.function),
         studentProfile: user.studentProfile
           ? {
               faculty: user.studentProfile.faculty,
@@ -90,5 +91,13 @@ export class UsersController {
     @Body() body: CompleteOnboardingDto,
   ) {
     return this.userService.completeOnboarding(req.user.sub, body);
+  }
+
+  @Patch('session-persona')
+  async setSessionPersona(
+    @Request() req: { user: { sub: number } },
+    @Body() body: SetSessionPersonaDto,
+  ) {
+    return this.userService.setSessionPersona(req.user.sub, body.staffFunction);
   }
 }

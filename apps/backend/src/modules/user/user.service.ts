@@ -8,17 +8,28 @@ import { Repository } from 'typeorm';
 import { User } from './user.entity';
 import { UserProfile } from './user-profile.entity';
 import { StudentProfile } from './student-profile.entity';
+import { StaffProfile } from './staff-profile.entity';
 import { UserStaffFunction } from './user-staff-function.entity';
 import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { StaffFunction, UserRole } from './user-enums';
+import {
+  GlobalCapability,
+  StaffFunction,
+  SystemRole,
+} from './user-enums';
+import { CapabilityService } from './capability.service';
 
 export type PublicSessionUser = {
   id: number;
   email: string;
   userNumber: number;
   profileComplete: boolean;
-  role: UserRole;
+  /** true si debe elegir con qué función actuar (varias funciones y sin activeStaffFunction; tras cada login se limpia la función activa). */
+  needsPersonaSelection: boolean;
+  role: SystemRole;
+  staffFunctions: StaffFunction[];
+  activeStaffFunction: StaffFunction | null;
+  globalCapabilities: GlobalCapability[];
 };
 
 export type PublicProfileView = {
@@ -33,6 +44,7 @@ export type PublicProfileView = {
     campus: string;
     degree: string;
   } | null;
+  department: string | null;
 };
 
 @Injectable()
@@ -44,6 +56,9 @@ export class UsersService {
     private readonly staffFunctionRepository: Repository<UserStaffFunction>,
     @InjectRepository(StudentProfile)
     private readonly studentProfileRepository: Repository<StudentProfile>,
+    @InjectRepository(StaffProfile)
+    private readonly staffProfileRepository: Repository<StaffProfile>,
+    private readonly capabilityService: CapabilityService,
   ) {}
 
   isCorreoStudentEmail(email: string): boolean {
@@ -58,7 +73,36 @@ export class UsersService {
     return !!v && v.trim().length > 0;
   }
 
-  /** Datos obligatorios cumplidos → no hace falta onboarding. */
+  staffFunctionList(user: User): StaffFunction[] {
+    return [...new Set((user.staffFunctionLinks ?? []).map((l) => l.function))];
+  }
+
+  private needsTeachingDepartment(functions: StaffFunction[]): boolean {
+    return (
+      functions.includes(StaffFunction.PROFESOR) ||
+      functions.includes(StaffFunction.PDI_INVESTIGACION)
+    );
+  }
+
+  private staffDepartment(user: User): string | null {
+    return user.staffProfile?.department ?? null;
+  }
+
+  computeNeedsPersonaSelection(user: User): boolean {
+    if (!this.computeProfileComplete(user)) {
+      return false;
+    }
+    const fns = this.staffFunctionList(user);
+    if (fns.length <= 1) {
+      return false;
+    }
+    if (user.activeStaffFunction == null) {
+      return true;
+    }
+    return !fns.includes(user.activeStaffFunction);
+  }
+
+  /** Datos obligatorios cumplidos → no hace falta onboarding de datos. */
   computeProfileComplete(user: User): boolean {
     if (!user.profile) {
       return false;
@@ -76,8 +120,14 @@ export class UsersService {
     }
 
     if (this.isUgrStaffEmail(email)) {
-      const fns = (user.staffFunctionLinks ?? []).map((l) => l.function);
+      const fns = this.staffFunctionList(user);
       if (fns.length === 0) {
+        return false;
+      }
+      if (
+        this.needsTeachingDepartment(fns) &&
+        !this.hasText(this.staffDepartment(user))
+      ) {
         return false;
       }
       if (fns.includes(StaffFunction.ESTUDIANTE)) {
@@ -88,6 +138,16 @@ export class UsersService {
     }
 
     return this.hasText(p.firstName) && this.hasText(p.lastName);
+  }
+
+  private resolveInitialActiveStaffFunction(
+    functions: StaffFunction[],
+  ): StaffFunction | null {
+    const unique = [...new Set(functions)];
+    if (unique.length === 1) {
+      return unique[0]!;
+    }
+    return null;
   }
 
   private async syncPersistedProfileFlag(userId: number): Promise<void> {
@@ -110,10 +170,73 @@ export class UsersService {
     return this.userRepository.update(id, data);
   }
 
+  /**
+   * Tras un login explícito: si el perfil está completo y hay más de una función UGR,
+   * se olvida la función de sesión guardada para obligar a elegir perfil otra vez.
+   */
+  async resetActivePersonaAfterLoginIfMultipleStaffFunctions(
+    userId: number,
+  ): Promise<void> {
+    const user = await this.findByID(userId);
+    if (!user) {
+      return;
+    }
+    if (!this.computeProfileComplete(user)) {
+      return;
+    }
+    const fns = this.staffFunctionList(user);
+    if (fns.length <= 1) {
+      return;
+    }
+    await this.userRepository.update(userId, { activeStaffFunction: null });
+  }
+
+  /**
+   * Si solo hay una función de personal, fija activeStaffFunction para cuentas antiguas o incoherentes.
+   */
+  async ensureDefaultActivePersonaIfMissing(userId: number): Promise<void> {
+    const user = await this.findByID(userId);
+    if (!user?.staffFunctionLinks?.length) {
+      return;
+    }
+    const fns = this.staffFunctionList(user);
+    if (fns.length !== 1) {
+      return;
+    }
+    const only = fns[0]!;
+    if (user.activeStaffFunction !== only) {
+      await this.userRepository.update(userId, { activeStaffFunction: only });
+    }
+  }
+
+  async setSessionPersona(
+    userId: number,
+    staffFunction: StaffFunction,
+  ): Promise<{ message: string; user: PublicSessionUser }> {
+    const user = await this.findByID(userId);
+    if (!user || !user.profile) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    const allowed = new Set(this.staffFunctionList(user));
+    if (!allowed.has(staffFunction)) {
+      throw new BadRequestException(
+        'Esa función no está asociada a tu cuenta. Completa el onboarding o elige otra opción.',
+      );
+    }
+    await this.userRepository.update(userId, {
+      activeStaffFunction: staffFunction,
+    });
+    const fresh = await this.findByID(userId);
+    return {
+      message: 'Perfil de sesión actualizado',
+      user: this.toPublicSession(fresh ?? user),
+    };
+  }
+
   async updateProfile(userId: number, updateData: UpdateProfileDto) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ['profile'],
+      relations: ['profile', 'staffProfile'],
     });
 
     if (!user || !user.profile) {
@@ -124,6 +247,7 @@ export class UsersService {
     if (typeof patch['birthDate'] === 'string') {
       patch['birthDate'] = new Date(patch['birthDate'] as string);
     }
+    delete patch['department'];
 
     Object.assign(user.profile, patch);
 
@@ -142,7 +266,12 @@ export class UsersService {
   ): Promise<{ message: string; user: PublicSessionUser }> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ['profile', 'studentProfile', 'staffFunctionLinks'],
+      relations: [
+        'profile',
+        'studentProfile',
+        'staffProfile',
+        'staffFunctionLinks',
+      ],
     });
 
     if (!user || !user.profile) {
@@ -212,13 +341,26 @@ export class UsersService {
         user.studentProfile.degree = dto.degree;
       }
 
-      user.role = UserRole.STUDENT;
+      if (user.staffProfile) {
+        await this.staffProfileRepository.remove(user.staffProfile);
+        user.staffProfile = null;
+      }
+      user.role = SystemRole.USER;
+      user.activeStaffFunction = StaffFunction.ESTUDIANTE;
     } else {
       const fns = dto.staffFunctions ?? [];
       if (fns.length === 0) {
         throw new BadRequestException(
           'Selecciona al menos una función en la universidad',
         );
+      }
+
+      if (this.needsTeachingDepartment(fns)) {
+        if (!this.hasText(dto.department)) {
+          throw new BadRequestException(
+            'Indica departamento o instituto (obligatorio para profesorado o PDI/investigación)',
+          );
+        }
       }
 
       await this.staffFunctionRepository.delete({ user: { id: user.id } });
@@ -252,7 +394,22 @@ export class UsersService {
         user.studentProfile = null;
       }
 
-      user.role = this.deriveRoleFromStaffFunctions(fns);
+      if (this.needsTeachingDepartment(fns)) {
+        if (!user.staffProfile) {
+          user.staffProfile = this.staffProfileRepository.create({
+            user,
+            department: dto.department!.trim(),
+          });
+        } else {
+          user.staffProfile.department = dto.department!.trim();
+        }
+      } else if (user.staffProfile) {
+        await this.staffProfileRepository.remove(user.staffProfile);
+        user.staffProfile = null;
+      }
+
+      user.role = SystemRole.USER;
+      user.activeStaffFunction = this.resolveInitialActiveStaffFunction(fns);
     }
 
     await this.userRepository.save(user);
@@ -265,26 +422,24 @@ export class UsersService {
     };
   }
 
-  private deriveRoleFromStaffFunctions(functions: StaffFunction[]): UserRole {
-    if (
-      functions.includes(StaffFunction.PROFESOR) ||
-      functions.includes(StaffFunction.PDI_INVESTIGACION)
-    ) {
-      return UserRole.PROFESSOR;
-    }
-    if (functions.includes(StaffFunction.ESTUDIANTE)) {
-      return UserRole.STUDENT;
-    }
-    return UserRole.USER;
-  }
-
   toPublicSession(user: User): PublicSessionUser {
+    const staffFunctions = this.staffFunctionList(user);
+    const needsPersonaSelection = this.computeNeedsPersonaSelection(user);
+    const active = user.activeStaffFunction;
+    const globalCapabilities = this.capabilityService.resolveGlobalCapabilities(
+      staffFunctions,
+      active,
+    );
     return {
       id: user.id,
       email: user.email,
       userNumber: user.profile.userNumber,
       profileComplete: this.computeProfileComplete(user),
+      needsPersonaSelection,
       role: user.role,
+      staffFunctions,
+      activeStaffFunction: active,
+      globalCapabilities,
     };
   }
 
@@ -294,7 +449,12 @@ export class UsersService {
   ): Promise<PublicProfileView> {
     const user = await this.userRepository.findOne({
       where: { profile: { userNumber } },
-      relations: ['profile', 'studentProfile', 'staffFunctionLinks'],
+      relations: [
+        'profile',
+        'studentProfile',
+        'staffProfile',
+        'staffFunctionLinks',
+      ],
     });
 
     if (!user || !user.profile) {
@@ -307,7 +467,7 @@ export class UsersService {
       firstName: user.profile.firstName,
       lastName: user.profile.lastName,
       viewerIsOwner,
-      staffFunctions: (user.staffFunctionLinks ?? []).map((l) => l.function),
+      staffFunctions: this.staffFunctionList(user),
       studentProfile: user.studentProfile
         ? {
             faculty: user.studentProfile.faculty,
@@ -315,6 +475,7 @@ export class UsersService {
             degree: user.studentProfile.degree,
           }
         : null,
+      department: this.staffDepartment(user),
     };
 
     if (viewerIsOwner) {
@@ -347,14 +508,37 @@ export class UsersService {
   async findByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({
       where: { email },
-      relations: ['profile', 'studentProfile', 'staffFunctionLinks'],
+      relations: [
+        'profile',
+        'studentProfile',
+        'staffProfile',
+        'staffFunctionLinks',
+      ],
     });
   }
 
   async findByID(id: number): Promise<User | null> {
     return this.userRepository.findOne({
       where: { id },
-      relations: ['profile', 'studentProfile', 'staffFunctionLinks'],
+      relations: [
+        'profile',
+        'studentProfile',
+        'staffProfile',
+        'staffFunctionLinks',
+      ],
+    });
+  }
+
+  /** Usuario por su número público de perfil (p. ej. invitaciones a coeditar un evento). */
+  async findByProfileUserNumber(userNumber: number): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { profile: { userNumber } },
+      relations: [
+        'profile',
+        'studentProfile',
+        'staffProfile',
+        'staffFunctionLinks',
+      ],
     });
   }
 }
