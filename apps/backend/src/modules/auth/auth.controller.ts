@@ -70,7 +70,11 @@ export class AuthController {
   @Public()
   @Post('register')
   async register(@Body() body: RegisterDto) {
-    return this.authService.register(body.email, body.password);
+    return this.authService.register(
+      body.email,
+      body.password,
+      body.operatorKey,
+    );
   }
 
   /**
@@ -93,13 +97,14 @@ export class AuthController {
 
     res.cookie('access_token', session.accessToken, {
       ...this.baseCookieOptions,
+      path: '/',
       maxAge: 15 * 60 * 1000,
     });
 
     res.cookie('refresh_token', session.refreshToken, {
       ...this.baseCookieOptions,
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/auth/refresh',
     });
 
     return session.user;
@@ -134,13 +139,14 @@ export class AuthController {
 
       res.cookie('access_token', tokens.accessToken, {
         ...this.baseCookieOptions,
+        path: '/',
         maxAge: 15 * 60 * 1000,
       });
 
       res.cookie('refresh_token', tokens.refreshToken, {
         ...this.baseCookieOptions,
+        path: '/',
         maxAge: 7 * 24 * 60 * 60 * 1000,
-        path: '/auth/refresh',
       });
 
       return { message: 'Tokens rotated' };
@@ -173,8 +179,8 @@ export class AuthController {
     }
 
     // Destroy cookies in the client's browser
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token', { path: '/auth/refresh' });
+    res.clearCookie('access_token', { path: '/' });
+    res.clearCookie('refresh_token', { path: '/' });
 
     return { message: 'Closed session' };
   }

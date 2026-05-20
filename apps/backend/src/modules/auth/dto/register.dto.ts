@@ -2,6 +2,8 @@ import {
   IsEmail,
   IsString,
   IsNotEmpty,
+  IsOptional,
+  MaxLength,
   MinLength,
   Matches,
   Validate,
@@ -22,4 +24,10 @@ export class RegisterDto {
     message: 'La contraseña debe tener al menos un carácter especial',
   })
   password: string;
+
+  /** Demo: ADMIN, MANAGER o MODERATOR para operadores del sistema; vacío = USER. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  operatorKey?: string;
 }

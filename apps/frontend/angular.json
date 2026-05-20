@@ -58,7 +58,8 @@
               "buildTarget": "ugr-frontend:build:production"
             },
             "development": {
-              "buildTarget": "ugr-frontend:build:development"
+              "buildTarget": "ugr-frontend:build:development",
+              "proxyConfig": "proxy.conf.cjs"
             }
           },
           "defaultConfiguration": "development"

@@ -1,0 +1,103 @@
+<div class="events-page" role="dialog" aria-modal="true" aria-label="Listado de eventos">
+  <button
+    type="button"
+    class="events-page__dim"
+    aria-label="Cerrar listado y volver al mapa"
+    (click)="closePage()"
+  ></button>
+
+  <section class="events-page__panel">
+    <header class="events-page__header">
+      <div>
+        <h1 class="events-page__title">Eventos</h1>
+        <p class="events-page__subtitle">Consulta eventos activos, tus apuntes y los que gestionas.</p>
+      </div>
+      <button
+        type="button"
+        class="events-page__close"
+        aria-label="Cerrar y abrir menú"
+        (click)="closePage()"
+      >
+        ×
+      </button>
+    </header>
+
+    <div class="events-page__tabs" role="tablist" aria-label="Categorías de eventos">
+      <button
+        type="button"
+        class="events-page__tab"
+        role="tab"
+        [attr.aria-selected]="activeTab() === 'active'"
+        [class.events-page__tab--active]="activeTab() === 'active'"
+        (click)="setTab('active')"
+      >
+        Eventos activos
+      </button>
+      <button
+        type="button"
+        class="events-page__tab"
+        role="tab"
+        [attr.aria-selected]="activeTab() === 'attended'"
+        [class.events-page__tab--active]="activeTab() === 'attended'"
+        (click)="setTab('attended')"
+      >
+        Eventos apuntados
+      </button>
+      @if (showManagedTab) {
+        <button
+          type="button"
+          class="events-page__tab"
+          role="tab"
+          [attr.aria-selected]="activeTab() === 'managed'"
+          [class.events-page__tab--active]="activeTab() === 'managed'"
+          (click)="setTab('managed')"
+        >
+          Gestiono
+        </button>
+      }
+    </div>
+
+    <div class="events-page__body" role="tabpanel">
+      @if (loading()) {
+        <p class="events-page__status">Cargando eventos…</p>
+      } @else if (loadError()) {
+        <p class="events-page__status events-page__status--error">{{ loadError() }}</p>
+      } @else if (!currentList.length) {
+        <p class="events-page__status">No hay eventos en esta categoría.</p>
+      } @else {
+        <ul class="events-page__list">
+          @for (item of currentList; track item.id) {
+            <li
+              class="events-card"
+              role="button"
+              tabindex="0"
+              (click)="openEventOnMap(item)"
+              (keydown.enter)="openEventOnMap(item)"
+            >
+              <div class="events-card__media" [class.events-card__media--empty]="!hasPhoto(item.photoUrl)">
+                @if (hasPhoto(item.photoUrl)) {
+                  <img [src]="item.photoUrl" [alt]="item.title" loading="lazy" />
+                }
+              </div>
+              <div class="events-card__content">
+                <h2 class="events-card__title">{{ item.title }}</h2>
+                <p class="events-card__time">{{ timeLabel(item) }}</p>
+                <p class="events-card__location">{{ item.location }}</p>
+                <div class="events-card__meta">
+                  <span class="events-card__badge">{{ visibilityLabel(item.visibility) }}</span>
+                  @if (activeTab() === 'managed') {
+                    @for (role of item.managementRoles; track role) {
+                      <span class="events-card__badge events-card__badge--role">
+                        {{ managementRoleLabel(role) }}
+                      </span>
+                    }
+                  }
+                </div>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </section>
+</div>

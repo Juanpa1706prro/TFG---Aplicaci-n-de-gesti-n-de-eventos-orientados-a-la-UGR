@@ -4,8 +4,10 @@ import { HttpClient } from '@angular/common/http';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthService } from '@core/services/auth.services';
+import { ShellUiService } from '@core/services/shell-ui.service';
 import { GlobalCapability } from '@core/constants/user-enums';
 import { FullUserPayload, UserProfileDetails } from '@core/interfaces/user.profile-interface';
+import { API_BASE_URL } from '@core/config/api.config';
 import { UserSession } from '@core/interfaces/user-interface';
 
 @Component({
@@ -16,10 +18,11 @@ import { UserSession } from '@core/interfaces/user-interface';
   styleUrl: './app-shell.css',
 })
 export class AppShellComponent implements OnInit {
-  private readonly API_URL = 'http://localhost:3000';
+  private readonly API_URL = API_BASE_URL;
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
+  readonly shellUi = inject(ShellUiService);
 
   user: UserSession | null = null;
   profile: UserProfileDetails | null = null;
@@ -61,6 +64,14 @@ export class AppShellComponent implements OnInit {
         GlobalCapability.CREATE_AND_MANAGE_OWN_EVENTS,
       ) === true
     );
+  }
+
+  toggleSidebar(): void {
+    this.shellUi.toggleSidebar();
+  }
+
+  closeSidebar(): void {
+    this.shellUi.closeSidebar();
   }
 
   logout(): void {

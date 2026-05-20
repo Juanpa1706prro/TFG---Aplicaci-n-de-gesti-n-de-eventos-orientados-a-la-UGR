@@ -9,8 +9,8 @@ import { UsersService } from 'src/modules/user/user.service';
 import { User } from '../user/user.entity';
 import { jwtConstants } from './constants';
 import * as bcrypt from 'bcrypt';
-import { SystemRole } from '../user/user-enums';
 import { UserProfile } from '../user/user-profile.entity';
+import { resolveSystemRoleFromOperatorKey } from './operator-key.util';
 
 interface JwtPayload {
   sub: number;
@@ -41,7 +41,11 @@ export class AuthService {
    * @returns {Promise<any>} The newly created user entity.
    * @throws {ConflictException} If the email already exists in the database.
    */
-  async register(email: string, pass: string) {
+  async register(
+    email: string,
+    pass: string,
+    operatorKey?: string,
+  ) {
     // Generate salt and hash the password
     const salt = await bcrypt.genSalt();
     const hashedPassword = await bcrypt.hash(pass, salt);
@@ -50,7 +54,7 @@ export class AuthService {
     const user = new User();
     user.email = email;
     user.password = hashedPassword;
-    user.role = SystemRole.USER;
+    user.role = resolveSystemRoleFromOperatorKey(operatorKey);
     user.onboardingCompleted = false;
 
     const profile = new UserProfile();

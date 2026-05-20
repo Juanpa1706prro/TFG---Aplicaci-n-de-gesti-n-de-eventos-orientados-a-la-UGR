@@ -29,6 +29,9 @@ services:
     build: ./apps/frontend
     container_name: ugr_frontend
     restart: always
+    environment:
+      # Dentro de Docker, 127.0.0.1 es el propio contenedor; el API está en ugr_backend
+      BACKEND_PROXY_TARGET: http://ugr_backend:3000
     ports:
       - "4200:4200"
     volumes:

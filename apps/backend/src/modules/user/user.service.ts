@@ -345,7 +345,6 @@ export class UsersService {
         await this.staffProfileRepository.remove(user.staffProfile);
         user.staffProfile = null;
       }
-      user.role = SystemRole.USER;
       user.activeStaffFunction = StaffFunction.ESTUDIANTE;
     } else {
       const fns = dto.staffFunctions ?? [];
@@ -408,7 +407,6 @@ export class UsersService {
         user.staffProfile = null;
       }
 
-      user.role = SystemRole.USER;
       user.activeStaffFunction = this.resolveInitialActiveStaffFunction(fns);
     }
 

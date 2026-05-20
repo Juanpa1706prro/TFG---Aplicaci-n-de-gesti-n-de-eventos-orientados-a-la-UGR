@@ -27,5 +27,16 @@
     }
   </div>
 
+  <div class="input-field">
+    <label>Clave de operador (opcional, demo)</label>
+    <input
+      type="text"
+      formControlName="operatorKey"
+      placeholder="Solo para pruebas: ADMIN, MANAGER o MODERATOR"
+      autocomplete="off"
+    />
+    <small class="hint">Déjalo vacío para cuenta normal. Las claves son sensibles a mayúsculas.</small>
+  </div>
+
   <button type="submit" [disabled]="registerForm.invalid" class="btn-main">Registrarse</button>
 </form>

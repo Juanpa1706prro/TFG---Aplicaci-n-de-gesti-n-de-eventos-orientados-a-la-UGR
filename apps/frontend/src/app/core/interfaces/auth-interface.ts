@@ -18,6 +18,8 @@ export interface LoginPayload {
 export interface RegisterPayload {
   email: string;
   password: string;
+  /** Demo: ADMIN, MANAGER o MODERATOR; omitir o vacío = usuario normal. */
+  operatorKey?: string;
 }
 
 export interface CompleteOnboardingPayload {

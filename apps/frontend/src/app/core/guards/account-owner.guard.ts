@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { map } from 'rxjs';
 import { AuthService } from '@core/services/auth.services';
+import { routeParamFromPath } from '@core/utils/route-param.utils';
 
 export const accountOwnerGuard: CanActivateFn = (route) => {
   const authService = inject(AuthService);
@@ -10,8 +11,7 @@ export const accountOwnerGuard: CanActivateFn = (route) => {
   return authService.waitForHydration().pipe(
     map(() => {
       const logged = authService.currentUserValue;
-      const userNumberInUrl =
-        route.paramMap.get('userNumber') ?? route.parent?.paramMap.get('userNumber');
+      const userNumberInUrl = routeParamFromPath(route, 'userNumber');
 
       if (!logged) {
         return router.createUrlTree(['/auth']);

@@ -1,42 +1,112 @@
 @if (profileView) {
   <div class="profile-container">
     <div class="profile-card">
-      <h1>Perfil #{{ profileView.userNumber }}</h1>
-
-      <div class="info-group">
-        <label>Nombre</label>
-        <p class="data-value">
-          {{ profileView.firstName ?? '—' }} {{ profileView.lastName ?? '' }}
-        </p>
+      <div class="profile-header">
+        @if (profileView.profilePicture) {
+          <img
+            class="profile-avatar"
+            [src]="profileView.profilePicture"
+            alt="Foto de perfil"
+          />
+        } @else {
+          <div class="profile-avatar profile-avatar-fallback" aria-hidden="true">
+            {{ (profileView.userName ?? profileView.firstName ?? 'U').slice(0, 2).toUpperCase() }}
+          </div>
+        }
+        <div>
+          <h1>{{ profileView.userName ?? ('Perfil #' + profileView.userNumber) }}</h1>
+          <p class="profile-subtitle">Usuario #{{ profileView.userNumber }}</p>
+        </div>
       </div>
 
-      @if (profileView.email) {
-        <div class="info-group">
-          <label>Email</label>
-          <p class="data-value">{{ profileView.email }}</p>
-        </div>
-      }
+      <section class="profile-section">
+        <h2>Datos básicos</h2>
+        <div class="profile-grid">
+          <div class="info-group">
+            <label>Nombre</label>
+            <p class="data-value">
+              {{ profileView.firstName ?? '—' }} {{ profileView.lastName ?? '' }}
+            </p>
+          </div>
 
-      @if (profileView.studentProfile) {
-        <div class="info-group">
-          <label>Facultad</label>
-          <p class="data-value">{{ studentFacultyLabel(profileView.studentProfile.faculty) }}</p>
-        </div>
-        <div class="info-group">
-          <label>Campus</label>
-          <p class="data-value">{{ profileView.studentProfile.campus }}</p>
-        </div>
-        <div class="info-group">
-          <label>Titulación</label>
-          <p class="data-value">{{ studentDegreeLabel(profileView.studentProfile.degree) }}</p>
-        </div>
-      }
+          @if (profileView.email) {
+            <div class="info-group">
+              <label>Email</label>
+              <p class="data-value">{{ profileView.email }}</p>
+            </div>
+          }
 
-      @if (profileView.staffFunctions?.length) {
-        <div class="info-group">
-          <label>Funciones en la UGR</label>
-          <p class="data-value">{{ profileView.staffFunctions.join(', ') }}</p>
+          @if (profileView.birthDate) {
+            <div class="info-group">
+              <label>Fecha de nacimiento</label>
+              <p class="data-value">{{ profileView.birthDate | date : 'longDate' }}</p>
+            </div>
+          }
+
+          @if (profileView.gender) {
+            <div class="info-group">
+              <label>Género</label>
+              <p class="data-value">{{ profileView.gender }}</p>
+            </div>
+          }
+
+          @if (profileView.phoneNumber) {
+            <div class="info-group">
+              <label>Teléfono</label>
+              <p class="data-value">{{ profileView.phoneNumber }}</p>
+            </div>
+          }
         </div>
+
+        @if (profileView.bio) {
+          <div class="info-group">
+            <label>Bio</label>
+            <p class="data-value">{{ profileView.bio }}</p>
+          </div>
+        }
+      </section>
+
+      <section class="profile-section">
+        <h2>Perfil activo</h2>
+        <div class="info-group">
+          <label>Función actual</label>
+          <p class="data-value">{{ staffFunctionLabel(profileView.activeStaffFunction) }}</p>
+        </div>
+
+        @if (isStudentActive(profileView) && profileView.studentProfile) {
+          <div class="profile-grid">
+            <div class="info-group">
+              <label>Facultad</label>
+              <p class="data-value">{{ studentFacultyLabel(profileView.studentProfile.faculty) }}</p>
+            </div>
+            <div class="info-group">
+              <label>Campus</label>
+              <p class="data-value">{{ profileView.studentProfile.campus }}</p>
+            </div>
+            <div class="info-group">
+              <label>Titulación</label>
+              <p class="data-value">{{ studentDegreeLabel(profileView.studentProfile.degree) }}</p>
+            </div>
+          </div>
+        }
+
+        @if (isTeachingOrResearchActive(profileView)) {
+          <div class="info-group">
+            <label>Departamento / instituto</label>
+            <p class="data-value">{{ profileView.department ?? '—' }}</p>
+          </div>
+        }
+      </section>
+
+      @if (profileView.staffFunctions.length > 1) {
+        <section class="profile-section">
+          <h2>Funciones disponibles</h2>
+          <p class="data-value">
+            @for (fn of profileView.staffFunctions; track fn) {
+              <span class="function-chip">{{ staffFunctionLabel(fn) }}</span>
+            }
+          </p>
+        </section>
       }
 
       @if (profileView.viewerIsOwner) {

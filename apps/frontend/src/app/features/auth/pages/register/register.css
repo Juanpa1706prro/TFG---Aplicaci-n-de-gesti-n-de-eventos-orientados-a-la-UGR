@@ -1,0 +1,7 @@
+.auth-form .hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #64748b;
+}

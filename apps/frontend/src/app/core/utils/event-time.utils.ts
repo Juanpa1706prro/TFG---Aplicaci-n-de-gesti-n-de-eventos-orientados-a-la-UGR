@@ -20,23 +20,29 @@ function formatRemain(ms: number): string {
   return `${s}s`;
 }
 
+const START_DATE_FMT: Intl.DateTimeFormatOptions = {
+  dateStyle: 'short',
+  timeStyle: 'short',
+};
+
 /**
- * Texto de cuenta atrás según instante actual.
- * - Antes del inicio: tiempo hasta `startsAt`.
- * - Durante el evento: tiempo hasta fin (= startsAt + durationMinutes).
+ * Texto único de tiempo para marcadores y lista.
+ * - Antes del inicio: cuándo comenzará (fecha/hora fija).
+ * - Durante el evento: cuenta atrás hasta `endsAt`.
  */
-export function eventCountdownText(
+export function eventTimeDisplayText(
   startsAtIso: string,
-  durationMinutes: number,
+  endsAtIso: string,
   nowMs: number,
 ): string {
   const startMs = Date.parse(startsAtIso);
-  if (!Number.isFinite(startMs)) {
+  const endMs = Date.parse(endsAtIso);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
     return '—';
   }
-  const endMs = startMs + durationMinutes * 60_000;
   if (nowMs < startMs) {
-    return `Empieza en ${formatRemain(startMs - nowMs)}`;
+    const startFormatted = new Date(startMs).toLocaleString('es-ES', START_DATE_FMT);
+    return `Comienza el ${startFormatted}`;
   }
   if (nowMs < endMs) {
     return `Quedan ${formatRemain(endMs - nowMs)}`;

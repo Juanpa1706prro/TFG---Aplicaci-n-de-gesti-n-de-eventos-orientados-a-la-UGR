@@ -1,5 +1,25 @@
-<div class="app-shell">
+<div class="app-shell" [class.sidebar-open]="shellUi.sidebarOpen()">
+  @if (shellUi.sidebarOpen()) {
+    <button
+      type="button"
+      class="sidebar-backdrop"
+      aria-label="Cerrar menú"
+      (click)="closeSidebar()"
+    ></button>
+  }
+
   <aside class="sidebar" aria-label="Navegación principal">
+    <button
+      type="button"
+      class="sidebar-tab"
+      [attr.aria-expanded]="shellUi.sidebarOpen()"
+      aria-label="Abrir o cerrar menú"
+      (click)="toggleSidebar()"
+    >
+      <span class="sidebar-tab-icon">{{ shellUi.sidebarOpen() ? '‹' : '›' }}</span>
+      <span class="sidebar-tab-text">Menú</span>
+    </button>
+
     <div class="sidebar-brand">UGR Eventos</div>
 
     <div class="sidebar-user">
@@ -27,13 +47,24 @@
           class="sidebar-link"
           [routerLink]="['/u', user.userNumber, 'map']"
           routerLinkActive="sidebar-link-active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          (click)="closeSidebar()"
         >
           Mapa
         </a>
         <a
           class="sidebar-link"
+          [routerLink]="['/u', user.userNumber, 'map', 'events']"
+          routerLinkActive="sidebar-link-active"
+          (click)="closeSidebar()"
+        >
+          Eventos
+        </a>
+        <a
+          class="sidebar-link"
           [routerLink]="['/u', user.userNumber, 'profile']"
           routerLinkActive="sidebar-link-active"
+          (click)="closeSidebar()"
         >
           Ver perfil
         </a>
@@ -41,6 +72,7 @@
           class="sidebar-link"
           [routerLink]="['/u', user.userNumber, 'account']"
           routerLinkActive="sidebar-link-active"
+          (click)="closeSidebar()"
         >
           Cuenta
         </a>
@@ -50,6 +82,7 @@
             class="sidebar-link sidebar-link-accent"
             [routerLink]="['/u', user.userNumber, 'events', 'new']"
             routerLinkActive="sidebar-link-active"
+            (click)="closeSidebar()"
           >
             Crear evento
           </a>

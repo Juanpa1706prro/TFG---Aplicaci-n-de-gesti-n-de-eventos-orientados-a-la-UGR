@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import {
   BehaviorSubject,
   Observable,
@@ -18,12 +18,13 @@ import {
   SetSessionPersonaPayload,
 } from '@core/interfaces/auth-interface';
 import { Router } from '@angular/router';
+import { API_BASE_URL } from '@core/config/api.config';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
-  private readonly API_URL = 'http://localhost:3000';
+  private readonly API_URL = API_BASE_URL;
 
   /**
    * Pasa a true cuando ha terminado el primer intento de rehidratar la sesión
@@ -84,13 +85,12 @@ export class AuthService {
   }
 
   /**
-   * Llamar una vez al arranque (APP_INITIALIZER). Recupera sesión vía cookies con GET /auth/me.
+   * Llamar una vez al arranque (APP_INITIALIZER).
+   * Recupera sesión vía cookies y, si el access token caducó, intenta rotar con refresh token.
    */
   public async initializeAuth(): Promise<void> {
     try {
-      const me = await firstValueFrom(
-        this.http.get<UserSession>(`${this.API_URL}/auth/me`),
-      );
+      const me = await this.loadSessionFromCookies();
       this.currentUserSubject.next(this.normalizeSession(me));
       localStorage.setItem('hasSession', 'true');
     } catch {
@@ -99,6 +99,24 @@ export class AuthService {
     } finally {
       this.sessionHydrated$.next(true);
     }
+  }
+
+  private async loadSessionFromCookies(): Promise<UserSession> {
+    try {
+      return await firstValueFrom(
+        this.http.get<UserSession>(`${this.API_URL}/auth/me`),
+      );
+    } catch (err) {
+      const status = err instanceof HttpErrorResponse ? err.status : 0;
+      if (status !== 401) {
+        throw err;
+      }
+    }
+
+    await firstValueFrom(this.refreshToken());
+    return firstValueFrom(
+      this.http.get<UserSession>(`${this.API_URL}/auth/me`),
+    );
   }
 
   public register(credentials: RegisterPayload): Observable<unknown> {

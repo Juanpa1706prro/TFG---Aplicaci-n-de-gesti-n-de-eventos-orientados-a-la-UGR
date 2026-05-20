@@ -32,10 +32,10 @@
       </div>
 
       <div class="field">
-        <label>Duración (minutos) <span class="req">*</span></label>
-        <input type="number" formControlName="durationMinutes" min="1" max="525600" step="1" />
+        <label>Fin del evento <span class="req">*</span></label>
+        <input type="datetime-local" formControlName="endsAt" />
         <p class="hint">
-          Al terminar (inicio + duración) el evento se elimina del sistema. La cuenta atrás en el mapa se calcula en el navegador.
+          Al finalizar deja de mostrarse en el mapa. Se conserva en histórico mediante soft delete.
         </p>
       </div>
 

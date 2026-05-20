@@ -26,12 +26,22 @@ import {
   USER_FACULTY_LABELS,
   FACULTY_COORDINATES,
 } from '@core/constants/user-enums';
+import { requiredRouteParamFromPath } from '@core/utils/route-param.utils';
 
 function defaultDatetimeLocalNextHour(): string {
   const d = new Date();
   d.setSeconds(0, 0);
   d.setMinutes(0);
   d.setHours(d.getHours() + 1);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function defaultDatetimeLocalEventEnd(): string {
+  const d = new Date();
+  d.setSeconds(0, 0);
+  d.setMinutes(30);
+  d.setHours(d.getHours() + 2);
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
@@ -82,10 +92,7 @@ export class CreateEventComponent implements OnDestroy {
     photoUrl: ['', Validators.maxLength(2000)],
     facultyPreset: [''],
     startsAt: [defaultDatetimeLocalNextHour(), Validators.required],
-    durationMinutes: [
-      90,
-      [Validators.required, Validators.min(1), Validators.max(525600)],
-    ],
+    endsAt: [defaultDatetimeLocalEventEnd(), Validators.required],
     location: ['', [Validators.required, Validators.maxLength(500)]],
     latitude: [
       37.197,
@@ -274,8 +281,12 @@ export class CreateEventComponent implements OnDestroy {
     this.managerRows.splice(index, 1);
   }
 
+  private currentUserNumber(): string {
+    return requiredRouteParamFromPath(this.route.snapshot, 'userNumber');
+  }
+
   cancel(): void {
-    const n = this.route.snapshot.paramMap.get('userNumber');
+    const n = this.currentUserNumber();
     void this.router.navigate(['/u', n, 'map']);
   }
 
@@ -288,6 +299,12 @@ export class CreateEventComponent implements OnDestroy {
     const v = this.form.getRawValue();
     if (!v.unlimitedAttendees && (v.maxAttendees == null || v.maxAttendees < 1)) {
       this.errorMessage = 'Indica un número máximo de asistentes o marca «sin límite».';
+      return;
+    }
+    const startsAt = new Date(v.startsAt);
+    const endsAt = new Date(v.endsAt);
+    if (endsAt <= startsAt) {
+      this.errorMessage = 'La fecha de fin debe ser posterior al inicio del evento.';
       return;
     }
 
@@ -311,8 +328,8 @@ export class CreateEventComponent implements OnDestroy {
       location: v.location.trim(),
       latitude: v.latitude,
       longitude: v.longitude,
-      startsAt: new Date(v.startsAt).toISOString(),
-      durationMinutes: v.durationMinutes,
+      startsAt: startsAt.toISOString(),
+      endsAt: endsAt.toISOString(),
       ...(v.visibility === EventVisibility.PRIVATE
         ? { visibility: EventVisibility.PRIVATE }
         : {}),
@@ -327,7 +344,7 @@ export class CreateEventComponent implements OnDestroy {
     this.eventsService.create(payload).subscribe({
       next: () => {
         this.submitting = false;
-        const n = this.route.snapshot.paramMap.get('userNumber');
+        const n = this.currentUserNumber();
         void this.router.navigate(['/u', n, 'map']);
       },
       error: (err) => {

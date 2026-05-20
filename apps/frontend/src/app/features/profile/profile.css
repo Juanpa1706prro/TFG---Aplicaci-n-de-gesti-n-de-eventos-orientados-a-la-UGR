@@ -11,9 +11,58 @@
   box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
 }
 
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.profile-avatar {
+  width: 76px;
+  height: 76px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid #bfdbfe;
+}
+
+.profile-avatar-fallback {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.25rem;
+}
+
 .profile-card h1 {
-  margin: 0 0 1.25rem;
+  margin: 0;
   font-size: 1.35rem;
+}
+
+.profile-subtitle {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.profile-section {
+  padding-top: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.profile-section h2 {
+  margin: 0 0 0.9rem;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem 1.25rem;
 }
 
 .info-group {
@@ -33,6 +82,17 @@
   color: #0f172a;
 }
 
+.function-chip {
+  display: inline-block;
+  margin: 0 0.4rem 0.4rem 0;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .account-actions {
   margin-top: 1.5rem;
   padding-top: 1rem;
@@ -48,4 +108,19 @@
   text-align: center;
   padding: 3rem 1rem;
   color: #64748b;
+}
+
+@media (max-width: 640px) {
+  .profile-card {
+    padding: 1.25rem;
+  }
+
+  .profile-header {
+    align-items: flex-start;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
 }

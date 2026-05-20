@@ -1,7 +1,9 @@
 import {
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -53,13 +55,17 @@ export class Event {
   @Column({ type: 'timestamptz' })
   startsAt: Date;
 
-  /** Duración total en minutos (fin = startsAt + duration). */
-  @Column({ type: 'int' })
-  durationMinutes: number;
+  /** Fin del evento (UTC en BD). Se usa para filtrar marcadores activos. */
+  @Index('IDX_events_endsAt')
+  @Column({ type: 'timestamptz' })
+  endsAt: Date;
 
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn({ nullable: true })
+  deletedAt: Date | null;
 }

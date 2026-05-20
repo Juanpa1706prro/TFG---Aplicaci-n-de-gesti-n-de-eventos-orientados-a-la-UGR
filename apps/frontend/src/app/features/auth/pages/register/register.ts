@@ -46,6 +46,7 @@ export class RegisterComponent implements OnInit {
           ],
         ],
         confirmPassword: ['', Validators.required],
+        operatorKey: [''],
       },
       { validators: this.passwordMatchValidator },
     );
@@ -59,10 +60,17 @@ export class RegisterComponent implements OnInit {
    */
   onRegister(): void {
     if (this.registerForm.valid) {
-      const { email, password } = this.registerForm.value;
+      const { email, password, operatorKey } = this.registerForm.value;
+      const payload: { email: string; password: string; operatorKey?: string } = {
+        email,
+        password,
+      };
+      const key = (operatorKey as string)?.trim();
+      if (key) {
+        payload.operatorKey = key;
+      }
 
-      // Llamamos al servicio y NOS SUSCRIBIMOS para que se ejecute
-      this.authService.register({ email, password }).subscribe({
+      this.authService.register(payload).subscribe({
         next: () => {
           alert('Usuario creado. Ya puedes iniciar sesión.');
         },

@@ -59,11 +59,9 @@ export class CreateEventDto {
   @IsDateString()
   startsAt: string;
 
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(525600)
-  durationMinutes: number;
+  /** ISO 8601 (UTC o con offset). Debe ser posterior a startsAt. */
+  @IsDateString()
+  endsAt: string;
 
   /** Por defecto público; privado para tutorías u otros (solo creador y gestores en mapa). */
   @IsOptional()

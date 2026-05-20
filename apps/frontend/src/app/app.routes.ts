@@ -3,6 +3,7 @@ import { PATHS } from './app.paths';
 
 import { MapComponent } from '@features/map/map';
 import { CreateEventComponent } from '@features/events/create-event/create-event';
+import { EventsListComponent } from '@features/events/events-list/events-list';
 import { AuthComponent } from '@features/auth/auth';
 import { ProfileComponent } from '@features/profile/profile';
 import { AccountComponent } from '@features/account/account';
@@ -48,6 +49,11 @@ export const routes: Routes = [
     component: AppShellComponent,
     children: [
       {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: 'map',
+      },
+      {
         path: 'events/new',
         component: CreateEventComponent,
         canActivate: [
@@ -62,6 +68,12 @@ export const routes: Routes = [
         path: 'map',
         component: MapComponent,
         canActivate: [authGuard, profileCompleteGuard, personaSelectedGuard, mapGuard],
+        children: [
+          {
+            path: 'events',
+            component: EventsListComponent,
+          },
+        ],
       },
       {
         path: 'profile',
@@ -84,5 +96,9 @@ export const routes: Routes = [
     path: '',
     pathMatch: 'full',
     component: EntryShellComponent,
+  },
+  {
+    path: '**',
+    redirectTo: '',
   },
 ];

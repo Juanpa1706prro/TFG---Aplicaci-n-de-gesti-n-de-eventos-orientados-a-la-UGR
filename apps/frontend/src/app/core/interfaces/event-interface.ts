@@ -13,7 +13,7 @@ export interface CreateEventPayload {
   latitude: number;
   longitude: number;
   startsAt: string;
-  durationMinutes: number;
+  endsAt: string;
   visibility?: EventVisibility;
   maxAttendees?: number | null;
   managers?: EventManagerInvitePayload[];
@@ -32,17 +32,57 @@ export interface CreatedEventDto {
   creatorId: number;
   createdAt: string;
   startsAt: string;
-  durationMinutes: number;
+  endsAt: string;
 }
 
 export interface MapMarkerDto {
   id: number;
   title: string;
+  description: string;
+  photoUrl: string | null;
   location: string;
   latitude: number;
   longitude: number;
   visibility: EventVisibility;
+  maxAttendees: number | null;
   createdAt: string;
+  updatedAt: string;
   startsAt: string;
-  durationMinutes: number;
+  endsAt: string;
+}
+
+export interface EventParticipantDto {
+  userNumber: number;
+  firstName: string | null;
+  lastName: string | null;
+  profilePicture: string | null;
+}
+
+export type EventManagementRole = 'creator' | 'editor' | 'moderator';
+
+export interface EventListItemDto {
+  id: number;
+  title: string;
+  description: string;
+  photoUrl: string | null;
+  location: string;
+  visibility: EventVisibility;
+  maxAttendees: number | null;
+  startsAt: string;
+  endsAt: string;
+  managementRoles: EventManagementRole[];
+}
+
+export interface MyEventListsDto {
+  active: EventListItemDto[];
+  attended: EventListItemDto[];
+  managed: EventListItemDto[];
+}
+
+export interface EventDetailDto extends MapMarkerDto {
+  creator: EventParticipantDto;
+  managers: EventParticipantDto[];
+  attendees: EventParticipantDto[];
+  attendeeCount: number;
+  isAttending: boolean;
 }
