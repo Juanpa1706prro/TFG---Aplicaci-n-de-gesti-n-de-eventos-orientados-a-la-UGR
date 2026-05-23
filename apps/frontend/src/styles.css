@@ -12,3 +12,25 @@ app-root {
   height: 100%;
   width: 100%;
 }
+
+/**
+ * Carteles de eventos en el mapa (DOM creado con createElement, fuera de encapsulación Angular).
+ * Los clusters usan las reglas del componente; los eventos necesitan estilos globales.
+ */
+@keyframes ugr-event-map-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.event-map-marker-float {
+  animation: ugr-event-map-float 2.8s ease-in-out infinite;
+}
+
+.event-map-marker-float.map-marker-float--paused {
+  animation-play-state: paused;
+}

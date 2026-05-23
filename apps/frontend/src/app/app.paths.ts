@@ -12,5 +12,6 @@ export const PATHS = {
   MAP_EVENTS: 'map/events',
   EVENT_NEW: 'events/new',
   PROFILE: 'profile',
+  PROFILE_VIEW: 'profile/:viewUserNumber',
   ACCOUNT: 'account',
 } as const;

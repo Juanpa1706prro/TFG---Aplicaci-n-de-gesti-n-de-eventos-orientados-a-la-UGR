@@ -1,11 +1,13 @@
 import { Routes } from '@angular/router';
 import { PATHS } from './app.paths';
 
-import { MapComponent } from '@features/map/map';
+import { ShellPassThroughComponent } from './layout/shell-pass-through.component';
 import { CreateEventComponent } from '@features/events/create-event/create-event';
 import { EventsListComponent } from '@features/events/events-list/events-list';
+import { FriendsPanelComponent } from '@features/friends/friends-panel/friends-panel';
 import { AuthComponent } from '@features/auth/auth';
 import { ProfileComponent } from '@features/profile/profile';
+import { EditProfileComponent } from '@features/profile/edit-profile.component';
 import { AccountComponent } from '@features/account/account';
 import { OnboardingComponent } from '@features/auth/pages/onboarding/onboarding';
 import { SelectProfileComponent } from '@features/auth/pages/select-profile/select-profile';
@@ -21,6 +23,8 @@ import { accountOwnerGuard } from '@core/guards/account-owner.guard';
 import { personaSelectedGuard } from '@core/guards/persona-selected.guard';
 import { selectPersonaPageGuard } from '@core/guards/select-persona-page.guard';
 import { canCreateEventsGuard } from '@core/guards/can-create-events.guard';
+import { sessionOwnerGuard } from '@core/guards/session-owner.guard';
+import { profileCanonicalGuard } from '@core/guards/profile-canonical.guard';
 
 export const routes: Routes = [
   {
@@ -47,6 +51,8 @@ export const routes: Routes = [
   {
     path: 'u/:userNumber',
     component: AppShellComponent,
+    canActivate: [authGuard, sessionOwnerGuard],
+    runGuardsAndResolvers: 'paramsChange',
     children: [
       {
         path: '',
@@ -66,19 +72,33 @@ export const routes: Routes = [
       },
       {
         path: 'map',
-        component: MapComponent,
-        canActivate: [authGuard, profileCompleteGuard, personaSelectedGuard, mapGuard],
+        component: ShellPassThroughComponent,
+        canActivate: [profileCompleteGuard, personaSelectedGuard, mapGuard],
         children: [
           {
             path: 'events',
             component: EventsListComponent,
           },
+          {
+            path: 'friends',
+            component: FriendsPanelComponent,
+          },
         ],
+      },
+      {
+        path: 'profile/edit',
+        component: EditProfileComponent,
+        canActivate: [profileCompleteGuard],
+      },
+      {
+        path: 'profile/:viewUserNumber',
+        component: ProfileComponent,
+        canActivate: [profileCompleteGuard, profileCanonicalGuard],
       },
       {
         path: 'profile',
         component: ProfileComponent,
-        canActivate: [authGuard, profileCompleteGuard, personaSelectedGuard],
+        canActivate: [profileCompleteGuard],
       },
       {
         path: 'account',

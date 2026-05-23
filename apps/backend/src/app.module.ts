@@ -15,6 +15,9 @@ import { EventManagerAssignment } from './modules/events/event-manager-assignmen
 import { EventAttendance } from './modules/events/event-attendance.entity';
 import { FacultyDelegation } from './modules/delegation/faculty-delegation.entity';
 import { DelegationMembership } from './modules/delegation/delegation-membership.entity';
+import { FriendRequest } from './modules/friends/friend-request.entity';
+import { Friendship } from './modules/friends/friendship.entity';
+import { FriendsModule } from './modules/friends/friends.module';
 
 // ------------------------------------------------------------
 // Root application module that bundles all feature modules and 
@@ -44,6 +47,8 @@ import { DelegationMembership } from './modules/delegation/delegation-membership
         EventAttendance,
         FacultyDelegation,
         DelegationMembership,
+        FriendRequest,
+        Friendship,
       ],
       synchronize: true,        // Auto-crea las tablas (útil en desarrollo) . Set to false in production.
     }),
@@ -52,6 +57,7 @@ import { DelegationMembership } from './modules/delegation/delegation-membership
     // ------------------------------------------------------------
     AuthModule,
     EventsModule,
+    FriendsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

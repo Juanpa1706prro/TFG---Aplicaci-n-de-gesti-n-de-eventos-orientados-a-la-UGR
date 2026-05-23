@@ -1,10 +1,10 @@
 :host {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   display: block;
   box-sizing: border-box;
-  height: 100vh;
-  max-height: 100vh;
-  height: 100dvh;
-  max-height: 100dvh;
+  pointer-events: auto;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;

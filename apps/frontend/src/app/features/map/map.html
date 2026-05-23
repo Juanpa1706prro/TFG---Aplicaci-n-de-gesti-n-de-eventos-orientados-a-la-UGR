@@ -1,6 +1,144 @@
 <div class="map-page">
   <div class="map-body">
-    <div #mapContainer class="map-container"></div>
+    <div
+      #mapContainer
+      class="map-container"
+      [class.map-container--dawn]="activeVisualTheme() === 'dawn'"
+      [class.map-container--sunset]="activeVisualTheme() === 'sunset'"
+      [class.map-container--night]="activeVisualTheme() === 'night'"
+      [class.map-container--neutro]="activeVisualTheme() === 'neutro'"
+    ></div>
+
+    <div class="map-map-controls" (click)="$event.stopPropagation()">
+      <button
+        type="button"
+        class="map-locate-btn"
+        [disabled]="locatingUser()"
+        aria-label="Ir a mi ubicación"
+        (click)="goToMyLocation()"
+      >
+        <span class="map-locate-btn__icon" aria-hidden="true">◎</span>
+        <span class="map-locate-btn__label">
+          {{ locatingUser() ? 'Localizando…' : 'Mi ubicación' }}
+        </span>
+      </button>
+    </div>
+
+    <div class="map-theme-toolbar" (click)="$event.stopPropagation()">
+      <div class="map-theme-control">
+        <button
+          type="button"
+          class="map-theme-control__current"
+          aria-haspopup="true"
+          [attr.aria-label]="'Estilo del mapa: ' + currentThemeLabel()"
+        >
+          {{ currentThemeLabel() }}
+        </button>
+        <div class="map-theme-control__menu" role="menu">
+          @for (opt of otherThemeOptions(); track opt.value) {
+            <button
+              type="button"
+              class="map-theme-control__option"
+              role="menuitem"
+              (click)="selectThemePreference(opt.value)"
+            >
+              {{ opt.label }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="map-theme-demo-btn"
+        [class.map-theme-demo-btn--active]="demoPanelOpen()"
+        (click)="toggleDemoPanel()"
+      >
+        Demo
+      </button>
+
+      @if (demoPanelOpen()) {
+        <div class="map-theme-demo-panel" role="listbox" aria-label="Estilos demo">
+          @for (style of demoStyles; track style.id) {
+            <button
+              type="button"
+              class="map-theme-demo-panel__item"
+              role="option"
+              [class.map-theme-demo-panel__item--active]="activeDemoStyleId() === style.id"
+              (click)="applyDemoStyle(style)"
+            >
+              {{ style.label }}
+            </button>
+          }
+        </div>
+      }
+    </div>
+
+    @if (clusterPanelEvents(); as clusterEvents) {
+      <div
+        class="map-cluster-page"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Eventos agrupados"
+        (click)="$event.stopPropagation()"
+      >
+        <button
+          type="button"
+          class="map-cluster-page__dim"
+          aria-label="Cerrar listado"
+          (click)="closeClusterPanel()"
+        ></button>
+
+        <section class="map-cluster-page__panel">
+          <header class="map-cluster-page__header">
+            <div>
+              <h2 class="map-cluster-page__title">
+                {{ clusterEvents.length }} eventos en esta zona
+              </h2>
+              <p class="map-cluster-page__subtitle">
+                Acerca el mapa para verlos por separado o elige uno para ver el detalle.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="map-cluster-page__close"
+              aria-label="Cerrar"
+              (click)="closeClusterPanel()"
+            >
+              ×
+            </button>
+          </header>
+
+          <ul class="map-cluster-page__list">
+            @for (ev of clusterEvents; track ev.id) {
+              <li>
+                <button
+                  type="button"
+                  class="map-cluster-page__item"
+                  (click)="selectEventFromCluster(ev)"
+                >
+                  <span
+                    class="map-cluster-page__thumb"
+                    [class.map-cluster-page__thumb--empty]="!hasPhoto(ev)"
+                  >
+                    @if (hasPhoto(ev)) {
+                      <img [src]="ev.photoUrl" alt="" loading="lazy" />
+                    }
+                  </span>
+                  <span class="map-cluster-page__item-text">
+                    <span class="map-cluster-page__item-title">{{ ev.title }}</span>
+                    <span class="map-cluster-page__item-time">{{ markerTimeLabel(ev) }}</span>
+                    <span class="map-cluster-page__item-meta">
+                      {{ visibilityLabel(ev.visibility) }} · {{ ev.location }}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            }
+          </ul>
+        </section>
+      </div>
+    }
 
     @if (selectedEvent(); as ev) {
       <aside class="map-detail-panel" aria-label="Detalle del evento" (click)="$event.stopPropagation()">
@@ -17,7 +155,7 @@
           }
         </div>
 
-        <p class="map-detail-time">{{ timeLabel(ev) }}</p>
+        <p class="map-detail-time">{{ detailTimeLabel(ev) }}</p>
 
         @if (eventDetailLoading()) {
           <p class="map-detail-muted">Cargando información del evento…</p>
@@ -139,6 +277,4 @@
       </aside>
     }
   </div>
-
-  <router-outlet />
 </div>

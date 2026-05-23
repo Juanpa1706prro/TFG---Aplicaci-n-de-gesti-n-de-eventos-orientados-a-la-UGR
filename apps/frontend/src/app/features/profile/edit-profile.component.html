@@ -1,0 +1,100 @@
+<app-column-overlay (close)="closeToMap()">
+  <div class="profile-container">
+    <div class="profile-card profile-card--edit">
+      <h1>Editar datos del perfil</h1>
+      <p class="profile-edit-lead">
+        Actualiza tu información personal visible en el perfil.
+      </p>
+
+      @if (loading()) {
+        <p class="loading-state">Cargando datos…</p>
+      } @else if (loadError()) {
+        <p class="loading-state">No se han podido cargar tus datos.</p>
+        <button type="button" class="profile-edit-btn-secondary" (click)="cancel()">
+          Volver al perfil
+        </button>
+      } @else {
+        @if (errorMessage(); as err) {
+          <p class="profile-edit-error" role="alert">{{ err }}</p>
+        }
+
+        <form [formGroup]="form" (ngSubmit)="submit()" class="profile-edit-form">
+          <div class="profile-grid">
+            <div class="profile-edit-field">
+              <label for="edit-firstName">Nombre <span class="req">*</span></label>
+              <input id="edit-firstName" type="text" formControlName="firstName" />
+            </div>
+            <div class="profile-edit-field">
+              <label for="edit-lastName">Apellidos <span class="req">*</span></label>
+              <input id="edit-lastName" type="text" formControlName="lastName" />
+            </div>
+          </div>
+
+          <div class="profile-edit-field">
+            <label for="edit-gender">Género</label>
+            <select id="edit-gender" formControlName="gender">
+              <option [ngValue]="null">Sin especificar</option>
+              @for (g of genderOptions; track g) {
+                <option [ngValue]="g">{{ g }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="profile-edit-field">
+            <label for="edit-birthDate">Fecha de nacimiento</label>
+            <input id="edit-birthDate" type="date" formControlName="birthDate" />
+          </div>
+
+          <div class="profile-edit-field">
+            <label for="edit-phone">Teléfono</label>
+            <input
+              id="edit-phone"
+              type="tel"
+              formControlName="phoneNumber"
+              placeholder="+34 600 000 000"
+            />
+          </div>
+
+          <div class="profile-edit-field">
+            <label for="edit-bio">Bio</label>
+            <textarea
+              id="edit-bio"
+              rows="4"
+              formControlName="bio"
+              placeholder="Cuéntanos algo sobre ti (máx. 500 caracteres)"
+            ></textarea>
+          </div>
+
+          <div class="profile-edit-field">
+            <label for="edit-picture">URL de foto de perfil</label>
+            <input
+              id="edit-picture"
+              type="url"
+              formControlName="profilePicture"
+              placeholder="https://…"
+            />
+            <p class="profile-edit-hint">Opcional. En el futuro podrás subir una imagen.</p>
+          </div>
+
+          <div class="profile-edit-actions">
+            <button
+              type="submit"
+              class="profile-edit-btn-primary"
+              [disabled]="submitting()"
+            >
+              {{ submitting() ? 'Guardando…' : 'Guardar cambios' }}
+            </button>
+            <button
+              type="button"
+              class="profile-edit-btn-secondary"
+              [disabled]="submitting()"
+              (click)="cancel()"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      }
+    </div>
+  </div>
+</app-column-overlay>

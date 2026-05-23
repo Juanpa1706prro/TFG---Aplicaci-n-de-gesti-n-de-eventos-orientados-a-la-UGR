@@ -31,14 +31,42 @@ export interface FullUserPayload extends UserSession {
   studentProfile: StudentProfileDto | null;
 }
 
+/** Cuerpo de PATCH /user/profile */
+export interface UpdateProfilePayload {
+  firstName?: string;
+  lastName?: string;
+  gender?: UserGender;
+  birthDate?: string;
+  phoneNumber?: string;
+  bio?: string;
+  profilePicture?: string;
+}
+
+export interface ProfileRoleFieldView {
+  key: string;
+  label: string;
+  value: string;
+}
+
+export interface ProfileRoleSectionView {
+  function: StaffFunction;
+  title: string;
+  fields: ProfileRoleFieldView[];
+}
+
 /** Respuesta de GET /user/public/:userNumber */
 export interface PublicProfileView {
+  userId: number;
   userNumber: number;
+  userName: string;
   firstName: string | null;
   lastName: string | null;
+  bio: string | null;
+  profilePicture: string | null;
   email?: string;
   viewerIsOwner: boolean;
   staffFunctions: StaffFunction[];
   studentProfile: StudentProfileDto | null;
   department?: string | null;
+  roleSections: ProfileRoleSectionView[];
 }

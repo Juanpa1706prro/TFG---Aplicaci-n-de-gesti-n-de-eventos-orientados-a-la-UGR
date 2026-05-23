@@ -18,6 +18,11 @@ import {
   SystemRole,
 } from './user-enums';
 import { CapabilityService } from './capability.service';
+import {
+  buildPublicProfileRoleSections,
+  filterImplementedStaffFunctions,
+  ProfileRoleSectionView,
+} from './profile-role-display.util';
 
 export type PublicSessionUser = {
   id: number;
@@ -33,11 +38,17 @@ export type PublicSessionUser = {
 };
 
 export type PublicProfileView = {
+  /** PK en users; para acciones directas (p. ej. solicitud de amistad desde perfil). */
+  userId: number;
   userNumber: number;
+  userName: string;
   firstName: string | null;
   lastName: string | null;
+  bio: string | null;
+  profilePicture: string | null;
   email?: string;
   viewerIsOwner: boolean;
+  /** Funciones con perfil implementado (estudiante, profesor). */
   staffFunctions: StaffFunction[];
   studentProfile: {
     faculty: string;
@@ -45,6 +56,7 @@ export type PublicProfileView = {
     degree: string;
   } | null;
   department: string | null;
+  roleSections: ProfileRoleSectionView[];
 };
 
 @Injectable()
@@ -445,35 +457,47 @@ export class UsersService {
     userNumber: number,
     requesterUserId: number,
   ): Promise<PublicProfileView> {
-    const user = await this.userRepository.findOne({
-      where: { profile: { userNumber } },
-      relations: [
-        'profile',
-        'studentProfile',
-        'staffProfile',
-        'staffFunctionLinks',
-      ],
-    });
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .innerJoinAndSelect('user.profile', 'profile')
+      .leftJoinAndSelect('user.studentProfile', 'studentProfile')
+      .leftJoinAndSelect('user.staffProfile', 'staffProfile')
+      .leftJoinAndSelect('user.staffFunctionLinks', 'staffFunctionLinks')
+      .where('profile.userNumber = :userNumber', { userNumber })
+      .getOne();
 
-    if (!user || !user.profile) {
+    if (!user?.profile) {
       throw new NotFoundException('Usuario no encontrado');
     }
 
     const viewerIsOwner = user.id === requesterUserId;
+    const allStaffFunctions = this.staffFunctionList(user);
+    const studentProfile = user.studentProfile
+      ? {
+          faculty: user.studentProfile.faculty,
+          campus: user.studentProfile.campus,
+          degree: user.studentProfile.degree,
+        }
+      : null;
+    const department = this.staffDepartment(user);
+
     const base: PublicProfileView = {
+      userId: user.id,
       userNumber: user.profile.userNumber,
+      userName: user.profile.userName,
       firstName: user.profile.firstName,
       lastName: user.profile.lastName,
+      bio: user.profile.bio,
+      profilePicture: user.profile.profilePicture,
       viewerIsOwner,
-      staffFunctions: this.staffFunctionList(user),
-      studentProfile: user.studentProfile
-        ? {
-            faculty: user.studentProfile.faculty,
-            campus: user.studentProfile.campus,
-            degree: user.studentProfile.degree,
-          }
-        : null,
-      department: this.staffDepartment(user),
+      staffFunctions: filterImplementedStaffFunctions(allStaffFunctions),
+      studentProfile,
+      department,
+      roleSections: buildPublicProfileRoleSections(
+        allStaffFunctions,
+        studentProfile,
+        department,
+      ),
     };
 
     if (viewerIsOwner) {

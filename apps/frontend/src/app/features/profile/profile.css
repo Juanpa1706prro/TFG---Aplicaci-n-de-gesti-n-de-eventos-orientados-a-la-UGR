@@ -1,7 +1,57 @@
 .profile-container {
-  max-width: 640px;
-  margin: 2rem auto;
-  padding: 0 1rem;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.profile-section--first {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.profile-role-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.function-chip--active {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.profile-persona-hint {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  font-size: 0.9rem;
+  color: #92400e;
+}
+
+.profile-persona-hint a {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.profile-section--muted h2 {
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.profile-section-empty,
+.profile-section-note {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.profile-section-note a {
+  color: #1d4ed8;
+  font-weight: 600;
 }
 
 .profile-card {
@@ -16,6 +66,26 @@
   align-items: center;
   gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.profile-edit-btn {
+  margin-left: auto;
+  align-self: flex-start;
+  flex-shrink: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1d4ed8;
+  background: #fff;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.profile-edit-btn:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
 }
 
 .profile-avatar {
@@ -41,10 +111,197 @@
   font-size: 1.35rem;
 }
 
+.profile-header-text {
+  min-width: 0;
+}
+
 .profile-subtitle {
   margin: 0.25rem 0 0;
   color: #64748b;
   font-size: 0.9rem;
+}
+
+.profile-context-label {
+  margin: 0 0 0.15rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.profile-friend-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.65rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.profile-friend-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-friend-btn--primary {
+  background: #2563eb;
+  color: #fff;
+}
+
+.profile-friend-btn--primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.profile-friend-btn--secondary {
+  background: #fff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.profile-friend-btn--secondary:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.profile-friend-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.profile-friend-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.profile-friend-badge--pending {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.profile-friend-badge--incoming {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.profile-friend-badge--friends {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.profile-friend-badge--clickable {
+  cursor: pointer;
+  font: inherit;
+}
+
+.profile-friend-badge--clickable:hover:not(:disabled) {
+  background: #bbf7d0;
+}
+
+.profile-friend-badge--clickable:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.profile-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.profile-confirm__dim {
+  position: absolute;
+  inset: 0;
+  border: none;
+  margin: 0;
+  padding: 0;
+  background: rgba(15, 23, 42, 0.5);
+  cursor: pointer;
+}
+
+.profile-confirm__panel {
+  position: relative;
+  z-index: 1;
+  width: min(400px, 100%);
+  padding: 1.25rem 1.35rem;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+}
+
+.profile-confirm__title {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.profile-confirm__text {
+  margin: 0.75rem 0 1.25rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: #475569;
+}
+
+.profile-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.profile-confirm__btn {
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-confirm__btn--cancel {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.profile-confirm__btn--cancel:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.profile-confirm__btn--danger {
+  background: #dc2626;
+  color: #fff;
+}
+
+.profile-confirm__btn--danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.profile-confirm__btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.profile-friend-error {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.82rem;
+  color: #b91c1c;
 }
 
 .profile-section {
@@ -117,6 +374,12 @@
 
   .profile-header {
     align-items: flex-start;
+  }
+
+  .profile-edit-btn {
+    margin-left: 0;
+    width: 100%;
+    text-align: center;
   }
 
   .profile-grid {

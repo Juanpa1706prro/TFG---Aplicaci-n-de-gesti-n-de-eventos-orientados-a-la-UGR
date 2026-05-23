@@ -18,18 +18,21 @@ import {
 
   signal,
 
+  effect,
+
 } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router, RouterLink, RouterOutlet } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, Router, RouterLink } from '@angular/router';
 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-
-import { interval } from 'rxjs';
+import { filter } from 'rxjs';
 
 import maplibregl from 'maplibre-gl';
 
 import { EventsService } from '@core/services/events.service';
+import { AuthService } from '@core/services/auth.services';
+import { MapThemeService } from '@core/services/map-theme.service';
 
 import {
   EventDetailDto,
@@ -43,20 +46,78 @@ import {
 
 import { EventVisibility } from '@core/constants/event-enums';
 
-import { eventTimeDisplayText } from '@core/utils/event-time.utils';
+import {
+  eventMarkerTimeText,
+  eventTimeDisplayText,
+  msUntilNextDetailTimeRefresh,
+  msUntilNextMarkerLabelRefresh,
+} from '@core/utils/event-time.utils';
 import { openGoogleMapsDirectionsFromCurrentLocation } from '@core/utils/google-maps-directions.utils';
-
-
+import {
+  MAP_DEMO_STYLES,
+  MAP_THEME_PREFERENCE_OPTIONS,
+  MapThemePreference,
+  MapVisualTheme,
+} from '@core/config/map-styles.config';
+import { applyMapAtmosphere } from '@core/utils/map-atmosphere.utils';
+import {
+  bindMap3DBuildingsSync,
+  syncMap3DBuildings,
+} from '@core/utils/map-3d-buildings.utils';
+import {
+  captureMarkerSyncCamera,
+  MarkerSyncCameraSnapshot,
+  shouldRunMarkerSync,
+} from '@core/utils/map-marker-sync-threshold.utils';
+import { applyMapLandcoverTheme } from '@core/utils/map-landcover-theme.utils';
+import { applyMapNeutroTheme } from '@core/utils/map-neutro-theme.utils';
+import {
+  mapStyleUrlForTheme,
+  msUntilNextAutoThemeBoundary,
+  resolveVisualTheme,
+  visualThemeFromStyleUrl,
+} from '@core/utils/map-theme.utils';
+import {
+  buildMarkersById,
+  clusterMarkersForMapView,
+  DEFAULT_SCREEN_CLUSTER_CONFIG,
+  markersFromClusterMembers,
+  visibleMarkersDisplayFingerprint,
+  VisibleMapMarker,
+} from '@core/utils/map-event-cluster.utils';
+import {
+  bindEventGlDotLayerInteractions,
+  clearEventGlDotSource,
+  ensureEventGlDotLayer,
+  updateEventGlDotSelection,
+  updateEventGlDotSource,
+  UGR_EVENTS_GL_LAYER_ID,
+  usesGlDotLayer,
+} from '@core/utils/map-event-gl-layer.utils';
+import {
+  createUserLocationGroundElement,
+  createUserLocationMarkerElement,
+  syncUserLocationMarkerVisual,
+  updateUserLocationAccuracyRing,
+} from '@core/utils/map-user-location-marker.utils';
 
 type MarkerHandle = {
-
   data: MapMarkerDto;
-
-  timeEl: HTMLElement;
-
+  timeEl: HTMLElement | null;
+  clickEl: HTMLElement;
+  isDot: boolean;
   mapMarker: maplibregl.Marker;
-
 };
+
+type ClusterMarkerHandle = {
+  clusterId: number;
+  eventIds: number[];
+  mapMarker: maplibregl.Marker;
+};
+
+/** Animación global (styles.css); los carteles no heredan map.css por encapsulación. */
+const EVENT_MARKER_FLOAT_ANIMATION =
+  'ugr-event-map-float 2.8s ease-in-out infinite';
 
 
 
@@ -66,7 +127,7 @@ type MarkerHandle = {
 
   standalone: true,
 
-  imports: [CommonModule, RouterLink, RouterOutlet],
+  imports: [CommonModule, RouterLink],
 
   templateUrl: './map.html',
 
@@ -87,10 +148,31 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef);
 
   private readonly eventsService = inject(EventsService);
+  private readonly authService = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  readonly mapTheme = inject(MapThemeService);
 
+  /** Marcadores visibles en el mapa ahora mismo. */
   private readonly markerHandles: MarkerHandle[] = [];
+  private readonly clusterMarkerHandles: ClusterMarkerHandle[] = [];
+  /**
+   * Pool: marcadores quitados del mapa pero con DOM vivo para reutilizar
+   * (evita createElement + new Marker en cada zoom).
+   */
+  private readonly eventMarkerPool: MarkerHandle[] = [];
+  private readonly clusterMarkerPool: ClusterMarkerHandle[] = [];
+  private markersById = new Map<number, MapMarkerDto>();
+  private allMapMarkers: MapMarkerDto[] = [];
+  private clusterSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  private clusterSyncBound = false;
+  private markerAnimationSyncBound = false;
+  private mapInteractionDepth = 0;
+  private unbindMap3dSync: (() => void) | null = null;
+  private unbindMarkerAnimationSync: (() => void) | null = null;
+  private unbindGlDotInteractions: (() => void) | null = null;
+  private lastVisibleMarkersFingerprint = '';
+  private lastMarkerSyncCamera: MarkerSyncCameraSnapshot | null = null;
   private mapReady = false;
   private pendingEventId: number | null = null;
   private openingEventFromList = false;
@@ -98,45 +180,123 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
 
   readonly selectedEvent = signal<MapMarkerDto | null>(null);
+  readonly clusterPanelEvents = signal<MapMarkerDto[] | null>(null);
   readonly eventDetail = signal<EventDetailDto | null>(null);
   readonly eventDetailLoading = signal(false);
   readonly attendActionLoading = signal(false);
   readonly attendError = signal<string | null>(null);
 
+  readonly activeVisualTheme = signal<MapVisualTheme>(
+    this.mapTheme.resolveTheme(),
+  );
+  readonly demoPanelOpen = signal(false);
+  readonly activeDemoStyleId = signal<string | null>(null);
+  readonly locatingUser = signal(false);
 
+  readonly demoStyles = MAP_DEMO_STYLES;
 
   nowMs = Date.now();
-
-
 
   public map!: maplibregl.Map;
 
   private userLocationMarker: maplibregl.Marker | null = null;
+  private userLocationGroundMarker: maplibregl.Marker | null = null;
+  private unbindUserLocationVisualSync: (() => void) | null = null;
+  /** Centro por defecto (Granada) si no hay geolocalización. */
+  private static readonly DEFAULT_MAP_CENTER: [number, number] = [-3.6245, 37.197];
+  private static readonly DEFAULT_MAP_ZOOM = 17;
+  private static readonly GEOLOCATION_OPTIONS: PositionOptions = {
+    enableHighAccuracy: true,
+    timeout: 8000,
+    maximumAge: 15_000,
+  };
+  private pendingInitialCenter: [number, number] | null = null;
+  private initialUserCenterApplied = false;
+  private initialGeolocationRequested = false;
+  private initialGeolocationFailed = false;
+  private activeStyleUrl: string | null = null;
+  private autoThemeTimer: ReturnType<typeof setTimeout> | null = null;
+  private detailTimeTimer: ReturnType<typeof setTimeout> | null = null;
+  private markerLabelTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.clearAutoThemeSchedule();
+      this.clearDetailTimeSchedule();
+      this.clearMarkerLabelSchedule();
+    });
 
-    interval(1000)
+    effect(() => {
+      const preference = this.mapTheme.themePreference();
+      const changeToken = this.mapTheme.preferenceChange();
+      void changeToken;
 
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      if (!this.mapReady || !this.map) {
+        return;
+      }
 
+      if (this.activeDemoStyleId()) {
+        this.activeDemoStyleId.set(null);
+      }
+
+      this.applyMapTheme(this.mapTheme.resolveTheme(preference));
+      this.resetAutoThemeSchedule();
+    });
+
+    this.router.events
+      .pipe(
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe(() => {
-
-        this.nowMs = Date.now();
-
-        this.refreshMarkerTimeLabels();
-
-        this.cdr.markForCheck();
-
+        if (this.mapReady && this.map) {
+          requestAnimationFrame(() => this.map.resize());
+        }
       });
+  }
 
+  currentThemeLabel(): string {
+    const demoId = this.activeDemoStyleId();
+    if (demoId) {
+      const demo = MAP_DEMO_STYLES.find((s) => s.id === demoId);
+      if (demo) {
+        return demo.label;
+      }
+    }
+    return this.mapTheme.themeLabel(this.mapTheme.themePreference());
+  }
+
+  otherThemeOptions(): typeof MAP_THEME_PREFERENCE_OPTIONS {
+    const current = this.mapTheme.themePreference();
+    return MAP_THEME_PREFERENCE_OPTIONS.filter((o) => o.value !== current);
+  }
+
+  toggleDemoPanel(): void {
+    this.demoPanelOpen.update((open) => !open);
+  }
+
+  selectThemePreference(preference: MapThemePreference): void {
+    this.demoPanelOpen.set(false);
+    this.activeDemoStyleId.set(null);
+    this.mapTheme.setThemePreference(preference);
+  }
+
+  applyDemoStyle(style: (typeof MAP_DEMO_STYLES)[number]): void {
+    this.clearAutoThemeSchedule();
+    this.activeDemoStyleId.set(style.id);
+    this.applyMapStyleUrl(style.url, style.visualTheme);
   }
 
 
 
-  timeLabel(m: MapMarkerDto): string {
+  /** Marcador: Inicio (futuro) o Final (ya empezado); sin cuenta atrás. */
+  markerTimeLabel(m: MapMarkerDto): string {
+    return eventMarkerTimeText(m.startsAt, m.endsAt);
+  }
 
+  /** Panel lateral: cuenta atrás si el evento ya empezó; si no, fecha de inicio o finalizado. */
+  detailTimeLabel(m: MapMarkerDto): string {
     return eventTimeDisplayText(m.startsAt, m.endsAt, this.nowMs);
-
   }
 
 
@@ -157,8 +317,15 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     return eventParticipantInitials(p);
   }
 
-  profileRoute(userNumber: number): string[] {
-    return ['/u', String(userNumber), 'profile'];
+  profileRoute(viewUserNumber: number): (string | number)[] {
+    const me = this.authService.currentUserValue?.userNumber;
+    if (me == null) {
+      return ['/'];
+    }
+    if (viewUserNumber === me) {
+      return ['/u', me, 'profile'];
+    }
+    return ['/u', me, 'profile', viewUserNumber];
   }
 
   attendeesCountLabel(detail: EventDetailDto): string {
@@ -196,6 +363,17 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.eventDetailLoading.set(false);
     this.attendError.set(null);
     this.updateMarkerSelection(null);
+    this.clearDetailTimeSchedule();
+  }
+
+  closeClusterPanel(): void {
+    this.clusterPanelEvents.set(null);
+    this.cdr.markForCheck();
+  }
+
+  selectEventFromCluster(m: MapMarkerDto): void {
+    this.closeClusterPanel();
+    this.selectEvent(m);
   }
 
   toggleAttendance(): void {
@@ -232,7 +410,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  goToMyLocation(): void {
+    this.centerOnUserLocation({ animate: true });
+  }
+
   ngAfterViewInit(): void {
+    this.prefetchUserLocationForMapInit();
     this.initializeMap();
 
     this.route.queryParamMap
@@ -252,7 +435,18 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.unbindMap3dSync?.();
+    this.unbindMap3dSync = null;
+    this.unbindMarkerAnimationSync?.();
+    this.unbindMarkerAnimationSync = null;
+    this.unbindGlDotInteractions?.();
+    this.unbindGlDotInteractions = null;
+    this.mapInteractionDepth = 0;
+    this.setMarkerFloatAnimationsPaused(false);
     this.userLocationMarker?.remove();
+    this.userLocationGroundMarker?.remove();
+    this.unbindUserLocationVisualSync?.();
+    this.unbindUserLocationVisualSync = null;
   }
 
   private isSafePhotoUrl(url: string | null | undefined): url is string {
@@ -279,37 +473,97 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
 
 
-  private refreshMarkerTimeLabels(): void {
-
-    for (const handle of this.markerHandles) {
-
-      handle.timeEl.textContent = this.timeLabel(handle.data);
-
+  private clearDetailTimeSchedule(): void {
+    if (this.detailTimeTimer !== null) {
+      clearTimeout(this.detailTimeTimer);
+      this.detailTimeTimer = null;
     }
-
   }
 
-
-
-  private updateMarkerSelection(selectedId: number | null): void {
-
+  private refreshMarkerTimeLabels(): void {
     for (const handle of this.markerHandles) {
+      if (handle.timeEl) {
+        handle.timeEl.textContent = this.markerTimeLabel(handle.data);
+      }
+    }
+  }
 
-      const root = handle.timeEl.closest('.event-map-marker');
+  private clearMarkerLabelSchedule(): void {
+    if (this.markerLabelTimer !== null) {
+      clearTimeout(this.markerLabelTimer);
+      this.markerLabelTimer = null;
+    }
+  }
 
-      root?.classList.toggle('event-map-marker--selected', handle.data.id === selectedId);
-
+  /** Un timer por marcador futuro: al empezar, Inicio → Final (sin cuenta atrás). */
+  private scheduleMarkerLabelRefresh(): void {
+    this.clearMarkerLabelSchedule();
+    const delay = msUntilNextMarkerLabelRefresh(
+      this.markerHandles.map((h) => h.data.startsAt),
+    );
+    if (delay === null) {
+      return;
     }
 
+    this.markerLabelTimer = setTimeout(() => {
+      this.ngZone.runOutsideAngular(() => {
+        this.refreshMarkerTimeLabels();
+        this.scheduleMarkerLabelRefresh();
+      });
+    }, delay);
+  }
+
+  /** Timer solo con el sidebar abierto y evento en curso (o al llegar la hora de inicio). */
+  private scheduleDetailTimeRefresh(): void {
+    this.clearDetailTimeSchedule();
+    const ev = this.selectedEvent();
+    if (!ev) {
+      return;
+    }
+
+    const delay = msUntilNextDetailTimeRefresh(ev.startsAt, ev.endsAt);
+    if (delay === null) {
+      return;
+    }
+
+    this.detailTimeTimer = setTimeout(() => {
+      this.ngZone.run(() => {
+        this.nowMs = Date.now();
+        this.cdr.markForCheck();
+        this.scheduleDetailTimeRefresh();
+      });
+    }, delay);
+  }
+
+  private resetDetailTimeSchedule(): void {
+    this.nowMs = Date.now();
+    this.cdr.markForCheck();
+    this.scheduleDetailTimeRefresh();
+  }
+
+  private updateMarkerSelection(selectedId: number | null): void {
+    for (const handle of this.markerHandles) {
+      const selected = handle.data.id === selectedId;
+      if (handle.isDot) {
+        handle.clickEl.classList.toggle('event-map-marker-dot--selected', selected);
+      } else {
+        handle.clickEl.classList.toggle('event-map-marker--selected', selected);
+      }
+    }
+    if (this.map && usesGlDotLayer(this.map.getZoom())) {
+      updateEventGlDotSelection(this.map, selectedId);
+    }
   }
 
 
 
   private selectEvent(m: MapMarkerDto): void {
+    this.closeClusterPanel();
     this.selectedEvent.set(m);
     this.updateMarkerSelection(m.id);
     this.loadEventDetail(m.id);
     this.flyToEvent(m.longitude, m.latitude);
+    this.resetDetailTimeSchedule();
   }
 
   private selectEventWithDetail(detail: EventDetailDto): void {
@@ -320,6 +574,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.attendError.set(null);
     this.updateMarkerSelection(marker.id);
     this.flyToEvent(marker.longitude, marker.latitude);
+    this.resetDetailTimeSchedule();
   }
 
   private detailToMarker(detail: EventDetailDto): MapMarkerDto {
@@ -420,12 +675,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
 
   private createMarkerElement(m: MapMarkerDto): HTMLElement {
-
     const root = document.createElement('div');
-
     root.className = 'event-map-marker-root';
-
-
 
     const shadow = document.createElement('span');
 
@@ -438,8 +689,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const floatWrap = document.createElement('div');
 
     floatWrap.className = 'event-map-marker-float';
-
-
+    this.applyEventMarkerFloatAnimation(floatWrap);
 
     const card = document.createElement('button');
 
@@ -505,7 +755,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     time.className = 'event-map-marker__time';
 
-    time.textContent = this.timeLabel(m);
+    time.textContent = this.markerTimeLabel(m);
 
 
 
@@ -514,153 +764,693 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     card.append(photoWrap, body);
 
     floatWrap.appendChild(card);
-
     root.append(floatWrap, shadow);
-
-
-
-    card.addEventListener('click', (e) => {
-
-      e.stopPropagation();
-
-      this.ngZone.run(() => this.selectEvent(m));
-
-    });
-
-
+    this.clearFloatAnimationInlineStyles(root);
 
     return root;
-
   }
 
+  /** Punto compacto para vista lejana: muchos eventos visibles sin mega-cluster. */
+  private createDotMarkerElement(m: MapMarkerDto): HTMLElement {
+    const root = document.createElement('div');
+    root.className = 'event-map-marker-root event-map-marker-root--dot';
 
+    const shadow = document.createElement('span');
+    shadow.className = 'event-map-marker-dot__shadow';
+    shadow.setAttribute('aria-hidden', 'true');
 
-  private clearEventMarkers(): void {
+    const dot = document.createElement('button');
+    dot.type = 'button';
+    dot.className = `event-map-marker-dot event-map-marker-dot--${m.visibility}`;
+    dot.setAttribute('aria-label', `Ver evento: ${m.title}`);
 
-    for (const handle of this.markerHandles) {
+    root.append(dot, shadow);
+    return root;
+  }
 
+  private createClusterMarkerElement(count: number): HTMLElement {
+    const root = document.createElement('div');
+    root.className = 'event-map-cluster-root';
+
+    const shadow = document.createElement('span');
+    shadow.className = 'event-map-cluster__shadow';
+    shadow.setAttribute('aria-hidden', 'true');
+
+    const floatWrap = document.createElement('div');
+    floatWrap.className = 'event-map-cluster-float';
+
+    const bubble = document.createElement('button');
+    bubble.type = 'button';
+    bubble.className = 'event-map-cluster';
+    bubble.setAttribute('aria-label', `${count} eventos agrupados`);
+
+    const countEl = document.createElement('span');
+    countEl.className = 'event-map-cluster__count';
+    countEl.textContent = String(count);
+    bubble.appendChild(countEl);
+
+    floatWrap.appendChild(bubble);
+    root.append(floatWrap, shadow);
+    return root;
+  }
+
+  /** Paso 2 — Crea un handle de evento nuevo (DOM + Marker + listener, una sola vez). */
+  private buildEventMarkerHandle(
+    m: MapMarkerDto,
+    isDot: boolean,
+  ): MarkerHandle {
+    const root = isDot
+      ? this.createDotMarkerElement(m)
+      : this.createMarkerElement(m);
+    const timeEl = isDot
+      ? null
+      : (root.querySelector('.event-map-marker__time') as HTMLElement);
+    const clickEl = (isDot
+      ? root.querySelector('.event-map-marker-dot')
+      : root.querySelector('.event-map-marker')) as HTMLButtonElement;
+
+    const handle: MarkerHandle = {
+      data: m,
+      timeEl,
+      clickEl,
+      isDot,
+      mapMarker: new maplibregl.Marker({
+        element: root,
+        anchor: 'bottom',
+        pitchAlignment: 'viewport',
+        rotationAlignment: 'viewport',
+      })
+        .setLngLat([m.longitude, m.latitude])
+        .addTo(this.map),
+    };
+
+    clickEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.ngZone.run(() => {
+        const marker = this.markersById.get(handle.data.id);
+        if (marker) {
+          this.selectEvent(marker);
+        }
+      });
+    });
+
+    return handle;
+  }
+
+  private buildClusterMarkerHandle(
+    item: Extract<VisibleMapMarker, { type: 'cluster' }>,
+  ): ClusterMarkerHandle {
+    const root = this.createClusterMarkerElement(item.count);
+    const bubble = root.querySelector('.event-map-cluster') as HTMLButtonElement;
+    const handle: ClusterMarkerHandle = {
+      clusterId: item.clusterId,
+      eventIds: [...item.eventIds],
+      mapMarker: new maplibregl.Marker({
+        element: root,
+        anchor: 'bottom',
+        pitchAlignment: 'viewport',
+        rotationAlignment: 'viewport',
+      })
+        .setLngLat([item.longitude, item.latitude])
+        .addTo(this.map),
+    };
+
+    bubble.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.ngZone.run(() =>
+        this.openClusterPanel(handle.clusterId, handle.eventIds),
+      );
+    });
+
+    this.clearFloatAnimationInlineStyles(root);
+    return handle;
+  }
+
+  /** Paso 2 — Saca del pool o construye; el listener sigue vivo en el DOM reutilizado. */
+  private acquireEventMarkerHandle(
+    m: MapMarkerDto,
+    isDot: boolean,
+  ): MarkerHandle {
+    const poolIndex = this.eventMarkerPool.findIndex((h) => h.isDot === isDot);
+    if (poolIndex >= 0) {
+      const handle = this.eventMarkerPool.splice(poolIndex, 1)[0];
+      this.updateEventMarkerHandle(handle, m);
+      if (!isDot) {
+        this.clearFloatAnimationInlineStyles(handle.mapMarker.getElement());
+      }
+      handle.mapMarker.addTo(this.map);
+      return handle;
+    }
+    return this.buildEventMarkerHandle(m, isDot);
+  }
+
+  private acquireClusterMarkerHandle(
+    item: Extract<VisibleMapMarker, { type: 'cluster' }>,
+  ): ClusterMarkerHandle {
+    const handle = this.clusterMarkerPool.pop();
+    if (handle) {
+      this.updateClusterMarkerHandle(handle, item);
+      this.clearFloatAnimationInlineStyles(handle.mapMarker.getElement());
+      handle.mapMarker.addTo(this.map);
+      return handle;
+    }
+    return this.buildClusterMarkerHandle(item);
+  }
+
+  /** Paso 2 — Quita del mapa y guarda en pool (no destruye el DOM). */
+  private releaseEventMarkerHandle(handle: MarkerHandle): void {
+    handle.mapMarker.remove();
+    handle.clickEl.classList.remove(
+      'event-map-marker--selected',
+      'event-map-marker-dot--selected',
+    );
+    this.eventMarkerPool.push(handle);
+  }
+
+  private releaseClusterMarkerHandle(handle: ClusterMarkerHandle): void {
+    handle.mapMarker.remove();
+    this.clusterMarkerPool.push(handle);
+  }
+
+  private drainMarkerPools(): void {
+    for (const handle of this.eventMarkerPool) {
       handle.mapMarker.remove();
+    }
+    this.eventMarkerPool.length = 0;
+    for (const handle of this.clusterMarkerPool) {
+      handle.mapMarker.remove();
+    }
+    this.clusterMarkerPool.length = 0;
+  }
 
+  private updateEventMarkerHandle(handle: MarkerHandle, m: MapMarkerDto): void {
+    handle.data = m;
+    handle.mapMarker.setLngLat([m.longitude, m.latitude]);
+
+    if (handle.isDot) {
+      handle.clickEl.className = `event-map-marker-dot event-map-marker-dot--${m.visibility}`;
+      handle.clickEl.setAttribute('aria-label', `Ver evento: ${m.title}`);
+      return;
     }
 
-    this.markerHandles.length = 0;
-
+    handle.clickEl.className = `event-map-marker event-map-marker--${m.visibility}`;
+    handle.clickEl.setAttribute('aria-label', `Ver evento: ${m.title}`);
+    const titleEl = handle.clickEl.querySelector('.event-map-marker__title');
+    if (titleEl) {
+      titleEl.textContent = m.title;
+    }
+    if (handle.timeEl) {
+      handle.timeEl.textContent = this.markerTimeLabel(m);
+    }
   }
 
+  private updateClusterMarkerHandle(
+    handle: ClusterMarkerHandle,
+    item: Extract<VisibleMapMarker, { type: 'cluster' }>,
+  ): void {
+    handle.clusterId = item.clusterId;
+    handle.eventIds = [...item.eventIds];
+    handle.mapMarker.setLngLat([item.longitude, item.latitude]);
+    const countEl = handle.mapMarker
+      .getElement()
+      .querySelector('.event-map-cluster__count');
+    if (countEl) {
+      countEl.textContent = String(item.count);
+    }
+  }
 
+  private clearEventMarkers(): void {
+    while (this.markerHandles.length > 0) {
+      this.releaseEventMarkerHandle(this.markerHandles.pop()!);
+    }
+    while (this.clusterMarkerHandles.length > 0) {
+      this.releaseClusterMarkerHandle(this.clusterMarkerHandles.pop()!);
+    }
+    this.drainMarkerPools();
+    this.clearMarkerLabelSchedule();
+    this.lastVisibleMarkersFingerprint = '';
+    this.lastMarkerSyncCamera = null;
+    if (this.map) {
+      clearEventGlDotSource(this.map);
+    }
+  }
+
+  private syncEventGlDotLayer(): void {
+    if (!this.map) {
+      return;
+    }
+    ensureEventGlDotLayer(this.map);
+    updateEventGlDotSource(this.map, this.allMapMarkers);
+    updateEventGlDotSelection(this.map, this.selectedEvent()?.id ?? null);
+  }
+
+  private clusterEventIdsKey(eventIds: number[]): string {
+    return [...eventIds].sort((a, b) => a - b).join(',');
+  }
+
+  private updateVisibleMarkerPositions(displays: VisibleMapMarker[]): void {
+    const eventById = new Map(
+      this.markerHandles.map((handle) => [handle.data.id, handle]),
+    );
+    const clusterByKey = new Map(
+      this.clusterMarkerHandles.map((handle) => [
+        this.clusterEventIdsKey(handle.eventIds),
+        handle,
+      ]),
+    );
+
+    for (const item of displays) {
+      if (item.type === 'cluster') {
+        const handle = clusterByKey.get(this.clusterEventIdsKey(item.eventIds));
+        handle?.mapMarker.setLngLat([item.longitude, item.latitude]);
+      } else {
+        const handle = eventById.get(item.marker.id);
+        if (handle) {
+          handle.mapMarker.setLngLat([item.marker.longitude, item.marker.latitude]);
+        }
+      }
+    }
+  }
+
+  /**
+   * Paso 3 — Diff: solo crea/libera lo que cambió respecto a la vista anterior.
+   */
+  private applyVisibleMarkersDiff(
+    displays: VisibleMapMarker[],
+    selectedId: number | null,
+  ): void {
+    const wantedClusters = new Map<
+      string,
+      Extract<VisibleMapMarker, { type: 'cluster' }>
+    >();
+    const wantedEvents: { marker: MapMarkerDto; isDot: boolean }[] = [];
+
+    for (const item of displays) {
+      if (item.type === 'cluster') {
+        wantedClusters.set(this.clusterEventIdsKey(item.eventIds), item);
+      } else {
+        wantedEvents.push({
+          marker: item.marker,
+          isDot: item.displayStyle === 'dot',
+        });
+      }
+    }
+
+    const wantedEventIds = new Set(wantedEvents.map((e) => e.marker.id));
+
+    for (let i = this.clusterMarkerHandles.length - 1; i >= 0; i--) {
+      const handle = this.clusterMarkerHandles[i];
+      const key = this.clusterEventIdsKey(handle.eventIds);
+      if (!wantedClusters.has(key)) {
+        this.clusterMarkerHandles.splice(i, 1);
+        this.releaseClusterMarkerHandle(handle);
+      }
+    }
+
+    const activeClusterByKey = new Map(
+      this.clusterMarkerHandles.map((handle) => [
+        this.clusterEventIdsKey(handle.eventIds),
+        handle,
+      ]),
+    );
+
+    for (const item of wantedClusters.values()) {
+      const key = this.clusterEventIdsKey(item.eventIds);
+      let handle = activeClusterByKey.get(key);
+      if (!handle) {
+        handle = this.acquireClusterMarkerHandle(item);
+        this.clusterMarkerHandles.push(handle);
+        activeClusterByKey.set(key, handle);
+      } else {
+        this.updateClusterMarkerHandle(handle, item);
+      }
+    }
+
+    for (let i = this.markerHandles.length - 1; i >= 0; i--) {
+      const handle = this.markerHandles[i];
+      if (!wantedEventIds.has(handle.data.id)) {
+        this.markerHandles.splice(i, 1);
+        this.releaseEventMarkerHandle(handle);
+      }
+    }
+
+    const activeEventById = new Map(
+      this.markerHandles.map((handle) => [handle.data.id, handle]),
+    );
+
+    for (const { marker, isDot } of wantedEvents) {
+      const existing = activeEventById.get(marker.id);
+
+      if (existing) {
+        if (existing.isDot !== isDot) {
+          const index = this.markerHandles.indexOf(existing);
+          if (index >= 0) {
+            this.markerHandles.splice(index, 1);
+          }
+          this.releaseEventMarkerHandle(existing);
+          const replacement = this.acquireEventMarkerHandle(marker, isDot);
+          this.markerHandles.push(replacement);
+          activeEventById.set(marker.id, replacement);
+        } else {
+          this.updateEventMarkerHandle(existing, marker);
+        }
+        continue;
+      }
+
+      const created = this.acquireEventMarkerHandle(marker, isDot);
+      this.markerHandles.push(created);
+      activeEventById.set(marker.id, created);
+    }
+
+    this.updateMarkerSelection(selectedId);
+  }
+
+  private clearClusterSyncTimer(): void {
+    if (this.clusterSyncTimer !== null) {
+      clearTimeout(this.clusterSyncTimer);
+      this.clusterSyncTimer = null;
+    }
+  }
+
+  /**
+   * Congela la animación de flotación en cada marcador visible (no en el contenedor:
+   * los Marker de MapLibre a veces no heredan bien el selector del padre).
+   */
+  private setMarkerFloatAnimationsPaused(paused: boolean): void {
+    const markerRoots: HTMLElement[] = [
+      ...this.markerHandles.map((h) => h.mapMarker.getElement()),
+      ...this.clusterMarkerHandles.map((h) => h.mapMarker.getElement()),
+    ];
+
+    for (const root of markerRoots) {
+      const floats = root.querySelectorAll<HTMLElement>(
+        '.event-map-marker-float, .event-map-cluster-float',
+      );
+      for (const floatEl of floats) {
+        floatEl.classList.toggle('map-marker-float--paused', paused);
+        if (floatEl.classList.contains('event-map-marker-float')) {
+          this.setEventMarkerFloatPaused(floatEl, paused);
+        }
+      }
+    }
+  }
+
+  /** Carteles llevan `animation` inline; la pausa va por `animation-play-state`. */
+  private setEventMarkerFloatPaused(floatEl: HTMLElement, paused: boolean): void {
+    if (!floatEl.style.animation) {
+      this.applyEventMarkerFloatAnimation(floatEl);
+    }
+    floatEl.style.animationPlayState = paused ? 'paused' : 'running';
+  }
+
+  private applyEventMarkerFloatAnimation(floatEl: HTMLElement): void {
+    floatEl.classList.remove('map-marker-float--paused');
+    floatEl.style.animation = EVENT_MARKER_FLOAT_ANIMATION;
+    floatEl.style.animationPlayState = 'running';
+  }
+
+  private clearFloatAnimationInlineStyles(root: HTMLElement): void {
+    const eventFloat = root.querySelector<HTMLElement>('.event-map-marker-float');
+    if (eventFloat) {
+      this.applyEventMarkerFloatAnimation(eventFloat);
+      return;
+    }
+    const clusterFloat = root.querySelector<HTMLElement>('.event-map-cluster-float');
+    clusterFloat?.classList.remove('map-marker-float--paused');
+    clusterFloat?.style.removeProperty('animation-play-state');
+  }
+
+  private bindMarkerAnimationPause(map: maplibregl.Map): void {
+    if (this.markerAnimationSyncBound) {
+      return;
+    }
+    this.markerAnimationSyncBound = true;
+
+    const onInteractionStart = (): void => {
+      this.mapInteractionDepth += 1;
+      if (this.mapInteractionDepth === 1) {
+        this.setMarkerFloatAnimationsPaused(true);
+      }
+    };
+
+    const onInteractionEnd = (): void => {
+      this.mapInteractionDepth = Math.max(0, this.mapInteractionDepth - 1);
+      if (this.mapInteractionDepth === 0) {
+        this.setMarkerFloatAnimationsPaused(false);
+      }
+    };
+
+    const startEvents = ['movestart', 'zoomstart', 'rotatestart', 'pitchstart'] as const;
+    const endEvents = ['moveend', 'zoomend', 'rotateend', 'pitchend'] as const;
+
+    for (const event of startEvents) {
+      map.on(event, onInteractionStart);
+    }
+    for (const event of endEvents) {
+      map.on(event, onInteractionEnd);
+    }
+
+    this.unbindMarkerAnimationSync = () => {
+      for (const event of startEvents) {
+        map.off(event, onInteractionStart);
+      }
+      for (const event of endEvents) {
+        map.off(event, onInteractionEnd);
+      }
+      this.markerAnimationSyncBound = false;
+      this.mapInteractionDepth = 0;
+      this.setMarkerFloatAnimationsPaused(false);
+    };
+
+    this.destroyRef.onDestroy(() => this.unbindMarkerAnimationSync?.());
+  }
+
+  private bindClusterSync(map: maplibregl.Map): void {
+    if (this.clusterSyncBound) {
+      return;
+    }
+    this.clusterSyncBound = true;
+    const schedule = () => this.scheduleClusterSync();
+    const scheduleForced = () => this.scheduleClusterSync(true);
+    map.on('moveend', schedule);
+    map.on('zoomend', schedule);
+    map.on('rotateend', schedule);
+    map.on('pitchend', schedule);
+    map.on('resize', scheduleForced);
+    this.destroyRef.onDestroy(() => {
+      map.off('moveend', schedule);
+      map.off('zoomend', schedule);
+      map.off('rotateend', schedule);
+      map.off('pitchend', schedule);
+      map.off('resize', scheduleForced);
+      this.clearClusterSyncTimer();
+      this.clusterSyncBound = false;
+    });
+  }
+
+  /**
+   * Sincroniza marcadores HTML fuera de NgZone: solo toca DOM/MapLibre,
+   * no hay bindings de plantilla que actualizar.
+   */
+  private runVisibleMarkerSyncOutsideAngular(): void {
+    this.ngZone.runOutsideAngular(() => this.syncVisibleMarkers());
+  }
+
+  private scheduleClusterSync(force = false): void {
+    this.clearClusterSyncTimer();
+    this.clusterSyncTimer = setTimeout(() => {
+      this.clusterSyncTimer = null;
+      if (!this.map || this.allMapMarkers.length === 0) {
+        return;
+      }
+      if (
+        !force &&
+        !shouldRunMarkerSync(this.map, this.lastMarkerSyncCamera)
+      ) {
+        return;
+      }
+      this.runVisibleMarkerSyncOutsideAngular();
+    }, 80);
+  }
+
+  /** Espera a que el mapa tenga tamaño y bounds válidos antes del primer cluster. */
+  private scheduleVisibleMarkersAfterMapReady(map: maplibregl.Map): void {
+    const run = () => this.runVisibleMarkerSyncOutsideAngular();
+    if (map.loaded()) {
+      map.once('idle', run);
+      requestAnimationFrame(run);
+    } else {
+      map.once('load', () => map.once('idle', run));
+    }
+  }
+
+  private syncVisibleMarkers(): void {
+    if (!this.map || this.allMapMarkers.length === 0) {
+      if (this.map) {
+        clearEventGlDotSource(this.map);
+      }
+      return;
+    }
+
+    const glDotsActive = usesGlDotLayer(this.map.getZoom());
+    this.syncEventGlDotLayer();
+
+    const selectedId = this.selectedEvent()?.id ?? null;
+    const { displays } = clusterMarkersForMapView(
+      this.map,
+      this.allMapMarkers,
+      DEFAULT_SCREEN_CLUSTER_CONFIG,
+      1,
+      { htmlDots: !glDotsActive },
+    );
+    const fingerprint = visibleMarkersDisplayFingerprint(
+      displays,
+      glDotsActive,
+    );
+
+    if (
+      fingerprint === this.lastVisibleMarkersFingerprint &&
+      (glDotsActive ||
+        this.markerHandles.length > 0 ||
+        this.clusterMarkerHandles.length > 0)
+    ) {
+      this.updateVisibleMarkerPositions(displays);
+      this.updateMarkerSelection(selectedId);
+      this.lastMarkerSyncCamera = captureMarkerSyncCamera(this.map);
+      return;
+    }
+
+    this.lastVisibleMarkersFingerprint = fingerprint;
+    this.applyVisibleMarkersDiff(displays, selectedId);
+    this.scheduleMarkerLabelRefresh();
+    this.lastMarkerSyncCamera = captureMarkerSyncCamera(this.map);
+  }
+
+  private openClusterPanel(clusterId: number, eventIds: number[]): void {
+    const events = markersFromClusterMembers(eventIds, this.markersById);
+    if (events.length === 0) {
+      return;
+    }
+    this.closeDetail();
+    this.clusterPanelEvents.set(events);
+    this.cdr.markForCheck();
+  }
 
   private addEventMarkers(map: maplibregl.Map): void {
-
     this.eventsService.getMapMarkers().subscribe({
-
       next: (markers) => {
-
         this.clearEventMarkers();
+        this.closeClusterPanel();
 
         if (!this.openingEventFromList && !this.selectedEvent()) {
           this.closeDetail();
         }
 
-        for (const m of markers) {
-
-          const root = this.createMarkerElement(m);
-
-          const timeEl = root.querySelector('.event-map-marker__time') as HTMLElement;
-
-
-
-          const mapMarker = new maplibregl.Marker({
-
-            element: root,
-
-            anchor: 'bottom',
-
-            pitchAlignment: 'viewport',
-
-            rotationAlignment: 'viewport',
-
-          })
-
-            .setLngLat([m.longitude, m.latitude])
-
-            .addTo(map);
-
-
-
-          this.markerHandles.push({ data: m, timeEl, mapMarker });
-
-        }
+        this.allMapMarkers = markers;
+        this.markersById = buildMarkersById(markers);
+        this.bindClusterSync(map);
+        this.scheduleVisibleMarkersAfterMapReady(map);
 
         this.tryOpenPendingEvent();
       },
 
       error: (err) => {
-
         this.clearEventMarkers();
-
+        this.allMapMarkers = [];
+        this.markersById.clear();
+        this.closeClusterPanel();
         this.closeDetail();
-
         console.warn('No se pudieron cargar los eventos en el mapa:', err);
-
       },
-
     });
-
   }
 
 
 
   private initializeMap(): void {
+    const preference = this.mapTheme.themePreference();
+    const initialTheme = this.mapTheme.resolveTheme(preference);
+    this.activeVisualTheme.set(initialTheme);
+
+    const initialUrl = mapStyleUrlForTheme(initialTheme);
+    this.activeStyleUrl = initialUrl;
+
+    const initialCenter =
+      this.pendingInitialCenter ?? MapComponent.DEFAULT_MAP_CENTER;
 
     const map = new maplibregl.Map({
-
       container: this.mapContainer.nativeElement,
-
-      style: 'https://tiles.openfreemap.org/styles/liberty',
-
-      center: [-3.6245, 37.197],
-
-      zoom: 17,
-
-      pitch: 60,
-
+      style: initialUrl,
+      center: initialCenter,
+      zoom: MapComponent.DEFAULT_MAP_ZOOM,
+      pitch: 62,
       bearing: -20,
-
+      minPitch: 0,
+      /** Solo un poco de horizonte; por encima los marcadores HTML parecen flotar en el cielo. */
+      maxPitch: 68,
+      dragRotate: true,
+      pitchWithRotate: true,
+      touchPitch: true,
+      touchZoomRotate: true,
+      bearingSnap: 0,
+      attributionControl: false,
     });
 
-
-
-    map.on('styleimagemissing', (e) => {
-
-      const emptyImage = new Uint8Array(4);
-
-      map.addImage(e.id, { width: 1, height: 1, data: emptyImage });
-
-    });
+    this.bindStyleImageFallback(map);
+    this.bindStyleLifecycle(map);
 
 
 
-    map.addControl(new maplibregl.NavigationControl());
+    map.addControl(
+      new maplibregl.NavigationControl({
+        showCompass: true,
+        showZoom: false,
+        visualizePitch: false,
+      }),
+      'bottom-right',
+    );
 
 
 
     map.on('load', () => {
       this.mapReady = true;
+      this.unbindMap3dSync?.();
+      this.unbindMap3dSync = bindMap3DBuildingsSync(map, () =>
+        this.activeVisualTheme(),
+      );
+      this.bindMarkerAnimationPause(map);
+      this.unbindGlDotInteractions?.();
+      this.unbindGlDotInteractions = bindEventGlDotLayerInteractions(map, {
+        onClick: (eventId) => {
+          this.ngZone.run(() => {
+            const marker = this.markersById.get(eventId);
+            if (marker) {
+              this.selectEvent(marker);
+            }
+          });
+        },
+      });
       this.addEventMarkers(map);
       this.tryOpenPendingEvent();
+      this.resetAutoThemeSchedule();
+      this.applyInitialUserLocation();
+      this.bindUserLocationVisualSync(map);
     });
 
 
 
-    map.on('click', () => {
-
-      this.ngZone.run(() => this.closeDetail());
-
+    map.on('click', (e) => {
+      const hitGlDot = map.queryRenderedFeatures(e.point, {
+        layers: [UGR_EVENTS_GL_LAYER_ID],
+      });
+      if (hitGlDot.length > 0) {
+        return;
+      }
+      this.ngZone.run(() => {
+        this.closeClusterPanel();
+        this.closeDetail();
+      });
     });
-
-
-
-    void this.locateUserOnStart(map);
 
 
 
@@ -668,64 +1458,313 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   }
 
-
-
-  private locateUserOnStart(map: maplibregl.Map): void {
-
+  private prefetchUserLocationForMapInit(): void {
     if (!('geolocation' in navigator)) {
-
+      this.initialGeolocationFailed = true;
       return;
-
     }
 
-
-
+    this.initialGeolocationRequested = true;
     navigator.geolocation.getCurrentPosition(
-
       (position) => {
-        const lng = position.coords.longitude;
-        const lat = position.coords.latitude;
-
-        this.setUserLocationMarker(map, lng, lat);
-
-        map.flyTo({
-          center: [lng, lat],
-          zoom: 16,
-          essential: true,
+        this.ngZone.run(() => {
+          const center: [number, number] = [
+            position.coords.longitude,
+            position.coords.latitude,
+          ];
+          this.pendingInitialCenter = center;
+          if (this.map && this.mapReady) {
+            this.applyUserLocationCenter(center, false, position.coords.accuracy);
+          }
         });
       },
-
-      (error) => {
-
-        console.warn('Error de geolocalización o permiso denegado:', error.message);
-
+      () => {
+        this.ngZone.run(() => {
+          this.initialGeolocationFailed = true;
+        });
       },
-
-      {
-
-        enableHighAccuracy: true,
-
-        timeout: 5000,
-
-        maximumAge: 0,
-
-      },
-
+      MapComponent.GEOLOCATION_OPTIONS,
     );
-
   }
 
-  private setUserLocationMarker(map: maplibregl.Map, lng: number, lat: number): void {
-    if (this.userLocationMarker) {
-      this.userLocationMarker.setLngLat([lng, lat]);
+  private applyInitialUserLocation(): void {
+    if (this.initialUserCenterApplied) {
       return;
     }
 
-    this.userLocationMarker = new maplibregl.Marker()
-      .setLngLat([lng, lat])
-      .addTo(map);
+    if (this.pendingInitialCenter) {
+      this.applyUserLocationCenter(this.pendingInitialCenter, false);
+      return;
+    }
+
+    if (
+      this.initialGeolocationFailed ||
+      !('geolocation' in navigator)
+    ) {
+      this.initialUserCenterApplied = true;
+      return;
+    }
+
+    if (!this.initialGeolocationRequested) {
+      this.centerOnUserLocation({ animate: false, markInitial: true });
+    }
   }
 
+  private centerOnUserLocation(options: {
+    animate?: boolean;
+    markInitial?: boolean;
+  } = {}): void {
+    const animate = options.animate ?? false;
+
+    if (!this.map || this.locatingUser()) {
+      return;
+    }
+    if (!('geolocation' in navigator)) {
+      return;
+    }
+
+    this.locatingUser.set(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        this.ngZone.run(() => {
+          const center: [number, number] = [
+            position.coords.longitude,
+            position.coords.latitude,
+          ];
+          this.pendingInitialCenter = center;
+          this.applyUserLocationCenter(center, animate, position.coords.accuracy);
+          if (options.markInitial) {
+            this.initialUserCenterApplied = true;
+          }
+          this.locatingUser.set(false);
+          this.cdr.markForCheck();
+        });
+      },
+      (error) => {
+        this.ngZone.run(() => {
+          console.warn('No se pudo obtener tu ubicación:', error.message);
+          if (options.markInitial) {
+            this.initialUserCenterApplied = true;
+          }
+          this.locatingUser.set(false);
+          this.cdr.markForCheck();
+        });
+      },
+      MapComponent.GEOLOCATION_OPTIONS,
+    );
+  }
+
+  private applyUserLocationCenter(
+    center: [number, number],
+    animate: boolean,
+    accuracyMeters?: number,
+  ): void {
+    if (!this.map) {
+      return;
+    }
+
+    const [lng, lat] = center;
+    this.setUserLocationMarker(this.map, lng, lat, accuracyMeters);
+    const zoom = Math.max(this.map.getZoom(), MapComponent.DEFAULT_MAP_ZOOM);
+
+    if (animate) {
+      this.map.flyTo({
+        center: [lng, lat],
+        zoom,
+        essential: true,
+      });
+    } else {
+      this.map.jumpTo({ center: [lng, lat], zoom });
+    }
+
+    this.initialUserCenterApplied = true;
+  }
+
+  private setUserLocationMarker(
+    map: maplibregl.Map,
+    lng: number,
+    lat: number,
+    accuracyMeters?: number,
+  ): void {
+    const lngLat: [number, number] = [lng, lat];
+
+    if (this.userLocationMarker) {
+      this.userLocationMarker.setLngLat(lngLat);
+      updateUserLocationAccuracyRing(
+        this.userLocationMarker.getElement(),
+        accuracyMeters,
+      );
+    } else {
+      const element = createUserLocationMarkerElement();
+      updateUserLocationAccuracyRing(element, accuracyMeters);
+
+      this.userLocationMarker = new maplibregl.Marker({
+        element,
+        anchor: 'center',
+        pitchAlignment: 'viewport',
+        rotationAlignment: 'viewport',
+      })
+        .setLngLat(lngLat)
+        .addTo(map);
+    }
+
+    if (this.userLocationGroundMarker) {
+      this.userLocationGroundMarker.setLngLat(lngLat);
+    } else {
+      this.userLocationGroundMarker = new maplibregl.Marker({
+        element: createUserLocationGroundElement(),
+        anchor: 'center',
+        pitchAlignment: 'map',
+        rotationAlignment: 'map',
+      })
+        .setLngLat(lngLat)
+        .addTo(map);
+    }
+
+    this.refreshUserLocationMarkerVisual();
+  }
+
+  private bindUserLocationVisualSync(map: maplibregl.Map): void {
+    this.unbindUserLocationVisualSync?.();
+    const sync = () => this.refreshUserLocationMarkerVisual();
+    const events = ['moveend', 'zoomend', 'pitchend', 'rotateend'] as const;
+
+    for (const event of events) {
+      map.on(event, sync);
+    }
+    sync();
+
+    this.unbindUserLocationVisualSync = () => {
+      for (const event of events) {
+        map.off(event, sync);
+      }
+    };
+  }
+
+  private refreshUserLocationMarkerVisual(): void {
+    if (!this.map || !this.userLocationMarker) {
+      return;
+    }
+    syncUserLocationMarkerVisual(
+      this.map,
+      this.userLocationMarker.getElement(),
+      this.userLocationGroundMarker,
+    );
+  }
+
+  private bindStyleImageFallback(map: maplibregl.Map): void {
+    map.on('styleimagemissing', (e) => {
+      const emptyImage = new Uint8Array(4);
+      map.addImage(e.id, { width: 1, height: 1, data: emptyImage });
+    });
+  }
+
+  private clearAutoThemeSchedule(): void {
+    if (this.autoThemeTimer !== null) {
+      clearTimeout(this.autoThemeTimer);
+      this.autoThemeTimer = null;
+    }
+  }
+
+  /** Programa el siguiente cambio de tema Auto (5:30, 7:00, 19:00, 21:00). */
+  private scheduleAutoThemeSync(): void {
+    this.clearAutoThemeSchedule();
+    if (
+      this.mapTheme.themePreference() !== 'auto' ||
+      !this.map ||
+      this.activeDemoStyleId()
+    ) {
+      return;
+    }
+
+    const delay = msUntilNextAutoThemeBoundary();
+    this.autoThemeTimer = setTimeout(() => {
+      this.ngZone.run(() => {
+        this.syncAutoMapThemeIfNeeded();
+        this.scheduleAutoThemeSync();
+      });
+    }, delay);
+  }
+
+  private resetAutoThemeSchedule(): void {
+    this.clearAutoThemeSchedule();
+    if (
+      this.mapTheme.themePreference() !== 'auto' ||
+      !this.map ||
+      this.activeDemoStyleId()
+    ) {
+      return;
+    }
+    this.syncAutoMapThemeIfNeeded();
+    this.scheduleAutoThemeSync();
+  }
+
+  private syncAutoMapThemeIfNeeded(): void {
+    if (
+      this.mapTheme.themePreference() !== 'auto' ||
+      !this.map ||
+      this.activeDemoStyleId()
+    ) {
+      return;
+    }
+    const theme = resolveVisualTheme('auto');
+    const url = mapStyleUrlForTheme(theme);
+    if (url === this.activeStyleUrl && theme === this.activeVisualTheme()) {
+      return;
+    }
+    this.applyMapStyleUrl(url, theme);
+  }
+
+  private applyMapTheme(theme: MapVisualTheme): void {
+    this.applyMapStyleUrl(mapStyleUrlForTheme(theme), theme);
+  }
+
+  private applyMapStyleUrl(url: string, theme: MapVisualTheme): void {
+    if (!this.map) {
+      return;
+    }
+    if (url === this.activeStyleUrl && theme === this.activeVisualTheme()) {
+      return;
+    }
+
+    const urlChanged = url !== this.activeStyleUrl;
+    this.activeStyleUrl = url;
+    this.activeVisualTheme.set(theme);
+
+    if (urlChanged) {
+      this.map.setStyle(url);
+    } else {
+      this.applyVisualThemeTreatments(this.map);
+    }
+  }
+
+  private applyVisualThemeTreatments(map: maplibregl.Map): void {
+    const theme = this.activeVisualTheme();
+    applyMapLandcoverTheme(map, theme);
+    applyMapNeutroTheme(map, theme);
+    syncMap3DBuildings(map, theme);
+    applyMapAtmosphere(map, theme);
+    ensureEventGlDotLayer(map);
+    if (this.allMapMarkers.length > 0) {
+      updateEventGlDotSource(map, this.allMapMarkers);
+      updateEventGlDotSelection(map, this.selectedEvent()?.id ?? null);
+    }
+    this.ngZone.run(() => this.cdr.markForCheck());
+  }
+
+  private bindStyleLifecycle(map: maplibregl.Map): void {
+    map.on('style.load', () => {
+      this.applyVisualThemeTreatments(map);
+      map.once('idle', () => {
+        this.applyVisualThemeTreatments(map);
+        if (this.allMapMarkers.length > 0) {
+          this.runVisibleMarkerSyncOutsideAngular();
+        }
+      });
+    });
+
+    map.on('load', () => this.applyVisualThemeTreatments(map));
+  }
 }
 
 

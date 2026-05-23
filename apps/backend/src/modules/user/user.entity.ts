@@ -50,6 +50,12 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   hashedRefreshToken: string | null;
 
+  /**
+   * Incrementa en cada rotación de refresh (OAuth BCP / detección de reutilización).
+   */
+  @Column({ type: 'int', default: 0 })
+  refreshTokenVersion: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

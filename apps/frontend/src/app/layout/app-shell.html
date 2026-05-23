@@ -8,7 +8,7 @@
     ></button>
   }
 
-  <aside class="sidebar" aria-label="Navegación principal">
+  <aside class="sidebar" [attr.aria-label]="sidebarAriaLabel">
     <button
       type="button"
       class="sidebar-tab"
@@ -20,82 +20,178 @@
       <span class="sidebar-tab-text">Menú</span>
     </button>
 
-    <div class="sidebar-brand">UGR Eventos</div>
-
-    <div class="sidebar-user">
-      @if (profile?.profilePicture) {
-        <img
-          class="sidebar-avatar"
-          [src]="profile?.profilePicture"
-          alt="Foto de perfil"
-        />
-      } @else {
-        <div class="sidebar-avatar sidebar-avatar-fallback" aria-hidden="true">
-          {{ avatarInitials }}
-        </div>
+    @if (shellUi.sidebarView() === 'main') {
+      @if (showOperatorRoleEntry) {
+        <button
+          type="button"
+          class="sidebar-role-entry"
+          [class.sidebar-role-entry--admin]="isAdminRole"
+          [class.sidebar-role-entry--static]="!isAdminRole"
+          [attr.aria-label]="
+            isAdminRole
+              ? 'Abrir panel de administración'
+              : 'Rol del sistema: ' + operatorRoleLabel
+          "
+          (click)="onOperatorRoleClick()"
+        >
+          <span class="sidebar-role-entry__label">Rol</span>
+          <span class="sidebar-role-entry__value">{{ operatorRoleLabel }}</span>
+        </button>
       }
 
-      <div class="sidebar-username">{{ username }}</div>
-      @if (user?.email) {
-        <div class="sidebar-email">{{ user?.email }}</div>
-      }
-    </div>
+      <div class="sidebar-brand">UGR Eventos</div>
 
-    @if (user) {
-      <nav class="sidebar-nav">
-        <a
-          class="sidebar-link"
-          [routerLink]="['/u', user.userNumber, 'map']"
-          routerLinkActive="sidebar-link-active"
-          [routerLinkActiveOptions]="{ exact: true }"
-          (click)="closeSidebar()"
-        >
-          Mapa
-        </a>
-        <a
-          class="sidebar-link"
-          [routerLink]="['/u', user.userNumber, 'map', 'events']"
-          routerLinkActive="sidebar-link-active"
-          (click)="closeSidebar()"
-        >
-          Eventos
-        </a>
-        <a
-          class="sidebar-link"
-          [routerLink]="['/u', user.userNumber, 'profile']"
-          routerLinkActive="sidebar-link-active"
-          (click)="closeSidebar()"
-        >
-          Ver perfil
-        </a>
-        <a
-          class="sidebar-link"
-          [routerLink]="['/u', user.userNumber, 'account']"
-          routerLinkActive="sidebar-link-active"
-          (click)="closeSidebar()"
-        >
-          Cuenta
-        </a>
+      <div class="sidebar-user">
+        @if (profile?.profilePicture) {
+          <img
+            class="sidebar-avatar"
+            [src]="profile?.profilePicture"
+            alt="Foto de perfil"
+          />
+        } @else {
+          <div class="sidebar-avatar sidebar-avatar-fallback" aria-hidden="true">
+            {{ avatarInitials }}
+          </div>
+        }
 
-        @if (canCreateEvents) {
+        <div class="sidebar-username">{{ username }}</div>
+        @if (user?.email) {
+          <div class="sidebar-email">{{ user?.email }}</div>
+        }
+      </div>
+
+      @if (user) {
+        <nav class="sidebar-nav">
           <a
-            class="sidebar-link sidebar-link-accent"
-            [routerLink]="['/u', user.userNumber, 'events', 'new']"
+            class="sidebar-link"
+            [routerLink]="['/u', user.userNumber, 'map']"
+            routerLinkActive="sidebar-link-active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            (click)="closeSidebar()"
+          >
+            Mapa
+          </a>
+          <a
+            class="sidebar-link"
+            [routerLink]="['/u', user.userNumber, 'map', 'events']"
             routerLinkActive="sidebar-link-active"
             (click)="closeSidebar()"
           >
-            Crear evento
+            Eventos
           </a>
+          <a
+            class="sidebar-link"
+            [routerLink]="['/u', user.userNumber, 'map', 'friends']"
+            routerLinkActive="sidebar-link-active"
+            (click)="closeSidebar()"
+          >
+            Amigos
+          </a>
+          <a
+            class="sidebar-link"
+            [routerLink]="['/u', user.userNumber, 'profile']"
+            routerLinkActive="sidebar-link-active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            (click)="closeSidebar()"
+          >
+            Ver perfil
+          </a>
+          <button
+            type="button"
+            class="sidebar-link"
+            (click)="openSettingsSidebar()"
+          >
+            Configuración
+          </button>
+
+          @if (canCreateEvents) {
+            <a
+              class="sidebar-link sidebar-link-accent"
+              [routerLink]="['/u', user.userNumber, 'events', 'new']"
+              routerLinkActive="sidebar-link-active"
+              (click)="closeSidebar()"
+            >
+              Crear evento
+            </a>
+          }
+        </nav>
+      }
+
+      <button type="button" class="sidebar-logout" (click)="logout()">
+        Cerrar sesión
+      </button>
+    } @else if (shellUi.sidebarView() === 'settings') {
+      <div class="sidebar-brand">Configuración</div>
+
+      @if (user) {
+        <nav class="sidebar-nav">
+          <a
+            class="sidebar-link"
+            [routerLink]="['/u', user.userNumber, 'account']"
+            routerLinkActive="sidebar-link-active"
+            (click)="closeSidebar()"
+          >
+            Cuenta
+          </a>
+          <button type="button" class="sidebar-link">
+            Aspecto
+          </button>
+        </nav>
+      }
+
+      <button
+        type="button"
+        class="sidebar-link sidebar-link-footer"
+        (click)="backToMainSidebar()"
+      >
+        Volver al menú
+      </button>
+    } @else {
+      <div class="sidebar-brand">Administración</div>
+      <p class="sidebar-admin-lead">
+        Panel de control (próximamente). Las secciones siguientes cubren los
+        datos principales de la plataforma.
+      </p>
+
+      <nav class="sidebar-nav sidebar-nav--admin">
+        @for (item of adminMenuItems; track item.id) {
+          <button
+            type="button"
+            class="sidebar-link sidebar-link--placeholder"
+            disabled
+            [attr.aria-label]="item.label + ' — próximamente'"
+          >
+            <span class="sidebar-link__text">{{ item.label }}</span>
+            <span class="sidebar-link__hint">{{ item.hint }}</span>
+          </button>
         }
       </nav>
-    }
 
-    <button type="button" class="sidebar-logout" (click)="logout()">
-      Cerrar sesión
-    </button>
+      <button
+        type="button"
+        class="sidebar-link sidebar-link-footer"
+        (click)="backToMainSidebar()"
+      >
+        Volver al menú
+      </button>
+    }
   </aside>
 
   <main class="shell-content">
-    <router-outlet></router-outlet>
+    <div class="shell-stage">
+      <div
+        class="shell-map-layer"
+        [class.shell-map-layer--blocked]="blocksMapInteraction()"
+        aria-hidden="false"
+      >
+        <app-map />
+      </div>
+      <div
+        class="shell-overlay-layer"
+        [class.shell-overlay-layer--blocking]="blocksMapInteraction()"
+      >
+        <router-outlet />
+      </div>
+    </div>
   </main>
 </div>

@@ -5,15 +5,22 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UsersService } from 'src/modules/user/user.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { UsersService } from '../user/user.service';
 import { User } from '../user/user.entity';
 import { jwtConstants } from './constants';
 import * as bcrypt from 'bcrypt';
 import { UserProfile } from '../user/user-profile.entity';
 import { resolveSystemRoleFromOperatorKey } from './operator-key.util';
 
-interface JwtPayload {
+interface AccessJwtPayload {
   sub: number;
+}
+
+interface RefreshJwtPayload {
+  sub: number;
+  ver: number;
 }
 
 // ------------------------------------------------------------
@@ -28,6 +35,8 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   // ------------------------------------------------------------
@@ -89,16 +98,14 @@ export class AuthService {
     const isMatch = await bcrypt.compare(pass, user.password);
     if (!isMatch) return null;
 
-    const payload = {
+    const refreshVersion = 1;
+    const accessToken = await this.generateAccessToken({ sub: user.id });
+    const refreshToken = await this.generateRefreshToken({
       sub: user.id,
-    };
+      ver: refreshVersion,
+    });
 
-    const [accessToken, refreshToken] = await Promise.all([
-      this.generateAccessToken(payload),
-      this.generateRefreshToken(payload),
-    ]);
-
-    await this.updateRefreshTokenHash(user.id, refreshToken);
+    await this.persistRefreshSession(user.id, refreshToken, refreshVersion);
 
     await this.usersService.resetActivePersonaAfterLoginIfMultipleStaffFunctions(
       user.id,
@@ -133,7 +140,10 @@ export class AuthService {
    * @param {number} userId - The ID of the user logging out.
    */
   async logout(userId: number) {
-    await this.usersService.update(userId, { hashedRefreshToken: null });
+    await this.usersService.update(userId, {
+      hashedRefreshToken: null,
+      refreshTokenVersion: 0,
+    });
   }
 
   /**
@@ -141,7 +151,7 @@ export class AuthService {
    * @param {JwtPayload} payload - The user data to embed in the token.
    * @returns {Promise<string>} The signed JWT access token.
    */
-  async generateAccessToken(payload: JwtPayload): Promise<string> {
+  async generateAccessToken(payload: AccessJwtPayload): Promise<string> {
     return this.jwtService.signAsync(payload, {
       secret: jwtConstants.accessSecret,
       expiresIn: '15m',
@@ -153,7 +163,7 @@ export class AuthService {
    * @param payload - The user data to embed in the refresh token.
    * @returns {Promise<string>} The signed JWT access token.
    */
-  async generateRefreshToken(payload: JwtPayload): Promise<string> {
+  async generateRefreshToken(payload: RefreshJwtPayload): Promise<string> {
     return this.jwtService.signAsync(payload, {
       secret: jwtConstants.refreshSecret,
       expiresIn: '7d',
@@ -161,63 +171,86 @@ export class AuthService {
   }
 
   /**
-   * Validates an existing refresh token and generates a fresh pair of tokens.
-   * Implements token rotation for enhanced security.
-   * @param {number} userId - The ID of the user requesting token refresh.
-   * @param {string} rawToken - The raw refresh token provided by the client (from cookie).
-   * @returns {Promise<{ accessToken: string, refreshToken: string }>} The new token pair.
-   * @throws {ForbiddenException} If the token is invalid, old, or the user is logged out.
+   * Rotación de refresh (RFC 9700 / OAuth BCP): nuevo access + nuevo refresh en cada uso.
+   * La versión en el JWT y en BD detecta reutilización de un refresh ya rotado.
    */
-  async refreshTokens(userId: number, rawToken: string) {
-    const user = await this.usersService.findByID(userId);
+  async refreshTokens(
+    userId: number,
+    rawToken: string,
+    tokenVersion: number,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    return this.userRepository.manager.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      const user = await userRepo.findOne({
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    // Deny access if user does not exist or has no refresh token hash (logged out)
-    if (!user || !user.hashedRefreshToken) {
-      throw new ForbiddenException('Access denied: Session not found');
-    }
+      if (!user || !user.hashedRefreshToken) {
+        throw new ForbiddenException('Access denied: Session not found');
+      }
 
-    // Compare the provided plain-text token against the database hash
-    const rtMatches = await bcrypt.compare(rawToken, user.hashedRefreshToken);
-    if (!rtMatches) {
-      throw new ForbiddenException('Access denied: Invalid or outdated token');
-    }
+      if (user.refreshTokenVersion !== tokenVersion) {
+        throw new ForbiddenException(
+          'Refresh token reuse detected or session outdated',
+        );
+      }
 
-    // Generate a new pair of tokens if validation succeeds
-    const payload: JwtPayload = { sub: user.id };
-    const [accessToken, refreshToken] = await Promise.all([
-      this.generateAccessToken(payload),
-      this.generateRefreshToken(payload),
-    ]);
+      const rtMatches = await bcrypt.compare(rawToken, user.hashedRefreshToken);
+      if (!rtMatches) {
+        throw new ForbiddenException('Access denied: Invalid refresh token');
+      }
 
-    // Token Rotation: Update the database hash with the newly generated refresh token
-    await this.updateRefreshTokenHash(user.id, refreshToken);
+      const nextVersion = user.refreshTokenVersion + 1;
+      const accessToken = await this.generateAccessToken({ sub: user.id });
+      const refreshToken = await this.generateRefreshToken({
+        sub: user.id,
+        ver: nextVersion,
+      });
 
-    return { accessToken, refreshToken };
+      const salt = await bcrypt.genSalt();
+      const hash = await bcrypt.hash(refreshToken, salt);
+      user.hashedRefreshToken = hash;
+      user.refreshTokenVersion = nextVersion;
+      await userRepo.save(user);
+
+      return { accessToken, refreshToken };
+    });
   }
 
-  /**
-   * Hashes a plain-text refresh token and stores it in the database.
-   * @param {number} userId - The ID of the user.
-   * @param {string} refreshToken - The plain-text refresh token to hash.
-   */
-  async updateRefreshTokenHash(userId: number, refreshToken: string) {
+  private async persistRefreshSession(
+    userId: number,
+    refreshToken: string,
+    version: number,
+  ): Promise<void> {
     const salt = await bcrypt.genSalt();
     const hash = await bcrypt.hash(refreshToken, salt);
-    await this.usersService.update(userId, { hashedRefreshToken: hash });
+    await this.usersService.update(userId, {
+      hashedRefreshToken: hash,
+      refreshTokenVersion: version,
+    });
   }
 
   /**
    * Verifies the cryptographic signature and expiration of a refresh token.
-   * @param token - The raw refresh token to validate.
-   * @returns {Promise<JwtPayload>} The decoded payload if the token is valid.
-   * @throws {UnauthorizedException} If the token is invalid or expired.
    */
-  async verifyRefreshToken(token: string): Promise<JwtPayload> {
+  async verifyRefreshToken(token: string): Promise<RefreshJwtPayload> {
     try {
-      return await this.jwtService.verifyAsync<JwtPayload>(token, {
+      const payload = await this.jwtService.verifyAsync<RefreshJwtPayload>(token, {
         secret: jwtConstants.refreshSecret,
       });
-    } catch {
+      if (
+        payload.sub == null ||
+        payload.ver == null ||
+        !Number.isFinite(payload.ver)
+      ) {
+        throw new UnauthorizedException('Invalid refresh token payload');
+      }
+      return payload;
+    } catch (err) {
+      if (err instanceof UnauthorizedException) {
+        throw err;
+      }
       throw new UnauthorizedException('Invalid or outdated Refresh token');
     }
   }

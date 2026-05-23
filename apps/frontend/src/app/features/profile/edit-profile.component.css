@@ -1,0 +1,118 @@
+.profile-card--edit h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+}
+
+.profile-edit-lead {
+  margin: 0 0 1.25rem;
+  color: #64748b;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.profile-edit-error {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.profile-edit-form {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.profile-edit-field {
+  margin-bottom: 0.85rem;
+}
+
+.profile-edit-field label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.profile-edit-field .req {
+  color: #dc2626;
+}
+
+.profile-edit-field input,
+.profile-edit-field select,
+.profile-edit-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  color: #0f172a;
+  background: #fff;
+}
+
+.profile-edit-field textarea {
+  resize: vertical;
+  min-height: 5rem;
+}
+
+.profile-edit-field input:focus,
+.profile-edit-field select:focus,
+.profile-edit-field textarea:focus {
+  outline: 2px solid #93c5fd;
+  outline-offset: 1px;
+  border-color: #60a5fa;
+}
+
+.profile-edit-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.profile-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.profile-edit-btn-primary,
+.profile-edit-btn-secondary {
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-edit-btn-primary {
+  border: none;
+  background: #2563eb;
+  color: #fff;
+}
+
+.profile-edit-btn-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.profile-edit-btn-secondary {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #475569;
+}
+
+.profile-edit-btn-secondary:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.profile-edit-btn-primary:disabled,
+.profile-edit-btn-secondary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}

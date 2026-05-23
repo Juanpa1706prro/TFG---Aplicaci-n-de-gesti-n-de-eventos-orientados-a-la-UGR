@@ -1,0 +1,15 @@
+---
+description: Contexto del chat recuperado "Reubicación del agente en el IDE"
+alwaysApply: false
+---
+
+# Continuar: Reubicación del agente en el IDE
+
+Este chat (ID `bff630cb-a0dd-4722-8f4d-46910fbf8893`) trataba de **mover el panel del agente a la derecha** en Cursor (layout Glass / editor clásico).
+
+Historial completo exportado en:
+`chats-recuperados/bff630cb-a0dd-4722-8f4d-46910fbf8893.md`
+
+Si el usuario abre un chat nuevo para seguir, lee ese archivo o el transcript en
+`~/.cursor/projects/.../agent-transcripts/bff630cb-.../bff630cb-....jsonl`
+y continúa desde el último tema acordado (posición del agente en el IDE).

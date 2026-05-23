@@ -9,6 +9,9 @@ import {
   of,
   filter,
   take,
+  from,
+  throwError,
+  finalize,
 } from 'rxjs';
 import { UserSession } from '@core/interfaces/user-interface';
 import {
@@ -35,6 +38,9 @@ export class AuthService {
   private currentUserSubject = new BehaviorSubject<UserSession | null>(null);
   public readonly currentUser$: Observable<UserSession | null> =
     this.currentUserSubject.asObservable();
+
+  /** Una sola petición /auth/refresh en vuelo (OAuth BCP: evita carreras al rotar). */
+  private refreshInFlight: Promise<void> | null = null;
 
   constructor(
     private http: HttpClient,
@@ -190,8 +196,26 @@ export class AuthService {
     return true;
   }
 
-  public refreshToken(): Observable<unknown> {
-    return this.http.post(`${this.API_URL}/auth/refresh`, {});
+  /**
+   * Renueva cookies (access + refresh rotado). Todas las llamadas comparten la misma promesa.
+   */
+  public refreshToken(): Observable<void> {
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = firstValueFrom(
+        this.http.post(`${this.API_URL}/auth/refresh`, {}).pipe(
+          tap(() => undefined),
+          catchError((err) => {
+            this.refreshInFlight = null;
+            return throwError(() => err);
+          }),
+          finalize(() => {
+            this.refreshInFlight = null;
+          }),
+        ),
+      ).then(() => undefined);
+    }
+
+    return from(this.refreshInFlight);
   }
 
   public needsProfileCompletion(user: UserSession | null): boolean {

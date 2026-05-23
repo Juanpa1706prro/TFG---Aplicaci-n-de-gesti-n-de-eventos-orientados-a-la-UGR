@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
+import { User } from '../user/user.entity';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '../user/user.module';
@@ -12,6 +14,7 @@ import { JwtAuthGuard } from './auth.guard-jwt';
 // ------------------------------------------------------------
 @Module({
   imports: [
+    TypeOrmModule.forFeature([User]),
     UsersModule,
     JwtModule.register({
       global: true,
@@ -27,5 +30,6 @@ import { JwtAuthGuard } from './auth.guard-jwt';
     }
   ],
   controllers: [AuthController],
+  exports: [AuthService],
 })
 export class AuthModule {}

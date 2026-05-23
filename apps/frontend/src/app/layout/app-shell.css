@@ -79,12 +79,82 @@
   font-weight: 800;
 }
 
+.sidebar-role-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 0.85rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  border-radius: 10px;
+  font: inherit;
+  text-align: left;
+  color: #fef3c7;
+  background: rgba(120, 53, 15, 0.35);
+  cursor: pointer;
+}
+
+.sidebar-role-entry--admin:hover {
+  background: rgba(146, 64, 14, 0.55);
+  border-color: rgba(253, 224, 71, 0.55);
+  color: #fffbeb;
+}
+
+.sidebar-role-entry--static {
+  cursor: default;
+  opacity: 0.92;
+}
+
+.sidebar-role-entry__label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fcd34d;
+}
+
+.sidebar-role-entry__value {
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
 .sidebar-brand {
   margin-bottom: 1.25rem;
   color: #f8fafc;
   font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: 0.02em;
+}
+
+.sidebar-admin-lead {
+  margin: -0.35rem 0 1rem;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.sidebar-nav--admin .sidebar-link--placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.sidebar-link__text {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.sidebar-link__hint {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.3;
 }
 
 .sidebar-user {
@@ -144,8 +214,13 @@
 }
 
 .sidebar-link {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
   color: #dbeafe;
   background: transparent;
+  cursor: pointer;
 }
 
 .sidebar-link:hover,
@@ -180,6 +255,10 @@
   background: rgba(185, 28, 28, 0.65);
 }
 
+.sidebar-link-footer {
+  margin-top: auto;
+}
+
 .shell-content {
   width: 100%;
   min-width: 0;
@@ -187,7 +266,46 @@
   height: 100dvh;
   min-height: 100vh;
   min-height: 100dvh;
-  overflow: auto;
+  overflow: hidden;
+}
+
+.shell-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.shell-map-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.shell-map-layer--blocked {
+  pointer-events: none;
+}
+
+.shell-map-layer app-map {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.shell-overlay-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.shell-overlay-layer > * {
+  pointer-events: auto;
+}
+
+.shell-overlay-layer--blocking {
+  pointer-events: auto;
 }
 
 @media (max-width: 760px) {

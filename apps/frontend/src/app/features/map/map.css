@@ -27,7 +27,279 @@
   width: 100%;
 }
 
-/* Marcador flotante: vertical al suelo, siempre hacia la cámara (viewport) */
+/* Luz rasante solo sobre el lienzo (los marcadores quedan por encima). */
+.map-container--dawn ::ng-deep .maplibregl-canvas-container::after,
+.map-container--sunset ::ng-deep .maplibregl-canvas-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.map-container--dawn ::ng-deep .maplibregl-canvas-container::after {
+  mix-blend-mode: soft-light;
+}
+
+/* Amanecer: franja fina cálida en el horizonte + cielo ligeramente frío. */
+.map-container--dawn ::ng-deep .maplibregl-canvas-container::after {
+  background:
+    linear-gradient(
+      to top,
+      rgba(255, 214, 170, 0.2) 0%,
+      rgba(255, 232, 205, 0.07) 14%,
+      transparent 38%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(200, 220, 240, 0.12) 0%,
+      transparent 28%
+    );
+}
+
+/* Atardecer: horizonte anaranjado + bruma cálida sobre el mapa. */
+.map-container--sunset ::ng-deep .maplibregl-canvas-container::after {
+  mix-blend-mode: soft-light;
+  background:
+    linear-gradient(
+      to top,
+      rgba(255, 138, 65, 0.34) 0%,
+      rgba(255, 175, 115, 0.18) 20%,
+      rgba(255, 195, 140, 0.07) 40%,
+      transparent 58%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 185, 125, 0.09) 0%,
+      rgba(255, 155, 90, 0.06) 45%,
+      transparent 75%
+    );
+}
+
+/* Atardecer: filtro naranja un poco más presente. */
+.map-container--sunset ::ng-deep .maplibregl-canvas {
+  filter: saturate(1.26) sepia(0.14) hue-rotate(-12deg) brightness(1.05);
+}
+
+/* Noche (Fiord): legible, parques y agua con color. */
+.map-container--night ::ng-deep .maplibregl-canvas {
+  filter: brightness(1.2) contrast(0.94) saturate(1.05);
+}
+
+/* Neutro: papel cálido, ligera profundidad (sin saturación fuerte). */
+.map-container--neutro ::ng-deep .maplibregl-canvas {
+  filter: contrast(1.04) saturate(1.1) brightness(1.02);
+}
+
+.map-container--neutro ::ng-deep .maplibregl-canvas-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  background: radial-gradient(
+    ellipse 120% 90% at 50% 45%,
+    transparent 50%,
+    rgba(60, 55, 50, 0.05) 100%
+  );
+}
+
+/* Por debajo del sidebar (z-index 20–30) */
+.map-map-controls {
+  position: absolute;
+  left: 50%;
+  bottom: 1.1rem;
+  z-index: 12;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.map-locate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.55rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+  font-family: system-ui, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.22);
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.map-locate-btn:hover:not(:disabled) {
+  background: #eff6ff;
+  box-shadow: 0 10px 26px rgba(29, 78, 216, 0.25);
+}
+
+.map-locate-btn:disabled {
+  opacity: 0.75;
+  cursor: wait;
+}
+
+.map-locate-btn__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #fff;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.map-theme-toolbar {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  z-index: 12;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  max-width: min(200px, calc(100% - 1rem));
+}
+
+.map-theme-control {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.map-theme-demo-btn {
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  margin: 0;
+  padding: 0.2rem 0.38rem;
+  border-radius: 5px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
+  cursor: pointer;
+}
+
+.map-theme-demo-btn--active,
+.map-theme-demo-btn:hover {
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+/* Ocultar atribución MapLibre / OpenFreeMap si el estilo la inyecta */
+:host ::ng-deep .maplibregl-ctrl-attrib,
+:host ::ng-deep .maplibregl-ctrl-logo {
+  display: none !important;
+}
+
+/* Solo brújula: ocultar zoom por si el control del estilo lo añade */
+:host ::ng-deep .maplibregl-ctrl-zoom-in,
+:host ::ng-deep .maplibregl-ctrl-zoom-out {
+  display: none !important;
+}
+
+.map-theme-demo-panel {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 9rem;
+  overflow-y: auto;
+  padding: 2px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+
+.map-theme-demo-panel__item {
+  border: none;
+  margin: 0;
+  padding: 0.2rem 0.42rem;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #64748b;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.map-theme-demo-panel__item:hover,
+.map-theme-demo-panel__item--active {
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+.map-theme-control__current {
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  margin: 0;
+  padding: 0.2rem 0.42rem;
+  border-radius: 5px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
+  backdrop-filter: blur(6px);
+  cursor: default;
+}
+
+.map-theme-control__menu {
+  display: none;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 2px;
+  padding: 2px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(6px);
+}
+
+.map-theme-control:hover .map-theme-control__menu,
+.map-theme-control:focus-within .map-theme-control__menu {
+  display: flex;
+}
+
+.map-theme-control__option {
+  border: none;
+  margin: 0;
+  padding: 0.2rem 0.42rem;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #64748b;
+  background: transparent;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.map-theme-control__option:hover {
+  color: #0f172a;
+  background: rgba(241, 245, 249, 0.95);
+}
+
+.map-theme-control__current:focus-visible,
+.map-theme-control__option:focus-visible {
+  outline: 1px solid #2563eb;
+  outline-offset: 1px;
+}
+
+/* Marcador flotante: tamaño fijo en px (viewport); MapLibre solo lo desplaza */
 :host ::ng-deep .event-map-marker-root {
   display: flex;
   flex-direction: column;
@@ -39,7 +311,7 @@
 :host ::ng-deep .event-map-marker-float {
   pointer-events: auto;
   margin-bottom: 6px;
-  animation: event-marker-float 2.8s ease-in-out infinite;
+  /* La animación vive en src/styles.css (DOM dinámico); ver applyEventMarkerFloatAnimation */
 }
 
 @keyframes event-marker-float {
@@ -52,10 +324,28 @@
   }
 }
 
+/* Pausa de flotación (clase en cada .event-map-marker-float / .event-map-cluster-float) */
+:host ::ng-deep .event-map-marker-float.map-marker-float--paused,
+:host ::ng-deep .event-map-cluster-float.map-marker-float--paused {
+  animation-play-state: paused;
+}
+
+:host ::ng-deep .map-marker-float--paused .event-map-marker,
+:host ::ng-deep .map-marker-float--paused .event-map-cluster {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host ::ng-deep .event-map-marker-float,
+  :host ::ng-deep .event-map-cluster-float {
+    animation: none;
+  }
+}
+
 :host ::ng-deep .event-map-marker__shadow {
   display: block;
-  width: 84px;
-  height: 18px;
+  width: 56px;
+  height: 12px;
   border-radius: 50%;
   background: radial-gradient(
     ellipse at center,
@@ -71,7 +361,9 @@
 :host ::ng-deep .event-map-marker {
   display: flex;
   flex-direction: column;
-  width: 172px;
+  width: 128px;
+  max-width: 128px;
+  flex-shrink: 0;
   margin: 0;
   padding: 0;
   border: none;
@@ -114,13 +406,9 @@
     0 0 0 3px #fbbf24;
 }
 
-:host ::ng-deep .event-map-marker-float:has(.event-map-marker--selected) {
-  animation-play-state: paused;
-}
-
 :host ::ng-deep .event-map-marker__photo {
   width: 100%;
-  height: 88px;
+  height: 64px;
   background: #e2e8f0;
   flex-shrink: 0;
 }
@@ -154,7 +442,7 @@
 }
 
 :host ::ng-deep .event-map-marker__title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: #0f172a;
   line-height: 1.25;
@@ -166,15 +454,289 @@
 }
 
 :host ::ng-deep .event-map-marker__time {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   color: #1d4ed8;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
 }
 
-/* Panel de detalle (derecha) */
+/* Vista lejana: un punto por evento (sin agrupar en mega-cluster) */
+:host ::ng-deep .event-map-marker-root--dot {
+  pointer-events: none;
+}
+
+:host ::ng-deep .event-map-marker-dot {
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+:host ::ng-deep .event-map-marker-dot--public {
+  background: #dc2626;
+}
+
+:host ::ng-deep .event-map-marker-dot--private {
+  background: #7c3aed;
+}
+
+:host ::ng-deep .event-map-marker-dot:hover {
+  transform: scale(1.2);
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.45);
+}
+
+:host ::ng-deep .event-map-marker-dot--selected {
+  transform: scale(1.35);
+  box-shadow:
+    0 0 0 2px #fbbf24,
+    0 3px 12px rgba(15, 23, 42, 0.45);
+}
+
+:host ::ng-deep .event-map-marker-dot__shadow {
+  display: block;
+  width: 18px;
+  height: 6px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(15, 23, 42, 0.4) 0%,
+    transparent 70%
+  );
+  transform: scaleY(0.6);
+  filter: blur(1px);
+  flex-shrink: 0;
+}
+
+/* Agrupación: esfera con recuento */
+:host ::ng-deep .event-map-cluster-root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+:host ::ng-deep .event-map-cluster-float {
+  pointer-events: auto;
+  margin-bottom: 4px;
+  animation: event-marker-float 2.8s ease-in-out infinite;
+}
+
+:host ::ng-deep .event-map-cluster__shadow {
+  display: block;
+  width: 40px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(15, 23, 42, 0.45) 0%,
+    transparent 72%
+  );
+  transform: scaleY(0.5);
+  filter: blur(1px);
+}
+
+:host ::ng-deep .event-map-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  background: linear-gradient(145deg, #2563eb 0%, #1d4ed8 55%, #1e3a8a 100%);
+  color: #fff;
+  box-shadow:
+    0 8px 20px rgba(29, 78, 216, 0.45),
+    0 0 0 2px rgba(255, 255, 255, 0.85);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+:host ::ng-deep .event-map-cluster:hover {
+  transform: scale(1.06);
+  box-shadow:
+    0 10px 24px rgba(29, 78, 216, 0.55),
+    0 0 0 3px #fbbf24;
+}
+
+:host ::ng-deep .event-map-cluster__count {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Panel modal: eventos de un cluster */
+.map-cluster-page {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  pointer-events: none;
+}
+
+.map-cluster-page__dim {
+  position: absolute;
+  inset: 0;
+  border: none;
+  margin: 0;
+  padding: 0;
+  background: rgba(15, 23, 42, 0.58);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.map-cluster-page__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: min(520px, 100%);
+  max-height: min(80vh, 720px);
+  min-width: 0;
+  border-radius: 14px;
+  background: #f8fafc;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.35);
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.map-cluster-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.map-cluster-page__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.map-cluster-page__subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.map-cluster-page__close {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: none;
+  border-radius: 8px;
+  background: #e2e8f0;
+  color: #0f172a;
+  font-size: 1.45rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.map-cluster-page__close:hover {
+  background: #cbd5e1;
+}
+
+.map-cluster-page__list {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0;
+  overflow-y: auto;
+}
+
+.map-cluster-page__item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.map-cluster-page__item:hover {
+  background: #eff6ff;
+}
+
+.map-cluster-page__thumb {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+
+.map-cluster-page__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.map-cluster-page__thumb--empty {
+  background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+}
+
+.map-cluster-page__item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.map-cluster-page__item-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.map-cluster-page__item-time {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+.map-cluster-page__item-meta {
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Panel de detalle (derecha): por encima de la barra de estilos del mapa. */
 .map-detail-panel {
+  position: relative;
+  z-index: 10;
   width: min(380px, 42vw);
   flex-shrink: 0;
   overflow: auto;
@@ -183,7 +745,6 @@
   border-left: 1px solid rgba(148, 163, 184, 0.35);
   padding: 0.85rem 1rem 1.25rem;
   font-size: 0.88rem;
-  z-index: 2;
 }
 
 .map-detail-header {
@@ -478,5 +1039,123 @@
     max-height: 45vh;
     border-left: none;
     border-top: 1px solid rgba(148, 163, 184, 0.35);
+  }
+}
+
+/* Tu ubicación — patrón «blue dot» (Google Maps / MapLibre GeolocateControl). */
+:host ::ng-deep .ugr-user-location {
+  position: relative;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+:host ::ng-deep .ugr-user-location__accuracy {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.14);
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  box-sizing: border-box;
+  transition: width 0.35s ease, height 0.35s ease;
+}
+
+:host ::ng-deep .ugr-user-location__pulse {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.28);
+  animation: ugr-user-location-pulse 2.4s ease-out infinite;
+}
+
+:host ::ng-deep .ugr-user-location__stem {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 4px;
+  height: 30px;
+  margin-left: -2px;
+  border-radius: 3px;
+  background: linear-gradient(
+    to top,
+    rgba(37, 99, 235, 0.35),
+    #2563eb 55%,
+    #3b82f6
+  );
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.35);
+  transform-origin: bottom center;
+}
+
+:host ::ng-deep .ugr-user-location__dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 3px solid #fff;
+  box-shadow:
+    0 0 0 1px rgba(37, 99, 235, 0.45),
+    0 2px 10px rgba(15, 23, 42, 0.28);
+  box-sizing: border-box;
+  transition: top 0.2s ease, bottom 0.2s ease, margin 0.2s ease;
+}
+
+/* Vista inclinada (3D): poste vertical + punto; sin anillo plano en el suelo. */
+:host ::ng-deep .ugr-user-location--pitched .ugr-user-location__accuracy,
+:host ::ng-deep .ugr-user-location--pitched .ugr-user-location__pulse {
+  display: none;
+}
+
+:host ::ng-deep .ugr-user-location--pitched .ugr-user-location__stem {
+  display: block;
+}
+
+:host ::ng-deep .ugr-user-location--pitched .ugr-user-location__dot {
+  top: auto;
+  bottom: 30px;
+  margin: 0 0 0 -8px;
+}
+
+:host ::ng-deep .ugr-user-location-ground {
+  width: 18px;
+  height: 10px;
+  margin: -5px 0 0 -9px;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.28);
+  border: 1px solid rgba(37, 99, 235, 0.45);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
+}
+
+@keyframes ugr-user-location-pulse {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.75;
+  }
+  70% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host ::ng-deep .ugr-user-location__pulse {
+    animation: none;
+    opacity: 0.35;
+    transform: scale(1);
   }
 }

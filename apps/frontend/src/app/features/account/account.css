@@ -1,0 +1,10 @@
+.account-wrap h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.35rem;
+}
+
+.muted {
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}

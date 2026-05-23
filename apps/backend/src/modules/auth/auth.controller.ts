@@ -129,12 +129,16 @@ export class AuthController {
     if (!refreshToken)
       throw new UnauthorizedException('No refresh token found');
 
+    let userIdForLogout: number | null = null;
+
     try {
       const payload = await this.authService.verifyRefreshToken(refreshToken);
+      userIdForLogout = payload.sub;
 
       const tokens = await this.authService.refreshTokens(
         payload.sub,
         refreshToken,
+        payload.ver,
       );
 
       res.cookie('access_token', tokens.accessToken, {
@@ -150,9 +154,29 @@ export class AuthController {
       });
 
       return { message: 'Tokens rotated' };
-    } catch {
-      // If the refresh token is completely invalid/expired, force a clean logout
-      this.logout(req, res);
+    } catch (err) {
+      if (userIdForLogout != null) {
+        await this.authService.logout(userIdForLogout);
+      } else {
+        try {
+          const decoded = await this.jwtService.verifyAsync<{ sub: number }>(
+            refreshToken,
+            { secret: jwtConstants.refreshSecret, ignoreExpiration: true },
+          );
+          if (decoded?.sub != null) {
+            await this.authService.logout(decoded.sub);
+          }
+        } catch {
+          // refresh ilegible: solo borrar cookies
+        }
+      }
+
+      res.clearCookie('access_token', { path: '/' });
+      res.clearCookie('refresh_token', { path: '/' });
+
+      if (err instanceof UnauthorizedException) {
+        throw err;
+      }
       throw new ForbiddenException('Session invalid or outdated');
     }
   }

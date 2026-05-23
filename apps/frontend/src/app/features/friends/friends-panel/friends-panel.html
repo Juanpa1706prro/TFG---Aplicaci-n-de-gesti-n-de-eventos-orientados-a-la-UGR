@@ -1,0 +1,261 @@
+<div class="friends-page" role="dialog" aria-modal="true" aria-label="Amigos y solicitudes de amistad">
+  <button
+    type="button"
+    class="friends-page__dim"
+    aria-label="Cerrar y volver al mapa"
+    (click)="closePage()"
+  ></button>
+
+  <section class="friends-page__panel">
+    <header class="friends-page__header">
+      <div class="friends-page__header-main">
+        @if (panelView() === 'requests') {
+          <button
+            type="button"
+            class="friends-page__back"
+            (click)="backToFriends()"
+          >
+            ← Amigos
+          </button>
+        }
+        <h1 class="friends-page__title">{{ headerTitle }}</h1>
+        <p class="friends-page__subtitle">{{ headerSubtitle }}</p>
+      </div>
+      <div class="friends-page__header-actions">
+        @if (panelView() === 'friends') {
+          <button
+            type="button"
+            class="friends-page__requests-btn"
+            (click)="openRequests()"
+          >
+            Solicitudes de amistad
+            @if (pendingIncomingCount() > 0) {
+              <span class="friends-page__badge">{{ pendingIncomingCount() }}</span>
+            }
+          </button>
+        }
+        <button
+          type="button"
+          class="friends-page__close"
+          aria-label="Cerrar"
+          (click)="closePage()"
+        >
+          ×
+        </button>
+      </div>
+    </header>
+
+    @if (panelView() === 'friends') {
+      <div class="friends-page__toolbar">
+        <label class="friends-page__sort-label">
+          Ordenar
+          <select
+            class="friends-page__sort"
+            [value]="friendsSort()"
+            (change)="onSortChange($any($event.target).value)"
+          >
+            @for (opt of sortOptions; track opt.value) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      <form class="friends-page__add" (ngSubmit)="submitAddByCode()">
+        <label class="friends-page__add-label" for="friend-code">Añadir por código</label>
+        <div class="friends-page__add-row">
+          <input
+            id="friend-code"
+            type="text"
+            inputmode="numeric"
+            class="friends-page__add-input"
+            placeholder="Ej. 123456"
+            [ngModel]="addCode()"
+            (ngModelChange)="addCode.set($event)"
+            name="friendCode"
+            [disabled]="addLoading()"
+          />
+          <button
+            type="submit"
+            class="friends-page__add-btn"
+            [disabled]="addLoading()"
+          >
+            {{ addLoading() ? 'Enviando…' : 'Enviar solicitud de amistad' }}
+          </button>
+        </div>
+        @if (addError()) {
+          <p class="friends-page__feedback friends-page__feedback--error">{{ addError() }}</p>
+        }
+        @if (addSuccess()) {
+          <p class="friends-page__feedback friends-page__feedback--ok">{{ addSuccess() }}</p>
+        }
+      </form>
+
+      <div class="friends-page__body">
+        @if (friendsLoading()) {
+          <p class="friends-page__status">Cargando amigos…</p>
+        } @else if (friendsError()) {
+          <p class="friends-page__status friends-page__status--error">{{ friendsError() }}</p>
+        } @else if (!friends().length) {
+          <p class="friends-page__status">Aún no tienes amigos. Envía solicitudes de amistad o acéptalas en Solicitudes de amistad.</p>
+        } @else {
+          <ul class="friends-page__list">
+            @for (item of friends(); track item.friendshipId) {
+              <li
+                class="friends-card"
+                role="button"
+                tabindex="0"
+                (click)="openProfile(item.user)"
+                (keydown.enter)="openProfile(item.user)"
+              >
+                <div
+                  class="friends-card__avatar"
+                  [class.friends-card__avatar--empty]="!hasPhoto(item.user.profilePicture)"
+                >
+                  @if (hasPhoto(item.user.profilePicture)) {
+                    <img [src]="item.user.profilePicture" [alt]="displayName(item.user)" loading="lazy" />
+                  } @else {
+                    <span aria-hidden="true">{{ initials(item.user) }}</span>
+                  }
+                </div>
+                <div class="friends-card__content">
+                  <h2 class="friends-card__name">{{ displayName(item.user) }}</h2>
+                  <p class="friends-card__meta">#{{ item.user.userNumber }}</p>
+                  <p class="friends-card__since">{{ friendsSinceLabel(item.friendsSince) }}</p>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    } @else {
+      <div class="friends-page__tabs" role="tablist" aria-label="Solicitudes de amistad recibidas o enviadas">
+        <button
+          type="button"
+          class="friends-page__tab"
+          role="tab"
+          [attr.aria-selected]="requestsTab() === 'incoming'"
+          [class.friends-page__tab--active]="requestsTab() === 'incoming'"
+          (click)="setRequestsTab('incoming')"
+        >
+          Recibidas
+          @if (incoming().length) {
+            <span class="friends-page__tab-count">{{ incoming().length }}</span>
+          }
+        </button>
+        <button
+          type="button"
+          class="friends-page__tab"
+          role="tab"
+          [attr.aria-selected]="requestsTab() === 'outgoing'"
+          [class.friends-page__tab--active]="requestsTab() === 'outgoing'"
+          (click)="setRequestsTab('outgoing')"
+        >
+          Enviadas
+          @if (outgoing().length) {
+            <span class="friends-page__tab-count">{{ outgoing().length }}</span>
+          }
+        </button>
+      </div>
+
+      <div class="friends-page__body" role="tabpanel">
+        @if (requestsError()) {
+          <p class="friends-page__status friends-page__status--error">{{ requestsError() }}</p>
+        }
+        @if (requestsLoading()) {
+          <p class="friends-page__status">Cargando solicitudes de amistad…</p>
+        } @else if (requestsTab() === 'incoming') {
+          @if (!incoming().length) {
+            <p class="friends-page__status">No tienes solicitudes de amistad recibidas pendientes.</p>
+          } @else {
+            <ul class="friends-page__list">
+              @for (item of incoming(); track item.id) {
+                <li class="friends-request-card">
+                  <button
+                    type="button"
+                    class="friends-request-card__profile"
+                    (click)="openProfile(item.user)"
+                  >
+                    <div
+                      class="friends-card__avatar friends-card__avatar--sm"
+                      [class.friends-card__avatar--empty]="!hasPhoto(item.user.profilePicture)"
+                    >
+                      @if (hasPhoto(item.user.profilePicture)) {
+                        <img [src]="item.user.profilePicture" [alt]="displayName(item.user)" loading="lazy" />
+                      } @else {
+                        <span aria-hidden="true">{{ initials(item.user) }}</span>
+                      }
+                    </div>
+                    <div class="friends-request-card__info">
+                      <span class="friends-card__name">{{ displayName(item.user) }}</span>
+                      <span class="friends-card__meta">#{{ item.user.userNumber }} · {{ requestDateLabel(item.createdAt) }}</span>
+                    </div>
+                  </button>
+                  <div class="friends-request-card__actions">
+                    <button
+                      type="button"
+                      class="friends-request-card__btn friends-request-card__btn--accept"
+                      [disabled]="isActionLoading(item.id)"
+                      (click)="acceptRequest(item)"
+                    >
+                      {{ isActionLoading(item.id) ? '…' : 'Aceptar' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="friends-request-card__btn friends-request-card__btn--reject"
+                      [disabled]="isActionLoading(item.id)"
+                      (click)="rejectRequest(item)"
+                    >
+                      Rechazar
+                    </button>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        } @else {
+          @if (!outgoing().length) {
+            <p class="friends-page__status">No tienes solicitudes de amistad enviadas pendientes.</p>
+          } @else {
+            <ul class="friends-page__list">
+              @for (item of outgoing(); track item.id) {
+                <li class="friends-request-card">
+                  <button
+                    type="button"
+                    class="friends-request-card__profile"
+                    (click)="openProfile(item.user)"
+                  >
+                    <div
+                      class="friends-card__avatar friends-card__avatar--sm"
+                      [class.friends-card__avatar--empty]="!hasPhoto(item.user.profilePicture)"
+                    >
+                      @if (hasPhoto(item.user.profilePicture)) {
+                        <img [src]="item.user.profilePicture" [alt]="displayName(item.user)" loading="lazy" />
+                      } @else {
+                        <span aria-hidden="true">{{ initials(item.user) }}</span>
+                      }
+                    </div>
+                    <div class="friends-request-card__info">
+                      <span class="friends-card__name">{{ displayName(item.user) }}</span>
+                      <span class="friends-card__meta">#{{ item.user.userNumber }} · {{ requestDateLabel(item.createdAt) }}</span>
+                    </div>
+                  </button>
+                  <div class="friends-request-card__actions">
+                    <button
+                      type="button"
+                      class="friends-request-card__btn friends-request-card__btn--cancel"
+                      [disabled]="isActionLoading(item.id)"
+                      (click)="cancelRequest(item)"
+                    >
+                      {{ isActionLoading(item.id) ? '…' : 'Cancelar' }}
+                    </button>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        }
+      </div>
+    }
+  </section>
+</div>
