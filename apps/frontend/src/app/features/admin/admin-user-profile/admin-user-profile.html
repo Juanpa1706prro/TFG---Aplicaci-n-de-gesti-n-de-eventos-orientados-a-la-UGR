@@ -1,0 +1,144 @@
+<div class="admin-overlay" role="dialog" aria-modal="true" aria-label="Perfil de usuario">
+  <button
+    type="button"
+    class="admin-overlay__dim"
+    aria-label="Cerrar listado"
+    (click)="closeToList()"
+  ></button>
+
+  <section class="admin-overlay__panel admin-overlay__panel--detail">
+    <header class="admin-overlay__header">
+      <div>
+        <h1 class="admin-overlay__title">Perfil de usuario</h1>
+        @if (user(); as u) {
+          <p class="admin-overlay__subtitle">#{{ u.userNumber }} · {{ u.email }}</p>
+        }
+      </div>
+      <button
+        type="button"
+        class="admin-overlay__close"
+        aria-label="Cerrar"
+        (click)="closeToList()"
+      >
+        ×
+      </button>
+    </header>
+
+    @if (loading()) {
+      <p class="admin-overlay__status">Cargando perfil…</p>
+    } @else if (loadError()) {
+      <p class="admin-overlay__status admin-overlay__status--error">
+        No se pudo cargar este usuario.
+      </p>
+      @if (listLink; as link) {
+        <p class="admin-overlay__back-wrap">
+          <a class="admin-overlay__back" [routerLink]="link">Volver al listado</a>
+        </p>
+      }
+    } @else if (user(); as u) {
+      <div class="admin-profile-body">
+        <div class="admin-profile-card">
+          <div class="admin-profile-header">
+            @if (u.hasProfilePicture) {
+              <img class="admin-profile-avatar" [src]="userPhotoSrc(u.userNumber)" alt="" />
+            } @else {
+              <div class="admin-profile-avatar admin-profile-avatar--fallback" aria-hidden="true">
+                {{ displayName().slice(0, 2).toUpperCase() }}
+              </div>
+            }
+            <div>
+              <h2>{{ displayName() }}</h2>
+              <p class="admin-profile-username">{{ u.userName }}</p>
+            </div>
+          </div>
+
+          <dl class="admin-profile-grid">
+            <div>
+              <dt>Rol del sistema</dt>
+              <dd>{{ roleLabel(u.role) }}</dd>
+            </div>
+            <div>
+              <dt>Alta</dt>
+              <dd>{{ u.createdAt | date : 'medium' }}</dd>
+            </div>
+            <div>
+              <dt>Perfil completo</dt>
+              <dd>{{ u.profileComplete ? 'Sí' : 'No' }}</dd>
+            </div>
+            <div>
+              <dt>Nombre</dt>
+              <dd>{{ u.firstName ?? '—' }} {{ u.lastName ?? '' }}</dd>
+            </div>
+            <div>
+              <dt>Teléfono</dt>
+              <dd>{{ u.phoneNumber ?? '—' }}</dd>
+            </div>
+            <div>
+              <dt>Género</dt>
+              <dd>{{ u.gender ?? '—' }}</dd>
+            </div>
+            @if (u.bio) {
+              <div class="admin-profile-grid__full">
+                <dt>Bio</dt>
+                <dd>{{ u.bio }}</dd>
+              </div>
+            }
+          </dl>
+        </div>
+
+        <div class="admin-profile-actions">
+          @if (editLink; as link) {
+            <a class="admin-profile-btn admin-profile-btn--primary" [routerLink]="link">
+              Editar perfil
+            </a>
+          }
+          <button
+            type="button"
+            class="admin-profile-btn admin-profile-btn--danger"
+            (click)="openDeleteConfirm()"
+          >
+            Eliminar usuario
+          </button>
+          @if (listLink; as link) {
+            <a class="admin-profile-btn admin-profile-btn--secondary" [routerLink]="link">
+              Volver al listado
+            </a>
+          }
+        </div>
+      </div>
+    }
+
+    @if (showDeleteConfirm()) {
+      <div class="admin-confirm" role="alertdialog" aria-modal="true" aria-labelledby="del-title">
+        <div class="admin-confirm__box">
+          <h3 id="del-title">Eliminar usuario</h3>
+          <p>
+            Se borrará la cuenta de <strong>{{ displayName() }}</strong> y sus datos
+            asociados. Esta acción no se puede deshacer.
+          </p>
+          @if (deleteError(); as err) {
+            <p class="admin-confirm__error">{{ err }}</p>
+          }
+          <div class="admin-confirm__actions">
+            <button
+              type="button"
+              class="admin-profile-btn admin-profile-btn--danger"
+              [disabled]="deleting()"
+              (click)="confirmDelete()"
+            >
+              {{ deleting() ? 'Eliminando…' : 'Confirmar eliminación' }}
+            </button>
+            <button
+              type="button"
+              class="admin-profile-btn admin-profile-btn--secondary"
+              [disabled]="deleting()"
+              (click)="closeDeleteConfirm()"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+  </section>
+</div>

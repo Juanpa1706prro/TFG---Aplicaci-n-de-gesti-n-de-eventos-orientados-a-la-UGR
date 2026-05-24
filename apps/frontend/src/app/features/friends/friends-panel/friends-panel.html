@@ -110,10 +110,10 @@
               >
                 <div
                   class="friends-card__avatar"
-                  [class.friends-card__avatar--empty]="!hasPhoto(item.user.profilePicture)"
+                  [class.friends-card__avatar--empty]="!hasPhoto(item.user)"
                 >
-                  @if (hasPhoto(item.user.profilePicture)) {
-                    <img [src]="item.user.profilePicture" [alt]="displayName(item.user)" loading="lazy" />
+                  @if (hasPhoto(item.user)) {
+                    <img [src]="userPhotoSrc(item.user.userNumber)" [alt]="displayName(item.user)" loading="lazy" />
                   } @else {
                     <span aria-hidden="true">{{ initials(item.user) }}</span>
                   }
@@ -178,10 +178,10 @@
                   >
                     <div
                       class="friends-card__avatar friends-card__avatar--sm"
-                      [class.friends-card__avatar--empty]="!hasPhoto(item.user.profilePicture)"
+                      [class.friends-card__avatar--empty]="!hasPhoto(item.user)"
                     >
-                      @if (hasPhoto(item.user.profilePicture)) {
-                        <img [src]="item.user.profilePicture" [alt]="displayName(item.user)" loading="lazy" />
+                      @if (hasPhoto(item.user)) {
+                        <img [src]="userPhotoSrc(item.user.userNumber)" [alt]="displayName(item.user)" loading="lazy" />
                       } @else {
                         <span aria-hidden="true">{{ initials(item.user) }}</span>
                       }
@@ -227,10 +227,10 @@
                   >
                     <div
                       class="friends-card__avatar friends-card__avatar--sm"
-                      [class.friends-card__avatar--empty]="!hasPhoto(item.user.profilePicture)"
+                      [class.friends-card__avatar--empty]="!hasPhoto(item.user)"
                     >
-                      @if (hasPhoto(item.user.profilePicture)) {
-                        <img [src]="item.user.profilePicture" [alt]="displayName(item.user)" loading="lazy" />
+                      @if (hasPhoto(item.user)) {
+                        <img [src]="userPhotoSrc(item.user.userNumber)" [alt]="displayName(item.user)" loading="lazy" />
                       } @else {
                         <span aria-hidden="true">{{ initials(item.user) }}</span>
                       }

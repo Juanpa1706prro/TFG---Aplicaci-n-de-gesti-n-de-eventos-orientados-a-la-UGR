@@ -37,11 +37,6 @@ export class CreateEventDto {
   @MaxLength(8000)
   description: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(2000)
-  photoUrl?: string;
-
   @IsString()
   @MinLength(1)
   @MaxLength(500)

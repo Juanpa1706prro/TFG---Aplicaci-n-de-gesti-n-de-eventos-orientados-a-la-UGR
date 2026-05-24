@@ -66,14 +66,25 @@
           </div>
 
           <div class="profile-edit-field">
-            <label for="edit-picture">URL de foto de perfil</label>
+            <label for="edit-picture">Foto de perfil</label>
             <input
               id="edit-picture"
-              type="url"
-              formControlName="profilePicture"
-              placeholder="https://…"
+              type="file"
+              [accept]="imageAccept"
+              (change)="onPhotoSelected($event)"
             />
-            <p class="profile-edit-hint">Opcional. En el futuro podrás subir una imagen.</p>
+            <p class="profile-edit-hint">JPEG, PNG o WebP. Máximo 2 MB.</p>
+            @if (photoFieldError) {
+              <p class="profile-edit-error">{{ photoFieldError }}</p>
+            }
+            @if (photoPreviewUrl) {
+              <div class="profile-edit-photo-preview">
+                <img [src]="photoPreviewUrl" alt="Vista previa" />
+                <button type="button" class="profile-edit-btn-secondary" (click)="clearPhoto()">
+                  Quitar foto
+                </button>
+              </div>
+            }
           </div>
 
           <div class="profile-edit-actions">

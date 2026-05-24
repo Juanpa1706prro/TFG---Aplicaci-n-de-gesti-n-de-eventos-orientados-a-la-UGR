@@ -16,4 +16,5 @@ module.exports = {
   '/user': apiProxy,
   '/events': apiProxy,
   '/friends': apiProxy,
+  '/admin': apiProxy,
 };

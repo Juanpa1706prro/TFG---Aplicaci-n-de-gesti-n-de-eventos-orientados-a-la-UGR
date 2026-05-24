@@ -1,0 +1,106 @@
+<div class="admin-overlay" role="dialog" aria-modal="true" aria-label="Editar usuario">
+  <button
+    type="button"
+    class="admin-overlay__dim"
+    aria-label="Cancelar"
+    (click)="cancel()"
+  ></button>
+
+  <section class="admin-overlay__panel admin-overlay__panel--detail">
+    <header class="admin-overlay__header">
+      <div>
+        <h1 class="admin-overlay__title">Editar usuario</h1>
+        <p class="admin-overlay__subtitle">Modificación administrativa del perfil.</p>
+      </div>
+      <button type="button" class="admin-overlay__close" aria-label="Cerrar" (click)="cancel()">
+        ×
+      </button>
+    </header>
+
+    @if (loading()) {
+      <p class="admin-overlay__status">Cargando…</p>
+    } @else if (loadError()) {
+      <p class="admin-overlay__status admin-overlay__status--error">No se pudo cargar el usuario.</p>
+    } @else {
+      @if (errorMessage(); as err) {
+        <p class="admin-overlay__banner admin-overlay__banner--error">{{ err }}</p>
+      }
+
+      <form class="admin-edit-form" [formGroup]="form" (ngSubmit)="submit()">
+        <div class="admin-edit-row">
+          <label>
+            Nombre <span class="req">*</span>
+            <input type="text" formControlName="firstName" />
+          </label>
+          <label>
+            Apellidos <span class="req">*</span>
+            <input type="text" formControlName="lastName" />
+          </label>
+        </div>
+
+        <label>
+          Rol del sistema
+          <select formControlName="role">
+            @for (r of roleOptions; track r) {
+              <option [ngValue]="r">{{ r }}</option>
+            }
+          </select>
+        </label>
+
+        <label>
+          Género
+          <select formControlName="gender">
+            <option [ngValue]="null">Sin especificar</option>
+            @for (g of genderOptions; track g) {
+              <option [ngValue]="g">{{ g }}</option>
+            }
+          </select>
+        </label>
+
+        <label>
+          Fecha de nacimiento
+          <input type="date" formControlName="birthDate" />
+        </label>
+
+        <label>
+          Teléfono
+          <input type="tel" formControlName="phoneNumber" />
+        </label>
+
+        <label>
+          Bio
+          <textarea rows="3" formControlName="bio"></textarea>
+        </label>
+
+        <label>
+          Foto de perfil
+          <input type="file" [accept]="imageAccept" (change)="onPhotoSelected($event)" />
+        </label>
+        <p class="admin-overlay__hint">JPEG, PNG o WebP. Máximo 2 MB.</p>
+        @if (photoFieldError) {
+          <p class="admin-overlay__error">{{ photoFieldError }}</p>
+        }
+        @if (photoPreviewUrl) {
+          <div class="admin-edit-photo-preview">
+            <img [src]="photoPreviewUrl" alt="Vista previa" />
+          </div>
+        }
+
+        <div class="admin-edit-actions">
+          <button
+            type="submit"
+            class="admin-profile-btn admin-profile-btn--primary"
+            [disabled]="submitting()"
+          >
+            {{ submitting() ? 'Guardando…' : 'Guardar cambios' }}
+          </button>
+          @if (profileLink; as link) {
+            <a class="admin-profile-btn admin-profile-btn--secondary" [routerLink]="link">
+              Cancelar
+            </a>
+          }
+        </div>
+      </form>
+    }
+  </section>
+</div>

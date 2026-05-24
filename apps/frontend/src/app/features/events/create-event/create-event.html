@@ -1,11 +1,20 @@
 <div class="create-event-page">
   <div class="create-event-card">
-    <h1>Nuevo evento</h1>
+    <h1>{{ isEditMode ? 'Editar evento' : 'Nuevo evento' }}</h1>
     <p class="subtitle">
-      Opcional: elige un centro UGR y se rellenan el nombre de la sede y el punto del mapa; o deja «manual» y escribe la ubicación y coloca la marca tú mismo.
-      Los eventos privados (p. ej. tutorías) solo aparecen en el mapa general para el creador y los gestores.
+      @if (isEditMode) {
+        Modifica los datos del evento. Solo el creador puede editarlo o eliminarlo.
+      } @else {
+        Opcional: elige un centro UGR y se rellenan el nombre de la sede y el punto del mapa; o deja «manual» y escribe la ubicación y coloca la marca tú mismo.
+        Los eventos privados (p. ej. tutorías) solo aparecen en el mapa general para el creador y los gestores.
+      }
     </p>
 
+    @if (pageLoading) {
+      <p class="hint">Cargando evento…</p>
+    } @else if (loadError) {
+      <p class="error-banner">No se pudo cargar el evento o no tienes permiso para editarlo.</p>
+    } @else {
     @if (errorMessage) {
       <p class="error-banner">{{ errorMessage }}</p>
     }
@@ -22,8 +31,22 @@
       </div>
 
       <div class="field">
-        <label>URL de la foto</label>
-        <input type="url" formControlName="photoUrl" placeholder="https://…" />
+        <label>Foto del evento</label>
+        <input
+          type="file"
+          [accept]="imageAccept"
+          (change)="onPhotoSelected($event)"
+        />
+        <p class="hint">JPEG, PNG o WebP. Máximo 2 MB.</p>
+        @if (photoFieldError) {
+          <p class="error-banner">{{ photoFieldError }}</p>
+        }
+        @if (photoPreviewUrl) {
+          <div class="photo-preview">
+            <img [src]="photoPreviewUrl" alt="Vista previa" />
+            <button type="button" class="btn-secondary" (click)="clearPhoto()">Quitar foto</button>
+          </div>
+        }
       </div>
 
       <div class="field">
@@ -102,41 +125,48 @@
         <input type="number" formControlName="maxAttendees" min="1" max="1000000" />
       </div>
 
-      <h2>Editores y moderadores</h2>
-      <p class="hint">
-        Opcional: añade el <strong>número de usuario UGR</strong> (el de 6 dígitos del perfil) de quien pueda
-        ayudar a gestionar el evento.
-      </p>
+      @if (!isEditMode) {
+        <h2>Editores y moderadores</h2>
+        <p class="hint">
+          Opcional: añade el <strong>número de usuario UGR</strong> (el de 6 dígitos del perfil) de quien pueda
+          ayudar a gestionar el evento.
+        </p>
 
-      @for (row of managerRows; track $index) {
-        <div class="manager-row">
-          <input
-            type="text"
-            inputmode="numeric"
-            maxlength="6"
-            placeholder="Nº usuario"
-            [(ngModel)]="row.userNumber"
-            [ngModelOptions]="{ standalone: true }"
-          />
-          <select [(ngModel)]="row.role" [ngModelOptions]="{ standalone: true }">
-            <option [ngValue]="EventManagerAssignmentRole.EDITOR">{{ roleLabels[EventManagerAssignmentRole.EDITOR] }}</option>
-            <option [ngValue]="EventManagerAssignmentRole.MODERATOR">{{ roleLabels[EventManagerAssignmentRole.MODERATOR] }}</option>
-          </select>
-          <button type="button" class="btn-remove" (click)="removeManagerRow($index)">Quitar</button>
-        </div>
+        @for (row of managerRows; track $index) {
+          <div class="manager-row">
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="6"
+              placeholder="Nº usuario"
+              [(ngModel)]="row.userNumber"
+              [ngModelOptions]="{ standalone: true }"
+            />
+            <select [(ngModel)]="row.role" [ngModelOptions]="{ standalone: true }">
+              <option [ngValue]="EventManagerAssignmentRole.EDITOR">{{ roleLabels[EventManagerAssignmentRole.EDITOR] }}</option>
+              <option [ngValue]="EventManagerAssignmentRole.MODERATOR">{{ roleLabels[EventManagerAssignmentRole.MODERATOR] }}</option>
+            </select>
+            <button type="button" class="btn-remove" (click)="removeManagerRow($index)">Quitar</button>
+          </div>
+        }
+
+        <button type="button" class="btn-secondary" (click)="addManagerRow()">
+          + Añadir editor o moderador
+        </button>
       }
-
-      <button type="button" class="btn-secondary" (click)="addManagerRow()">
-        + Añadir editor o moderador
-      </button>
 
       <div class="actions">
         <button type="button" class="btn-secondary" (click)="cancel()">Cancelar</button>
-        <button type="submit" class="btn-primary" [disabled]="submitting">
-          {{ submitting ? 'Creando…' : 'Crear evento' }}
+        <button type="submit" class="btn-primary" [disabled]="submitting || pageLoading">
+          @if (isEditMode) {
+            {{ submitting ? 'Guardando…' : 'Guardar cambios' }}
+          } @else {
+            {{ submitting ? 'Creando…' : 'Crear evento' }}
+          }
         </button>
       </div>
     </form>
+    }
   </div>
 
   @if (locationPickerOpen) {

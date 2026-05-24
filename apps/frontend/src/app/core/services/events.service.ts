@@ -8,6 +8,7 @@ import {
   EventDetailDto,
   MapMarkerDto,
   MyEventListsDto,
+  UpdateEventPayload,
 } from '@core/interfaces/event-interface';
 
 @Injectable({ providedIn: 'root' })
@@ -47,6 +48,37 @@ export class EventsService {
     return this.http.post<{ message: string; event: CreatedEventDto }>(
       `${this.API_URL}/events`,
       payload,
+    );
+  }
+
+  updateEvent(
+    eventId: number,
+    payload: UpdateEventPayload,
+  ): Observable<{ message: string; event: CreatedEventDto }> {
+    return this.http.patch<{ message: string; event: CreatedEventDto }>(
+      `${this.API_URL}/events/${eventId}`,
+      payload,
+    );
+  }
+
+  deleteEvent(eventId: number): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(
+      `${this.API_URL}/events/${eventId}`,
+    );
+  }
+
+  uploadEventPhoto(eventId: number, file: File): Observable<{ message: string }> {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.put<{ message: string }>(
+      `${this.API_URL}/events/${eventId}/photo`,
+      fd,
+    );
+  }
+
+  deleteEventPhoto(eventId: number): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(
+      `${this.API_URL}/events/${eventId}/photo`,
     );
   }
 }

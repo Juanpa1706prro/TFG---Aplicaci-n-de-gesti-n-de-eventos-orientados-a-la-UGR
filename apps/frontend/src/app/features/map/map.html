@@ -122,7 +122,7 @@
                     [class.map-cluster-page__thumb--empty]="!hasPhoto(ev)"
                   >
                     @if (hasPhoto(ev)) {
-                      <img [src]="ev.photoUrl" alt="" loading="lazy" />
+                      <img [src]="eventPhotoSrc(ev.id)" alt="" loading="lazy" />
                     }
                   </span>
                   <span class="map-cluster-page__item-text">
@@ -151,7 +151,7 @@
 
         <div class="map-detail-photo" [class.map-detail-photo--empty]="!hasPhoto(ev)">
           @if (hasPhoto(ev)) {
-            <img [src]="ev.photoUrl" [alt]="ev.title" />
+            <img [src]="eventPhotoSrc(ev.id)" [alt]="ev.title" />
           }
         </div>
 
@@ -176,9 +176,9 @@
                 @for (person of detail.managers; track person.userNumber) {
                   <li class="map-detail-person">
                     <a class="map-detail-person__link" [routerLink]="profileRoute(person.userNumber)">
-                      <span class="map-detail-person__avatar" [class.map-detail-person__avatar--empty]="!hasPhoto(person.profilePicture)">
-                        @if (hasPhoto(person.profilePicture)) {
-                          <img [src]="person.profilePicture" alt="" loading="lazy" />
+                      <span class="map-detail-person__avatar" [class.map-detail-person__avatar--empty]="!hasPhoto(person)">
+                        @if (hasPhoto(person)) {
+                          <img [src]="userPhotoSrc(person.userNumber)" alt="" loading="lazy" />
                         } @else {
                           <span aria-hidden="true">{{ participantInitials(person) }}</span>
                         }
@@ -202,9 +202,9 @@
                 @for (person of detail.attendees; track person.userNumber) {
                   <li class="map-detail-person">
                     <a class="map-detail-person__link" [routerLink]="profileRoute(person.userNumber)">
-                      <span class="map-detail-person__avatar" [class.map-detail-person__avatar--empty]="!hasPhoto(person.profilePicture)">
-                        @if (hasPhoto(person.profilePicture)) {
-                          <img [src]="person.profilePicture" alt="" loading="lazy" />
+                      <span class="map-detail-person__avatar" [class.map-detail-person__avatar--empty]="!hasPhoto(person)">
+                        @if (hasPhoto(person)) {
+                          <img [src]="userPhotoSrc(person.userNumber)" alt="" loading="lazy" />
                         } @else {
                           <span aria-hidden="true">{{ participantInitials(person) }}</span>
                         }
@@ -236,6 +236,55 @@
           @if (attendError()) {
             <p class="map-detail-error" role="alert">{{ attendError() }}</p>
           }
+
+          @if (detail.viewerIsCreator) {
+            <div class="map-detail-owner-actions">
+              <button
+                type="button"
+                class="map-detail-owner-btn map-detail-owner-btn--edit"
+                (click)="openEditOwnEvent()"
+              >
+                Editar evento
+              </button>
+              <button
+                type="button"
+                class="map-detail-owner-btn map-detail-owner-btn--delete"
+                (click)="openOwnerDeleteConfirm()"
+              >
+                Eliminar evento
+              </button>
+            </div>
+            @if (ownerDeleteError()) {
+              <p class="map-detail-error" role="alert">{{ ownerDeleteError() }}</p>
+            }
+          }
+        }
+
+        @if (showOwnerDeleteConfirm()) {
+          <div class="map-detail-confirm" role="alertdialog" aria-modal="true">
+            <div class="map-detail-confirm__box">
+              <h3>¿Eliminar este evento?</h3>
+              <p>Dejará de mostrarse en el mapa y en los listados activos.</p>
+              <div class="map-detail-confirm__actions">
+                <button
+                  type="button"
+                  class="map-detail-owner-btn map-detail-owner-btn--delete"
+                  [disabled]="ownerDeleteLoading()"
+                  (click)="confirmOwnerDelete()"
+                >
+                  {{ ownerDeleteLoading() ? 'Eliminando…' : 'Sí, eliminar' }}
+                </button>
+                <button
+                  type="button"
+                  class="map-detail-owner-btn map-detail-owner-btn--secondary"
+                  [disabled]="ownerDeleteLoading()"
+                  (click)="closeOwnerDeleteConfirm()"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
         }
 
         <button

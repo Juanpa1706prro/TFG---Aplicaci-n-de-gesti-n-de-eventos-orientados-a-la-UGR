@@ -15,17 +15,23 @@ import {
 import { EventAttendance } from './event-attendance.entity';
 import { UserProfile } from '../user/user-profile.entity';
 import { CreateEventDto } from './dto/create-event.dto';
+import { UpdateEventDto } from './dto/update-event.dto';
 import { User } from '../user/user.entity';
 import { UsersService } from '../user/user.service';
 import { CapabilityService } from '../user/capability.service';
 import { GlobalCapability } from '../user/user-enums';
 import { EventVisibility } from './event-visibility.enum';
+import { AllowedImageMimeType } from '../../common/image/image.constants';
+import {
+  hasStoredImage,
+  parseUploadedImage,
+} from '../../common/image/image-validation.util';
 
 export type CreatedEventView = {
   id: number;
   title: string;
   description: string;
-  photoUrl: string | null;
+  hasPhoto: boolean;
   location: string;
   latitude: number | null;
   longitude: number | null;
@@ -41,7 +47,7 @@ export type MapMarkerView = {
   id: number;
   title: string;
   description: string;
-  photoUrl: string | null;
+  hasPhoto: boolean;
   location: string;
   latitude: number;
   longitude: number;
@@ -57,7 +63,7 @@ export type EventUserSummary = {
   userNumber: number;
   firstName: string | null;
   lastName: string | null;
-  profilePicture: string | null;
+  hasProfilePicture: boolean;
 };
 
 export type EventDetailView = MapMarkerView & {
@@ -66,6 +72,7 @@ export type EventDetailView = MapMarkerView & {
   attendees: EventUserSummary[];
   attendeeCount: number;
   isAttending: boolean;
+  viewerIsCreator: boolean;
 };
 
 export type EventManagementRole = 'creator' | 'editor' | 'moderator';
@@ -74,7 +81,7 @@ export type EventListItemView = {
   id: number;
   title: string;
   description: string;
-  photoUrl: string | null;
+  hasPhoto: boolean;
   location: string;
   visibility: EventVisibility;
   maxAttendees: number | null;
@@ -173,7 +180,6 @@ export class EventsService {
       creatorId: creatorUserId,
       title: dto.title.trim(),
       description: dto.description.trim(),
-      photoUrl: dto.photoUrl?.trim() ? dto.photoUrl.trim() : null,
       location: dto.location.trim(),
       latitude: dto.latitude,
       longitude: dto.longitude,
@@ -271,7 +277,7 @@ export class EventsService {
         id: e.id,
         title: e.title,
         description: e.description,
-        photoUrl: e.photoUrl,
+        hasPhoto: hasStoredImage(e.photoData),
         location: e.location,
         latitude: e.latitude as number,
         longitude: e.longitude as number,
@@ -379,7 +385,7 @@ export class EventsService {
       id: e.id,
       title: e.title,
       description: e.description,
-      photoUrl: e.photoUrl,
+      hasPhoto: hasStoredImage(e.photoData),
       location: e.location,
       visibility: e.visibility,
       maxAttendees: e.maxAttendees,
@@ -424,7 +430,83 @@ export class EventsService {
       attendees: attendances.map((row) => this.toUserSummary(row.user.profile)),
       attendeeCount: attendances.length,
       isAttending,
+      viewerIsCreator: event.creatorId === userId,
     };
+  }
+
+  async updateEventByCreator(
+    eventId: number,
+    userId: number,
+    dto: UpdateEventDto,
+  ): Promise<{ message: string; event: CreatedEventView }> {
+    const event = await this.eventRepository.findOne({
+      where: { id: eventId },
+      relations: { creator: true },
+    });
+    if (!event) {
+      throw new NotFoundException('Evento no encontrado.');
+    }
+    this.assertUserIsCreator(event, userId);
+
+    if (dto.title != null) {
+      event.title = dto.title.trim();
+    }
+    if (dto.description != null) {
+      event.description = dto.description.trim();
+    }
+    if (dto.location != null) {
+      event.location = dto.location.trim();
+    }
+    if (dto.latitude != null) {
+      event.latitude = dto.latitude;
+    }
+    if (dto.longitude != null) {
+      event.longitude = dto.longitude;
+    }
+    if (dto.visibility != null) {
+      event.visibility =
+        dto.visibility === EventVisibility.PRIVATE
+          ? EventVisibility.PRIVATE
+          : EventVisibility.PUBLIC;
+    }
+    if (dto.maxAttendees !== undefined) {
+      event.maxAttendees = dto.maxAttendees;
+    }
+
+    let startsAt = event.startsAt;
+    let endsAt = event.endsAt;
+    if (dto.startsAt != null) {
+      startsAt = new Date(dto.startsAt);
+      event.startsAt = startsAt;
+    }
+    if (dto.endsAt != null) {
+      endsAt = new Date(dto.endsAt);
+      event.endsAt = endsAt;
+    }
+    if (endsAt <= startsAt) {
+      throw new BadRequestException(
+        'La fecha de fin debe ser posterior al inicio del evento.',
+      );
+    }
+
+    const saved = await this.eventRepository.save(event);
+    return {
+      message: 'Evento actualizado',
+      event: this.toCreatedView(saved),
+    };
+  }
+
+  async deleteEventByCreator(
+    eventId: number,
+    userId: number,
+  ): Promise<{ message: string }> {
+    const event = await this.eventRepository.findOne({ where: { id: eventId } });
+    if (!event) {
+      throw new NotFoundException('Evento no encontrado.');
+    }
+    this.assertUserIsCreator(event, userId);
+    await this.eventRepository.softRemove(event);
+    return { message: 'Evento eliminado' };
   }
 
   async attendEvent(eventId: number, userId: number): Promise<EventDetailView> {
@@ -490,16 +572,22 @@ export class EventsService {
     }
   }
 
+  private assertUserIsCreator(event: Event, userId: number): void {
+    if (event.creatorId !== userId) {
+      throw new ForbiddenException('Solo el creador puede modificar este evento.');
+    }
+  }
+
   private async assertUserCanViewEvent(event: Event, userId: number): Promise<void> {
+    if (event.creatorId === userId) {
+      return;
+    }
+
     if (event.endsAt <= new Date()) {
       throw new NotFoundException('Evento no encontrado.');
     }
 
     if (event.visibility === EventVisibility.PUBLIC) {
-      return;
-    }
-
-    if (event.creatorId === userId) {
       return;
     }
 
@@ -518,8 +606,105 @@ export class EventsService {
       userNumber: profile.userNumber,
       firstName: profile.firstName,
       lastName: profile.lastName,
-      profilePicture: profile.profilePicture,
+      hasProfilePicture: hasStoredImage(profile.profilePictureData),
     };
+  }
+
+  async getEventPhotoAsAdmin(
+    eventId: number,
+  ): Promise<{ data: Buffer; mimeType: AllowedImageMimeType }> {
+    const event = await this.eventRepository.findOne({
+      where: { id: eventId },
+      withDeleted: true,
+    });
+    if (!event || !hasStoredImage(event.photoData) || !event.photoMimeType) {
+      throw new NotFoundException('Imagen no encontrada.');
+    }
+    return {
+      data: event.photoData as Buffer,
+      mimeType: event.photoMimeType as AllowedImageMimeType,
+    };
+  }
+
+  async getEventPhoto(
+    eventId: number,
+    userId: number,
+  ): Promise<{ data: Buffer; mimeType: AllowedImageMimeType }> {
+    const event = await this.eventRepository.findOne({ where: { id: eventId } });
+    if (!event || !hasStoredImage(event.photoData) || !event.photoMimeType) {
+      throw new NotFoundException('Imagen no encontrada.');
+    }
+    await this.assertUserCanViewEvent(event, userId);
+    return {
+      data: event.photoData as Buffer,
+      mimeType: event.photoMimeType as AllowedImageMimeType,
+    };
+  }
+
+  async setEventPhoto(
+    eventId: number,
+    userId: number,
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<{ message: string }> {
+    const event = await this.eventRepository.findOne({ where: { id: eventId } });
+    if (!event) {
+      throw new NotFoundException('Evento no encontrado.');
+    }
+    this.assertUserIsCreator(event, userId);
+    const parsed = parseUploadedImage(buffer, mimeType);
+    event.photoData = parsed.data;
+    event.photoMimeType = parsed.mimeType;
+    await this.eventRepository.save(event);
+    return { message: 'Imagen del evento actualizada' };
+  }
+
+  async clearEventPhoto(
+    eventId: number,
+    userId: number,
+  ): Promise<{ message: string }> {
+    const event = await this.eventRepository.findOne({ where: { id: eventId } });
+    if (!event) {
+      throw new NotFoundException('Evento no encontrado.');
+    }
+    this.assertUserIsCreator(event, userId);
+    event.photoData = null;
+    event.photoMimeType = null;
+    await this.eventRepository.save(event);
+    return { message: 'Imagen del evento eliminada' };
+  }
+
+  async setEventPhotoAsAdmin(
+    eventId: number,
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<{ message: string }> {
+    const event = await this.eventRepository.findOne({
+      where: { id: eventId },
+      withDeleted: true,
+    });
+    if (!event) {
+      throw new NotFoundException('Evento no encontrado');
+    }
+    const parsed = parseUploadedImage(buffer, mimeType);
+    event.photoData = parsed.data;
+    event.photoMimeType = parsed.mimeType;
+    await this.eventRepository.save(event);
+    return { message: 'Imagen del evento actualizada' };
+  }
+
+  async clearEventPhotoAsAdmin(eventId: number): Promise<{ message: string }> {
+    const event = await this.eventRepository.findOne({
+      where: { id: eventId },
+      withDeleted: true,
+    });
+    if (!event) {
+      throw new NotFoundException('Evento no encontrado');
+    }
+    event.photoData = null;
+    event.photoMimeType = null;
+    await this.eventRepository.save(event);
+    return { message: 'Imagen del evento eliminada' };
   }
 
   private toMapMarkerView(e: Event): MapMarkerView {
@@ -527,7 +712,7 @@ export class EventsService {
       id: e.id,
       title: e.title,
       description: e.description,
-      photoUrl: e.photoUrl,
+      hasPhoto: hasStoredImage(e.photoData),
       location: e.location,
       latitude: e.latitude as number,
       longitude: e.longitude as number,
@@ -545,7 +730,7 @@ export class EventsService {
       id: e.id,
       title: e.title,
       description: e.description,
-      photoUrl: e.photoUrl,
+      hasPhoto: hasStoredImage(e.photoData),
       location: e.location,
       latitude: e.latitude,
       longitude: e.longitude,

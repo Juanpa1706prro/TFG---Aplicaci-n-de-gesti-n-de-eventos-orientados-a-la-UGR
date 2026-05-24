@@ -42,10 +42,10 @@
       <div class="sidebar-brand">UGR Eventos</div>
 
       <div class="sidebar-user">
-        @if (profile?.profilePicture) {
+        @if (profile?.hasProfilePicture) {
           <img
             class="sidebar-avatar"
-            [src]="profile?.profilePicture"
+            [src]="sessionProfilePhotoSrc"
             alt="Foto de perfil"
           />
         } @else {
@@ -157,9 +157,13 @@
         @for (item of adminMenuItems; track item.id) {
           <button
             type="button"
-            class="sidebar-link sidebar-link--placeholder"
-            disabled
-            [attr.aria-label]="item.label + ' — próximamente'"
+            class="sidebar-link"
+            [class.sidebar-link--placeholder]="!isAdminMenuItemEnabled(item)"
+            [disabled]="!isAdminMenuItemEnabled(item)"
+            [attr.aria-label]="
+              isAdminMenuItemEnabled(item) ? item.label : item.label + ' — próximamente'
+            "
+            (click)="onAdminMenuItemClick(item)"
           >
             <span class="sidebar-link__text">{{ item.label }}</span>
             <span class="sidebar-link__hint">{{ item.hint }}</span>

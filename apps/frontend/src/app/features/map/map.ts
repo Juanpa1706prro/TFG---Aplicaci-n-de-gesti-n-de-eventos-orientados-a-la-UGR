@@ -100,6 +100,10 @@ import {
   syncUserLocationMarkerVisual,
   updateUserLocationAccuracyRing,
 } from '@core/utils/map-user-location-marker.utils';
+import {
+  eventPhotoUrl,
+  userProfilePhotoUrl,
+} from '@core/utils/image-api.util';
 
 type MarkerHandle = {
   data: MapMarkerDto;
@@ -185,6 +189,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   readonly eventDetailLoading = signal(false);
   readonly attendActionLoading = signal(false);
   readonly attendError = signal<string | null>(null);
+  readonly ownerDeleteLoading = signal(false);
+  readonly ownerDeleteError = signal<string | null>(null);
+  readonly showOwnerDeleteConfirm = signal(false);
 
   readonly activeVisualTheme = signal<MapVisualTheme>(
     this.mapTheme.resolveTheme(),
@@ -347,12 +354,32 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
 
 
-  hasPhoto(source: MapMarkerDto | string | null | undefined): boolean {
+  hasPhoto(
+    source:
+      | MapMarkerDto
+      | EventParticipantDto
+      | { hasPhoto?: boolean; hasProfilePicture?: boolean }
+      | null
+      | undefined,
+  ): boolean {
     if (source == null) {
       return false;
     }
-    const url = typeof source === 'string' ? source : source.photoUrl;
-    return this.isSafePhotoUrl(url);
+    if ('hasPhoto' in source && source.hasPhoto != null) {
+      return source.hasPhoto;
+    }
+    if ('hasProfilePicture' in source && source.hasProfilePicture != null) {
+      return source.hasProfilePicture;
+    }
+    return false;
+  }
+
+  eventPhotoSrc(eventId: number): string {
+    return eventPhotoUrl(eventId);
+  }
+
+  userPhotoSrc(userNumber: number): string {
+    return userProfilePhotoUrl(userNumber);
   }
 
 
@@ -362,6 +389,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.eventDetail.set(null);
     this.eventDetailLoading.set(false);
     this.attendError.set(null);
+    this.ownerDeleteError.set(null);
+    this.showOwnerDeleteConfirm.set(false);
     this.updateMarkerSelection(null);
     this.clearDetailTimeSchedule();
   }
@@ -374,6 +403,75 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   selectEventFromCluster(m: MapMarkerDto): void {
     this.closeClusterPanel();
     this.selectEvent(m);
+  }
+
+  openEditOwnEvent(): void {
+    const detail = this.eventDetail();
+    const me = this.authService.currentUserValue?.userNumber;
+    if (!detail?.viewerIsCreator || me == null) {
+      return;
+    }
+    void this.router.navigate(['/u', me, 'events', detail.id, 'edit']);
+  }
+
+  openOwnerDeleteConfirm(): void {
+    this.ownerDeleteError.set(null);
+    this.showOwnerDeleteConfirm.set(true);
+    this.cdr.markForCheck();
+  }
+
+  closeOwnerDeleteConfirm(): void {
+    if (this.ownerDeleteLoading()) {
+      return;
+    }
+    this.showOwnerDeleteConfirm.set(false);
+    this.cdr.markForCheck();
+  }
+
+  confirmOwnerDelete(): void {
+    const detail = this.eventDetail();
+    if (!detail?.viewerIsCreator || this.ownerDeleteLoading()) {
+      return;
+    }
+
+    this.ownerDeleteLoading.set(true);
+    this.ownerDeleteError.set(null);
+
+    this.eventsService.deleteEvent(detail.id).subscribe({
+      next: () => {
+        this.ownerDeleteLoading.set(false);
+        this.showOwnerDeleteConfirm.set(false);
+        this.closeDetail();
+        this.refreshMapMarkers();
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.ownerDeleteLoading.set(false);
+        this.ownerDeleteError.set(this.readOwnerActionError(err));
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  private readOwnerActionError(err: unknown): string {
+    if (err && typeof err === 'object' && 'error' in err) {
+      const body = (err as { error?: { message?: string | string[] } }).error;
+      const msg = body?.message;
+      if (typeof msg === 'string') {
+        return msg;
+      }
+      if (Array.isArray(msg) && msg.length) {
+        return msg.join(', ');
+      }
+    }
+    return 'No se pudo completar la acción.';
+  }
+
+  private refreshMapMarkers(): void {
+    if (!this.map) {
+      return;
+    }
+    this.addEventMarkers(this.map);
   }
 
   toggleAttendance(): void {
@@ -449,27 +547,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.unbindUserLocationVisualSync = null;
   }
 
-  private isSafePhotoUrl(url: string | null | undefined): url is string {
-
-    if (!url?.trim()) {
-
-      return false;
-
-    }
-
-    try {
-
-      const parsed = new URL(url.trim());
-
-      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-
-    } catch {
-
-      return false;
-
-    }
-
-  }
 
 
 
@@ -582,7 +659,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       id: detail.id,
       title: detail.title,
       description: detail.description,
-      photoUrl: detail.photoUrl,
+      hasPhoto: detail.hasPhoto,
       location: detail.location,
       latitude: detail.latitude,
       longitude: detail.longitude,
@@ -707,13 +784,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
 
 
-    if (this.isSafePhotoUrl(m.photoUrl)) {
+    if (m.hasPhoto) {
 
       const img = document.createElement('img');
 
       img.className = 'event-map-marker__img';
 
-      img.src = m.photoUrl;
+      img.src = eventPhotoUrl(m.id);
 
       img.alt = '';
 

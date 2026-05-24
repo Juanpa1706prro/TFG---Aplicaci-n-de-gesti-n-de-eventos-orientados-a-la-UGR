@@ -4,6 +4,7 @@ import {
   ViewChild,
   inject,
   OnDestroy,
+  OnInit,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -20,19 +21,36 @@ import {
   EventManagerAssignmentRole,
   EventVisibility,
 } from '@core/constants/event-enums';
-import { CreateEventPayload } from '@core/interfaces/event-interface';
+import {
+  CreateEventPayload,
+  UpdateEventPayload,
+} from '@core/interfaces/event-interface';
 import {
   UserFaculty,
   USER_FACULTY_LABELS,
   FACULTY_COORDINATES,
 } from '@core/constants/user-enums';
 import { requiredRouteParamFromPath } from '@core/utils/route-param.utils';
+import { eventPhotoUrl } from '@core/utils/image-api.util';
+import {
+  IMAGE_ACCEPT,
+  validateImageFile,
+} from '@core/utils/image-file.util';
 
 function defaultDatetimeLocalNextHour(): string {
   const d = new Date();
   d.setSeconds(0, 0);
   d.setMinutes(0);
   d.setHours(d.getHours() + 1);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function isoToDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return '';
+  }
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
@@ -60,7 +78,7 @@ type ManagerRow = {
   templateUrl: './create-event.html',
   styleUrl: './create-event.css',
 })
-export class CreateEventComponent implements OnDestroy {
+export class CreateEventComponent implements OnInit, OnDestroy {
   @ViewChild('pickerMapHost') pickerMapHost?: ElementRef<HTMLDivElement>;
 
   private readonly fb = inject(FormBuilder);
@@ -77,19 +95,27 @@ export class CreateEventComponent implements OnDestroy {
   readonly EventVisibility = EventVisibility;
   readonly USER_FACULTY_LABELS = USER_FACULTY_LABELS;
   readonly facultyPresetList = USER_FACULTY_CODE_LIST;
+  readonly imageAccept = IMAGE_ACCEPT;
   readonly roleLabels: Record<EventManagerAssignmentRole, string> = {
     [EventManagerAssignmentRole.EDITOR]: 'Editor',
     [EventManagerAssignmentRole.MODERATOR]: 'Moderador',
   };
 
   submitting = false;
+  pageLoading = false;
+  loadError = false;
   errorMessage: string | null = null;
   managerRows: ManagerRow[] = [];
+  private editEventId: number | null = null;
+  hasExistingPhoto = false;
+  photoPreviewUrl: string | null = null;
+  selectedPhotoFile: File | null = null;
+  photoRemoved = false;
+  photoFieldError: string | null = null;
 
   readonly form = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.maxLength(300)]],
     description: ['', [Validators.required, Validators.maxLength(8000)]],
-    photoUrl: ['', Validators.maxLength(2000)],
     facultyPreset: [''],
     startsAt: [defaultDatetimeLocalNextHour(), Validators.required],
     endsAt: [defaultDatetimeLocalEventEnd(), Validators.required],
@@ -143,8 +169,140 @@ export class CreateEventComponent implements OnDestroy {
       });
   }
 
+  get isEditMode(): boolean {
+    return this.editEventId != null;
+  }
+
+  ngOnInit(): void {
+    const raw = this.route.snapshot.paramMap.get('eventId');
+    if (!raw) {
+      return;
+    }
+    const eventId = Number.parseInt(raw, 10);
+    if (!Number.isFinite(eventId)) {
+      this.loadError = true;
+      return;
+    }
+    this.editEventId = eventId;
+    this.pageLoading = true;
+    this.eventsService.getEventDetail(eventId).subscribe({
+      next: (detail) => {
+        if (!detail.viewerIsCreator) {
+          this.loadError = true;
+          this.pageLoading = false;
+          return;
+        }
+        this.hasExistingPhoto = detail.hasPhoto;
+        if (detail.hasPhoto) {
+          this.photoPreviewUrl = eventPhotoUrl(detail.id);
+        }
+        this.form.patchValue({
+          title: detail.title,
+          description: detail.description ?? '',
+          location: detail.location,
+          latitude: detail.latitude,
+          longitude: detail.longitude,
+          startsAt: isoToDatetimeLocal(detail.startsAt),
+          endsAt: isoToDatetimeLocal(detail.endsAt),
+          visibility: detail.visibility,
+          unlimitedAttendees: detail.maxAttendees == null,
+          maxAttendees: detail.maxAttendees ?? 50,
+        });
+        this.pageLoading = false;
+      },
+      error: () => {
+        this.loadError = true;
+        this.pageLoading = false;
+      },
+    });
+  }
+
   ngOnDestroy(): void {
+    this.revokePhotoPreview();
     this.destroyPickerMap();
+  }
+
+  onPhotoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) {
+      return;
+    }
+    const err = validateImageFile(file);
+    if (err) {
+      this.photoFieldError = err;
+      return;
+    }
+    this.photoFieldError = null;
+    this.photoRemoved = false;
+    this.selectedPhotoFile = file;
+    this.revokePhotoPreview();
+    this.photoPreviewUrl = URL.createObjectURL(file);
+  }
+
+  clearPhoto(): void {
+    this.photoFieldError = null;
+    this.selectedPhotoFile = null;
+    this.revokePhotoPreview();
+    if (this.hasExistingPhoto) {
+      this.photoRemoved = true;
+      this.photoPreviewUrl = null;
+    }
+  }
+
+  private revokePhotoPreview(): void {
+    if (
+      this.photoPreviewUrl?.startsWith('blob:')
+    ) {
+      URL.revokeObjectURL(this.photoPreviewUrl);
+    }
+    this.photoPreviewUrl = null;
+  }
+
+  private afterSaveNavigate(): void {
+    const n = this.currentUserNumber();
+    if (this.editEventId != null) {
+      void this.router.navigate(['/u', n, 'map'], {
+        queryParams: { event: this.editEventId },
+      });
+      return;
+    }
+    void this.router.navigate(['/u', n, 'map']);
+  }
+
+  private syncEventPhoto(eventId: number, onDone: () => void): void {
+    if (this.selectedPhotoFile) {
+      this.eventsService
+        .uploadEventPhoto(eventId, this.selectedPhotoFile)
+        .subscribe({
+          next: onDone,
+          error: (err) => {
+            this.submitting = false;
+            this.errorMessage = this.readHttpError(err, 'No se pudo subir la foto del evento.');
+          },
+        });
+      return;
+    }
+    if (this.photoRemoved) {
+      this.eventsService.deleteEventPhoto(eventId).subscribe({
+        next: onDone,
+        error: (err) => {
+          this.submitting = false;
+          this.errorMessage = this.readHttpError(err, 'No se pudo eliminar la foto del evento.');
+        },
+      });
+      return;
+    }
+    onDone();
+  }
+
+  private readHttpError(err: unknown, fallback: string): string {
+    const msg = (err as { error?: { message?: string | string[] } })?.error?.message;
+    if (Array.isArray(msg)) {
+      return msg.join(', ');
+    }
+    return typeof msg === 'string' && msg.trim() ? msg : fallback;
   }
 
   openLocationPicker(): void {
@@ -287,6 +445,12 @@ export class CreateEventComponent implements OnDestroy {
 
   cancel(): void {
     const n = this.currentUserNumber();
+    if (this.editEventId != null) {
+      void this.router.navigate(['/u', n, 'map'], {
+        queryParams: { event: this.editEventId },
+      });
+      return;
+    }
     void this.router.navigate(['/u', n, 'map']);
   }
 
@@ -322,6 +486,36 @@ export class CreateEventComponent implements OnDestroy {
       managers.push({ userNumber: num, role: row.role });
     }
 
+    this.submitting = true;
+
+    if (this.editEventId != null) {
+      const eventId = this.editEventId;
+      const updatePayload: UpdateEventPayload = {
+        title: v.title.trim(),
+        description: v.description.trim(),
+        location: v.location.trim(),
+        latitude: v.latitude,
+        longitude: v.longitude,
+        startsAt: startsAt.toISOString(),
+        endsAt: endsAt.toISOString(),
+        visibility: v.visibility,
+        maxAttendees: v.unlimitedAttendees ? null : (v.maxAttendees as number),
+      };
+      this.eventsService.updateEvent(eventId, updatePayload).subscribe({
+        next: () => {
+          this.syncEventPhoto(eventId, () => {
+            this.submitting = false;
+            this.afterSaveNavigate();
+          });
+        },
+        error: (err) => {
+          this.submitting = false;
+          this.errorMessage = this.readHttpError(err, 'No se pudo actualizar el evento.');
+        },
+      });
+      return;
+    }
+
     const payload: CreateEventPayload = {
       title: v.title.trim(),
       description: v.description.trim(),
@@ -333,26 +527,28 @@ export class CreateEventComponent implements OnDestroy {
       ...(v.visibility === EventVisibility.PRIVATE
         ? { visibility: EventVisibility.PRIVATE }
         : {}),
-      ...(v.photoUrl.trim() ? { photoUrl: v.photoUrl.trim() } : {}),
       ...(v.unlimitedAttendees
         ? {}
         : { maxAttendees: v.maxAttendees as number }),
       ...(managers.length ? { managers } : {}),
     };
 
-    this.submitting = true;
     this.eventsService.create(payload).subscribe({
-      next: () => {
-        this.submitting = false;
-        const n = this.currentUserNumber();
-        void this.router.navigate(['/u', n, 'map']);
+      next: (res) => {
+        const eventId = res.event.id;
+        if (this.selectedPhotoFile) {
+          this.syncEventPhoto(eventId, () => {
+            this.submitting = false;
+            this.afterSaveNavigate();
+          });
+        } else {
+          this.submitting = false;
+          this.afterSaveNavigate();
+        }
       },
       error: (err) => {
         this.submitting = false;
-        const msg = err.error?.message;
-        this.errorMessage = Array.isArray(msg)
-          ? msg.join(', ')
-          : (msg ?? 'No se pudo crear el evento.');
+        this.errorMessage = this.readHttpError(err, 'No se pudo crear el evento.');
       },
     });
   }

@@ -23,6 +23,11 @@ import {
   filterImplementedStaffFunctions,
   ProfileRoleSectionView,
 } from './profile-role-display.util';
+import { AllowedImageMimeType } from '../../common/image/image.constants';
+import {
+  hasStoredImage,
+  parseUploadedImage,
+} from '../../common/image/image-validation.util';
 
 export type PublicSessionUser = {
   id: number;
@@ -45,7 +50,7 @@ export type PublicProfileView = {
   firstName: string | null;
   lastName: string | null;
   bio: string | null;
-  profilePicture: string | null;
+  hasProfilePicture: boolean;
   email?: string;
   viewerIsOwner: boolean;
   /** Funciones con perfil implementado (estudiante, profesor). */
@@ -488,7 +493,7 @@ export class UsersService {
       firstName: user.profile.firstName,
       lastName: user.profile.lastName,
       bio: user.profile.bio,
-      profilePicture: user.profile.profilePicture,
+      hasProfilePicture: hasStoredImage(user.profile.profilePictureData),
       viewerIsOwner,
       staffFunctions: filterImplementedStaffFunctions(allStaffFunctions),
       studentProfile,
@@ -562,5 +567,72 @@ export class UsersService {
         'staffFunctionLinks',
       ],
     });
+  }
+
+  async getProfilePhotoByUserNumber(
+    userNumber: number,
+  ): Promise<{ data: Buffer; mimeType: AllowedImageMimeType }> {
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .innerJoinAndSelect('user.profile', 'profile')
+      .where('profile.userNumber = :userNumber', { userNumber })
+      .getOne();
+
+    const profile = user?.profile;
+    if (
+      !profile ||
+      !hasStoredImage(profile.profilePictureData) ||
+      !profile.profilePictureMimeType
+    ) {
+      throw new NotFoundException('Imagen no encontrada.');
+    }
+
+    return {
+      data: profile.profilePictureData as Buffer,
+      mimeType: profile.profilePictureMimeType as AllowedImageMimeType,
+    };
+  }
+
+  async setProfilePhoto(
+    userId: number,
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<{ message: string }> {
+    const user = await this.findByID(userId);
+    if (!user?.profile) {
+      throw new NotFoundException('Usuario o perfil no encontrado');
+    }
+    const parsed = parseUploadedImage(buffer, mimeType);
+    user.profile.profilePictureData = parsed.data;
+    user.profile.profilePictureMimeType = parsed.mimeType;
+    await this.userRepository.save(user);
+    return { message: 'Foto de perfil actualizada' };
+  }
+
+  async clearProfilePhoto(userId: number): Promise<{ message: string }> {
+    const user = await this.findByID(userId);
+    if (!user?.profile) {
+      throw new NotFoundException('Usuario o perfil no encontrado');
+    }
+    user.profile.profilePictureData = null;
+    user.profile.profilePictureMimeType = null;
+    await this.userRepository.save(user);
+    return { message: 'Foto de perfil eliminada' };
+  }
+
+  async setProfilePhotoByUserNumberAsAdmin(
+    userNumber: number,
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<{ message: string }> {
+    const user = await this.findByProfileUserNumber(userNumber);
+    if (!user?.profile) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    const parsed = parseUploadedImage(buffer, mimeType);
+    user.profile.profilePictureData = parsed.data;
+    user.profile.profilePictureMimeType = parsed.mimeType;
+    await this.userRepository.save(user);
+    return { message: 'Foto de perfil actualizada' };
   }
 }

@@ -16,7 +16,7 @@ export interface UserProfileDetails {
   gender: UserGender | null;
   phoneNumber: string | null;
   bio: string | null;
-  profilePicture: string | null;
+  hasProfilePicture: boolean;
   department?: string | null;
 }
 
@@ -39,7 +39,6 @@ export interface UpdateProfilePayload {
   birthDate?: string;
   phoneNumber?: string;
   bio?: string;
-  profilePicture?: string;
 }
 
 export interface ProfileRoleFieldView {
@@ -62,7 +61,7 @@ export interface PublicProfileView {
   firstName: string | null;
   lastName: string | null;
   bio: string | null;
-  profilePicture: string | null;
+  hasProfilePicture: boolean;
   email?: string;
   viewerIsOwner: boolean;
   staffFunctions: StaffFunction[];

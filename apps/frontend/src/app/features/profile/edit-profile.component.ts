@@ -5,15 +5,16 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { UserGender } from '@core/constants/user-enums';
+import { UpdateProfilePayload } from '@core/interfaces/user.profile-interface';
+import { UserProfileApiService } from '@core/services/user-profile-api.service';
+import { sessionProfilePhotoUrl } from '@core/utils/image-api.util';
 import {
-  FullUserPayload,
-  UpdateProfilePayload,
-} from '@core/interfaces/user.profile-interface';
-import { API_BASE_URL } from '@core/config/api.config';
+  IMAGE_ACCEPT,
+  validateImageFile,
+} from '@core/utils/image-file.util';
 import { ColumnOverlayComponent } from '../../layout/column-overlay.component';
 
 @Component({
@@ -24,8 +25,7 @@ import { ColumnOverlayComponent } from '../../layout/column-overlay.component';
   styleUrls: ['./edit-profile.component.css', './profile.css'],
 })
 export class EditProfileComponent implements OnInit {
-  private readonly API_URL = API_BASE_URL;
-  private readonly http = inject(HttpClient);
+  private readonly profileApi = inject(UserProfileApiService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -35,6 +35,13 @@ export class EditProfileComponent implements OnInit {
   readonly loadError = signal(false);
   readonly submitting = signal(false);
   readonly errorMessage = signal<string | null>(null);
+  readonly imageAccept = IMAGE_ACCEPT;
+
+  hasExistingPhoto = false;
+  photoPreviewUrl: string | null = null;
+  selectedPhotoFile: File | null = null;
+  photoRemoved = false;
+  photoFieldError: string | null = null;
 
   private userNumber: number | null = null;
 
@@ -47,7 +54,6 @@ export class EditProfileComponent implements OnInit {
     birthDate: [''],
     phoneNumber: [''],
     bio: ['', Validators.maxLength(500)],
-    profilePicture: ['', Validators.maxLength(2048)],
   });
 
   ngOnInit(): void {
@@ -61,12 +67,16 @@ export class EditProfileComponent implements OnInit {
     }
     this.userNumber = parsed;
 
-    this.http
-      .get<{ user: FullUserPayload }>(`${this.API_URL}/user/profile`)
+    this.profileApi
+      .getFullProfile()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (res) => {
           const profile = res.user.profile;
+          this.hasExistingPhoto = profile.hasProfilePicture;
+          if (profile.hasProfilePicture) {
+            this.photoPreviewUrl = sessionProfilePhotoUrl();
+          }
           this.form.patchValue({
             firstName: profile.firstName ?? '',
             lastName: profile.lastName ?? '',
@@ -74,7 +84,6 @@ export class EditProfileComponent implements OnInit {
             birthDate: this.toDateInputValue(profile.birthDate),
             phoneNumber: profile.phoneNumber ?? '',
             bio: profile.bio ?? '',
-            profilePicture: profile.profilePicture ?? '',
           });
           this.loading.set(false);
           this.loadError.set(false);
@@ -84,6 +93,35 @@ export class EditProfileComponent implements OnInit {
           this.loadError.set(true);
         },
       });
+  }
+
+  onPhotoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) {
+      return;
+    }
+    const err = validateImageFile(file);
+    if (err) {
+      this.photoFieldError = err;
+      return;
+    }
+    this.photoFieldError = null;
+    this.photoRemoved = false;
+    this.selectedPhotoFile = file;
+    this.revokePhotoPreview();
+    this.photoPreviewUrl = URL.createObjectURL(file);
+  }
+
+  clearPhoto(): void {
+    this.photoFieldError = null;
+    this.selectedPhotoFile = null;
+    this.revokePhotoPreview();
+    if (this.hasExistingPhoto) {
+      this.photoRemoved = true;
+      this.photoPreviewUrl = null;
+    }
   }
 
   submit(): void {
@@ -101,25 +139,59 @@ export class EditProfileComponent implements OnInit {
       ...(v.birthDate ? { birthDate: v.birthDate } : {}),
       ...(v.phoneNumber.trim() ? { phoneNumber: v.phoneNumber.trim() } : {}),
       ...(v.bio.trim() ? { bio: v.bio.trim() } : { bio: '' }),
-      ...(v.profilePicture.trim()
-        ? { profilePicture: v.profilePicture.trim() }
-        : { profilePicture: '' }),
     };
 
     this.submitting.set(true);
-    this.http
-      .patch<{ message: string }>(`${this.API_URL}/user/profile`, payload)
+    this.profileApi
+      .updateProfile(payload)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.submitting.set(false);
-          void this.router.navigate(['/u', this.userNumber, 'profile']);
+          this.syncProfilePhoto(() => {
+            this.submitting.set(false);
+            void this.router.navigate(['/u', this.userNumber, 'profile']);
+          });
         },
         error: (err) => {
           this.submitting.set(false);
           this.errorMessage.set(this.readErrorMessage(err));
         },
       });
+  }
+
+  private syncProfilePhoto(onDone: () => void): void {
+    if (this.selectedPhotoFile) {
+      this.profileApi.uploadProfilePhoto(this.selectedPhotoFile).subscribe({
+        next: onDone,
+        error: (err) => {
+          this.submitting.set(false);
+          this.errorMessage.set(
+            this.readErrorMessage(err, 'No se pudo subir la foto de perfil.'),
+          );
+        },
+      });
+      return;
+    }
+    if (this.photoRemoved) {
+      this.profileApi.deleteProfilePhoto().subscribe({
+        next: onDone,
+        error: (err) => {
+          this.submitting.set(false);
+          this.errorMessage.set(
+            this.readErrorMessage(err, 'No se pudo eliminar la foto de perfil.'),
+          );
+        },
+      });
+      return;
+    }
+    onDone();
+  }
+
+  private revokePhotoPreview(): void {
+    if (this.photoPreviewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(this.photoPreviewUrl);
+    }
+    this.photoPreviewUrl = null;
   }
 
   cancel(): void {
@@ -147,7 +219,7 @@ export class EditProfileComponent implements OnInit {
     return date.toISOString().slice(0, 10);
   }
 
-  private readErrorMessage(err: unknown): string {
+  private readErrorMessage(err: unknown, fallback = 'No se pudieron guardar los cambios.'): string {
     const body = (err as { error?: { message?: string | string[] } })?.error
       ?.message;
     if (Array.isArray(body)) {
@@ -156,6 +228,6 @@ export class EditProfileComponent implements OnInit {
     if (typeof body === 'string' && body.trim()) {
       return body;
     }
-    return 'No se pudieron guardar los cambios.';
+    return fallback;
   }
 }

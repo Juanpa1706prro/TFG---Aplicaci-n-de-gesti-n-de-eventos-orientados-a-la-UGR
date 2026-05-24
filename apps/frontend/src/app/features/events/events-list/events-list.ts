@@ -12,6 +12,7 @@ import {
 } from '@core/interfaces/event-interface';
 import { EventVisibility } from '@core/constants/event-enums';
 import { eventTimeDisplayText } from '@core/utils/event-time.utils';
+import { eventPhotoUrl } from '@core/utils/image-api.util';
 
 type EventsTab = 'active' | 'attended' | 'managed';
 
@@ -131,15 +132,11 @@ export class EventsListComponent implements OnInit {
     }
   }
 
-  hasPhoto(url: string | null | undefined): boolean {
-    if (!url?.trim()) {
-      return false;
-    }
-    try {
-      const parsed = new URL(url.trim());
-      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-    } catch {
-      return false;
-    }
+  hasPhoto(item: EventListItemDto): boolean {
+    return item.hasPhoto;
+  }
+
+  eventPhotoSrc(eventId: number): string {
+    return eventPhotoUrl(eventId);
   }
 }

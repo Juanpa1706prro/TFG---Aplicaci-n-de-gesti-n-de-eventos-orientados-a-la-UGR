@@ -9,7 +9,7 @@ export interface FriendUserSummaryDto {
   userNumber: number;
   firstName: string | null;
   lastName: string | null;
-  profilePicture: string | null;
+  hasProfilePicture: boolean;
 }
 
 export interface FriendListItemDto {

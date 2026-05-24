@@ -5,6 +5,7 @@ import { StaffFunction, UserGender } from '@core/constants/user-enums';
 import { StudentProfileDto } from '@core/interfaces/user.profile-interface';
 import { staffFunctionLabel } from '@core/utils/profile-display.utils';
 import { buildActiveStaffRoleSection } from '@core/utils/profile-role-display.utils';
+import { sessionProfilePhotoUrl } from '@core/utils/image-api.util';
 
 export type MyProfileView = {
   userNumber: number;
@@ -20,7 +21,7 @@ export type MyProfileView = {
   gender?: UserGender | null;
   phoneNumber?: string | null;
   bio?: string | null;
-  profilePicture?: string | null;
+  hasProfilePicture: boolean;
 };
 
 @Component({
@@ -66,5 +67,9 @@ export class MyProfileViewComponent {
 
   staffFunctionChipLabel(fn: StaffFunction): string {
     return staffFunctionLabel(fn);
+  }
+
+  profilePhotoSrc(): string {
+    return sessionProfilePhotoUrl();
   }
 }

@@ -30,9 +30,11 @@ export class Event {
   @Column({ type: 'text', default: '' })
   description: string;
 
-  /** URL de la imagen (por ahora texto; subida de ficheros en fase posterior). */
-  @Column({ type: 'varchar', length: 2000, nullable: true })
-  photoUrl: string | null;
+  @Column({ type: 'bytea', nullable: true })
+  photoData: Buffer | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  photoMimeType: string | null;
 
   @Column({ type: 'varchar', length: 500 })
   location: string;

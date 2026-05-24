@@ -8,7 +8,14 @@ import { FriendsPanelComponent } from '@features/friends/friends-panel/friends-p
 import { AuthComponent } from '@features/auth/auth';
 import { ProfileComponent } from '@features/profile/profile';
 import { EditProfileComponent } from '@features/profile/edit-profile.component';
+import { AdminUsersListComponent } from '@features/admin/admin-users-list/admin-users-list';
+import { AdminUserProfileComponent } from '@features/admin/admin-user-profile/admin-user-profile';
+import { AdminEditUserComponent } from '@features/admin/admin-edit-user/admin-edit-user';
+import { AdminEventsListComponent } from '@features/admin/admin-events-list/admin-events-list';
+import { AdminEventDetailComponent } from '@features/admin/admin-event-detail/admin-event-detail';
+import { AdminEditEventComponent } from '@features/admin/admin-edit-event/admin-edit-event';
 import { AccountComponent } from '@features/account/account';
+import { adminGuard } from '@core/guards/admin.guard';
 import { OnboardingComponent } from '@features/auth/pages/onboarding/onboarding';
 import { SelectProfileComponent } from '@features/auth/pages/select-profile/select-profile';
 import { EntryShellComponent } from './entry-shell.component';
@@ -71,6 +78,17 @@ export const routes: Routes = [
         ],
       },
       {
+        path: 'events/:eventId/edit',
+        component: CreateEventComponent,
+        canActivate: [
+          authGuard,
+          profileCompleteGuard,
+          personaSelectedGuard,
+          mapGuard,
+          canCreateEventsGuard,
+        ],
+      },
+      {
         path: 'map',
         component: ShellPassThroughComponent,
         canActivate: [profileCompleteGuard, personaSelectedGuard, mapGuard],
@@ -109,6 +127,36 @@ export const routes: Routes = [
           personaSelectedGuard,
           accountOwnerGuard,
         ],
+      },
+      {
+        path: 'admin/users',
+        component: AdminUsersListComponent,
+        canActivate: [profileCompleteGuard, adminGuard],
+      },
+      {
+        path: 'admin/users/:viewUserNumber/edit',
+        component: AdminEditUserComponent,
+        canActivate: [profileCompleteGuard, adminGuard],
+      },
+      {
+        path: 'admin/users/:viewUserNumber',
+        component: AdminUserProfileComponent,
+        canActivate: [profileCompleteGuard, adminGuard],
+      },
+      {
+        path: 'admin/events',
+        component: AdminEventsListComponent,
+        canActivate: [profileCompleteGuard, adminGuard],
+      },
+      {
+        path: 'admin/events/:eventId/edit',
+        component: AdminEditEventComponent,
+        canActivate: [profileCompleteGuard, adminGuard],
+      },
+      {
+        path: 'admin/events/:eventId',
+        component: AdminEventDetailComponent,
+        canActivate: [profileCompleteGuard, adminGuard],
       },
     ],
   },

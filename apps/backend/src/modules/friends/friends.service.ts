@@ -13,13 +13,14 @@ import { SendFriendRequestDto } from './dto/send-friend-request.dto';
 import { UsersService } from '../user/user.service';
 import { User } from '../user/user.entity';
 import { UserProfile } from '../user/user-profile.entity';
+import { hasStoredImage } from '../../common/image/image-validation.util';
 
 export type FriendUserSummary = {
   userId: number;
   userNumber: number;
   firstName: string | null;
   lastName: string | null;
-  profilePicture: string | null;
+  hasProfilePicture: boolean;
 };
 
 export type FriendRequestItemView = {
@@ -205,7 +206,7 @@ export class FriendsService {
           userNumber: fromUser.profile.userNumber,
           firstName: fromUser.profile.firstName,
           lastName: fromUser.profile.lastName,
-          profilePicture: fromUser.profile.profilePicture,
+          hasProfilePicture: hasStoredImage(fromUser.profile.profilePictureData),
         },
       };
     });
@@ -368,7 +369,7 @@ export class FriendsService {
         userNumber: profile.userNumber,
         firstName: profile.firstName,
         lastName: profile.lastName,
-        profilePicture: profile.profilePicture,
+        hasProfilePicture: hasStoredImage(profile.profilePictureData),
       },
     };
   }
@@ -457,7 +458,7 @@ export class FriendsService {
         userNumber: profile.userNumber,
         firstName: profile.firstName,
         lastName: profile.lastName,
-        profilePicture: profile.profilePicture,
+        hasProfilePicture: hasStoredImage(profile.profilePictureData),
       },
     };
   }

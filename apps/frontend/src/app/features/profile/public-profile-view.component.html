@@ -1,10 +1,10 @@
 <div class="profile-container">
   <div class="profile-card">
     <div class="profile-header">
-      @if (profile().profilePicture) {
+      @if (profile().hasProfilePicture) {
         <img
           class="profile-avatar"
-          [src]="profile().profilePicture"
+          [src]="publicProfilePhotoSrc()"
           alt="Foto de perfil"
         />
       } @else {

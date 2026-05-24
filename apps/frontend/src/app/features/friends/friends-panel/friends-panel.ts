@@ -14,6 +14,7 @@ import {
   FriendsListSort,
   FriendUserSummaryDto,
 } from '@core/interfaces/friend-interface';
+import { userProfilePhotoUrl } from '@core/utils/image-api.util';
 
 type PanelView = 'friends' | 'requests';
 type RequestsTab = 'incoming' | 'outgoing';
@@ -284,16 +285,12 @@ export class FriendsPanelComponent implements OnInit {
     });
   }
 
-  hasPhoto(url: string | null | undefined): boolean {
-    if (!url?.trim()) {
-      return false;
-    }
-    try {
-      const parsed = new URL(url.trim());
-      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-    } catch {
-      return false;
-    }
+  hasPhoto(user: FriendUserSummaryDto): boolean {
+    return user.hasProfilePicture;
+  }
+
+  userPhotoSrc(userNumber: number): string {
+    return userProfilePhotoUrl(userNumber);
   }
 
   initials(user: FriendUserSummaryDto): string {

@@ -301,7 +301,7 @@ export class ProfileComponent implements OnInit {
       gender: profile.gender,
       phoneNumber: profile.phoneNumber,
       bio: profile.bio,
-      profilePicture: profile.profilePicture,
+      hasProfilePicture: profile.hasProfilePicture,
     };
   }
 

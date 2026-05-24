@@ -5,6 +5,7 @@ import { FriendRelationshipStatus } from '@core/interfaces/friend-interface';
 import { StaffFunction } from '@core/constants/user-enums';
 import { staffFunctionLabel } from '@core/utils/profile-display.utils';
 import { buildPublicProfileRoleSections } from '@core/utils/profile-role-display.utils';
+import { userProfilePhotoUrl } from '@core/utils/image-api.util';
 
 @Component({
   selector: 'app-public-profile-view',
@@ -67,5 +68,9 @@ export class PublicProfileViewComponent {
 
   staffFunctionChipLabel(fn: StaffFunction): string {
     return staffFunctionLabel(fn);
+  }
+
+  publicProfilePhotoSrc(): string {
+    return userProfilePhotoUrl(this.profile().userNumber);
   }
 }

@@ -74,9 +74,9 @@
               (click)="openEventOnMap(item)"
               (keydown.enter)="openEventOnMap(item)"
             >
-              <div class="events-card__media" [class.events-card__media--empty]="!hasPhoto(item.photoUrl)">
-                @if (hasPhoto(item.photoUrl)) {
-                  <img [src]="item.photoUrl" [alt]="item.title" loading="lazy" />
+              <div class="events-card__media" [class.events-card__media--empty]="!hasPhoto(item)">
+                @if (hasPhoto(item)) {
+                  <img [src]="eventPhotoSrc(item.id)" [alt]="item.title" loading="lazy" />
                 }
               </div>
               <div class="events-card__content">

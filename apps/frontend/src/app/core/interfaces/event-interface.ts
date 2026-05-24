@@ -8,7 +8,6 @@ export interface EventManagerInvitePayload {
 export interface CreateEventPayload {
   title: string;
   description: string;
-  photoUrl?: string;
   location: string;
   latitude: number;
   longitude: number;
@@ -23,7 +22,7 @@ export interface CreatedEventDto {
   id: number;
   title: string;
   description: string;
-  photoUrl: string | null;
+  hasPhoto: boolean;
   location: string;
   latitude: number | null;
   longitude: number | null;
@@ -39,7 +38,7 @@ export interface MapMarkerDto {
   id: number;
   title: string;
   description: string;
-  photoUrl: string | null;
+  hasPhoto: boolean;
   location: string;
   latitude: number;
   longitude: number;
@@ -55,7 +54,7 @@ export interface EventParticipantDto {
   userNumber: number;
   firstName: string | null;
   lastName: string | null;
-  profilePicture: string | null;
+  hasProfilePicture: boolean;
 }
 
 export type EventManagementRole = 'creator' | 'editor' | 'moderator';
@@ -64,7 +63,7 @@ export interface EventListItemDto {
   id: number;
   title: string;
   description: string;
-  photoUrl: string | null;
+  hasPhoto: boolean;
   location: string;
   visibility: EventVisibility;
   maxAttendees: number | null;
@@ -85,4 +84,7 @@ export interface EventDetailDto extends MapMarkerDto {
   attendees: EventParticipantDto[];
   attendeeCount: number;
   isAttending: boolean;
+  viewerIsCreator: boolean;
 }
+
+export type UpdateEventPayload = Omit<CreateEventPayload, 'managers'>;

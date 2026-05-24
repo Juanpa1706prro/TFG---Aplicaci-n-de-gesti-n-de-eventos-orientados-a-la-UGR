@@ -1,0 +1,171 @@
+<div class="admin-overlay" role="dialog" aria-modal="true" aria-label="Detalle de evento">
+  <button
+    type="button"
+    class="admin-overlay__dim"
+    aria-label="Volver al listado"
+    (click)="closeToList()"
+  ></button>
+
+  <section class="admin-overlay__panel admin-overlay__panel--detail">
+    <header class="admin-overlay__header">
+      <div>
+        <h1 class="admin-overlay__title">Evento</h1>
+        @if (event(); as e) {
+          <p class="admin-overlay__subtitle">#{{ e.id }} · {{ visibilityLabel(e.visibility) }}</p>
+        }
+      </div>
+      <button
+        type="button"
+        class="admin-overlay__close"
+        aria-label="Cerrar"
+        (click)="closeToMap()"
+      >
+        ×
+      </button>
+    </header>
+
+    @if (loading()) {
+      <p class="admin-overlay__status">Cargando evento…</p>
+    } @else if (loadError()) {
+      <p class="admin-overlay__status admin-overlay__status--error">
+        No se pudo cargar este evento.
+      </p>
+      @if (listLink; as link) {
+        <p class="admin-overlay__back-wrap">
+          <a class="admin-overlay__back" [routerLink]="link">Volver al listado</a>
+        </p>
+      }
+    } @else if (event(); as e) {
+      <div class="admin-profile-body">
+        <div class="admin-profile-card">
+          <h2>{{ e.title }}</h2>
+          @if (e.deletedAt) {
+            <p class="admin-event-detail__flag admin-event-detail__flag--deleted">
+              Eliminado el {{ formatDateTime(e.deletedAt) }}
+            </p>
+          } @else if (e.finished) {
+            <p class="admin-event-detail__flag admin-event-detail__flag--finished">Terminado</p>
+          } @else {
+            <p class="admin-event-detail__flag admin-event-detail__flag--active">En curso</p>
+          }
+
+          <dl class="admin-profile-grid">
+            <dt>Horario</dt>
+            <dd>{{ eventTimeLabel() }}</dd>
+            <dt>Inicio</dt>
+            <dd>{{ formatDateTime(e.startsAt) }}</dd>
+            <dt>Fin</dt>
+            <dd>{{ formatDateTime(e.endsAt) }}</dd>
+            <dt>Ubicación</dt>
+            <dd>{{ e.location }}</dd>
+            <dt>Coordenadas</dt>
+            <dd>
+              @if (e.latitude != null && e.longitude != null) {
+                {{ e.latitude }}, {{ e.longitude }}
+              } @else {
+                —
+              }
+            </dd>
+            <dt>Creador</dt>
+            <dd>
+              @if (e.creatorUserNumber != null) {
+                #{{ e.creatorUserNumber }}
+                @if (e.creatorLabel) {
+                  ({{ e.creatorLabel }})
+                }
+              } @else {
+                ID {{ e.creatorId }}
+              }
+            </dd>
+            <dt>Asistentes</dt>
+            <dd>{{ e.attendeeCount }}</dd>
+            <dt>Gestores</dt>
+            <dd>{{ e.managerCount }}</dd>
+            <dt>Máx. asistentes</dt>
+            <dd>{{ e.maxAttendees ?? 'Sin límite' }}</dd>
+            <dt>Creado</dt>
+            <dd>{{ formatDateTime(e.createdAt) }}</dd>
+            <dt>Actualizado</dt>
+            <dd>{{ formatDateTime(e.updatedAt) }}</dd>
+            @if (e.description) {
+              <div class="admin-profile-grid__full">
+                <dt>Descripción</dt>
+                <dd>{{ e.description }}</dd>
+              </div>
+            }
+            @if (e.hasPhoto) {
+              <div class="admin-profile-grid__full">
+                <dt>Imagen</dt>
+                <dd>
+                  <img
+                    class="admin-event-photo"
+                    [src]="eventPhotoSrc(e.id)"
+                    [alt]="e.title"
+                    loading="lazy"
+                  />
+                </dd>
+              </div>
+            }
+          </dl>
+        </div>
+
+        <div class="admin-profile-actions">
+          @if (editLink; as link) {
+            <a class="admin-profile-btn admin-profile-btn--primary" [routerLink]="link">
+              Editar evento
+            </a>
+          }
+          <button
+            type="button"
+            class="admin-profile-btn admin-profile-btn--danger"
+            (click)="openDeleteConfirm()"
+          >
+            Eliminar evento
+          </button>
+          @if (listLink; as link) {
+            <a class="admin-profile-btn admin-profile-btn--secondary" [routerLink]="link">
+              Volver al listado
+            </a>
+          }
+        </div>
+      </div>
+
+      @if (showDeleteConfirm()) {
+        <div class="admin-confirm" role="alertdialog" aria-modal="true" aria-labelledby="del-ev-title">
+          <div class="admin-confirm__box">
+            <h3 id="del-ev-title">¿Eliminar este evento?</h3>
+            <p>
+              @if (e.deletedAt) {
+                Se borrará de forma permanente de la base de datos.
+              } @else {
+                Se marcará como eliminado (soft delete). Si ya estaba eliminado, se borrará
+                permanentemente.
+              }
+            </p>
+            @if (deleteError(); as err) {
+              <p class="admin-confirm__error">{{ err }}</p>
+            }
+            <div class="admin-confirm__actions">
+              <button
+                type="button"
+                class="admin-profile-btn admin-profile-btn--danger"
+                [disabled]="deleting()"
+                (click)="confirmDelete()"
+              >
+                {{ deleting() ? 'Eliminando…' : 'Sí, eliminar' }}
+              </button>
+              <button
+                type="button"
+                class="admin-profile-btn admin-profile-btn--secondary"
+                [disabled]="deleting()"
+                (click)="closeDeleteConfirm()"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+    }
+  </section>
+</div>

@@ -16,13 +16,17 @@ import { MapComponent } from '@features/map/map';
 import { GlobalCapability, SystemRole } from '@core/constants/user-enums';
 import { FullUserPayload, UserProfileDetails } from '@core/interfaces/user.profile-interface';
 import { API_BASE_URL } from '@core/config/api.config';
+import { sessionProfilePhotoUrl } from '@core/utils/image-api.util';
 import { UserSession } from '@core/interfaces/user-interface';
 import {
   canOpenAdminSidebar,
   isElevatedSystemRole,
   systemRoleLabel,
 } from '@core/utils/system-role-display.utils';
-import { ADMIN_SIDEBAR_MENU_ITEMS } from './admin-sidebar-menu.config';
+import {
+  ADMIN_SIDEBAR_MENU_ITEMS,
+  AdminSidebarMenuItem,
+} from './admin-sidebar-menu.config';
 
 @Component({
   selector: 'app-shell',
@@ -86,6 +90,10 @@ export class AppShellComponent implements OnInit {
     return this.username.slice(0, 2).toUpperCase();
   }
 
+  get sessionProfilePhotoSrc(): string {
+    return sessionProfilePhotoUrl();
+  }
+
   get canCreateEvents(): boolean {
     return (
       this.user?.globalCapabilities.includes(
@@ -136,6 +144,23 @@ export class AppShellComponent implements OnInit {
     this.shellUi.openAdminSidebar();
   }
 
+  onAdminMenuItemClick(item: AdminSidebarMenuItem): void {
+    if (this.user == null || !this.isAdminMenuItemEnabled(item)) {
+      return;
+    }
+    this.shellUi.closeSidebar();
+    const base = ['/u', this.user.userNumber, 'admin'] as const;
+    if (item.id === 'users') {
+      void this.router.navigate([...base, 'users']);
+    } else if (item.id === 'events') {
+      void this.router.navigate([...base, 'events']);
+    }
+  }
+
+  isAdminMenuItemEnabled(item: AdminSidebarMenuItem): boolean {
+    return item.id === 'users' || item.id === 'events';
+  }
+
   backToMainSidebar(): void {
     this.shellUi.backToMainSidebar();
   }
@@ -147,8 +172,10 @@ export class AppShellComponent implements OnInit {
   private urlBlocksMap(url: string): boolean {
     return (
       /\/events\/new(\/|$)/.test(url) ||
+      /\/events\/\d+\/edit(\/|$)/.test(url) ||
       /\/profile(\/|$)/.test(url) ||
-      /\/account(\/|$)/.test(url)
+      /\/account(\/|$)/.test(url) ||
+      /\/admin(\/|$)/.test(url)
     );
   }
 }

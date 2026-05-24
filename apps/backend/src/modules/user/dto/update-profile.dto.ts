@@ -37,9 +37,4 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(500)
   bio?: string;
-
-  @IsOptional()
-  @IsString()
-  profilePicture?: string;
-
 }

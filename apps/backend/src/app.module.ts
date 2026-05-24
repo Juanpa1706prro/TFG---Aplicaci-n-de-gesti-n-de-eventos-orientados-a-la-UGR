@@ -18,6 +18,7 @@ import { DelegationMembership } from './modules/delegation/delegation-membership
 import { FriendRequest } from './modules/friends/friend-request.entity';
 import { Friendship } from './modules/friends/friendship.entity';
 import { FriendsModule } from './modules/friends/friends.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 // ------------------------------------------------------------
 // Root application module that bundles all feature modules and 
@@ -58,6 +59,7 @@ import { FriendsModule } from './modules/friends/friends.module';
     AuthModule,
     EventsModule,
     FriendsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

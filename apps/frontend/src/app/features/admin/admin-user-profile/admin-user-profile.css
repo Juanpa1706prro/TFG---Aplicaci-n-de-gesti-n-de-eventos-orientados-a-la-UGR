@@ -1,0 +1,186 @@
+@import '../admin-users-list/admin-users-list.css';
+
+.admin-overlay__panel--detail {
+  display: flex;
+  flex-direction: column;
+  max-width: min(640px, 100%);
+  overflow: hidden;
+}
+
+.admin-profile-body {
+  padding: 1rem 1.1rem 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.admin-profile-card {
+  padding: 1rem;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+
+.admin-profile-header {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.admin-profile-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #0f172a;
+}
+
+.admin-profile-username {
+  margin: 0.2rem 0 0;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.admin-profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid #bfdbfe;
+}
+
+.admin-profile-avatar--fallback {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+  font-weight: 800;
+}
+
+.admin-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 0;
+}
+
+.admin-profile-grid dt {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-profile-grid dd {
+  margin: 0.15rem 0 0;
+  color: #0f172a;
+  font-size: 0.92rem;
+}
+
+.admin-profile-grid__full {
+  grid-column: 1 / -1;
+}
+
+.admin-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.admin-profile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.admin-profile-btn--primary {
+  background: #2563eb;
+  color: #fff;
+}
+
+.admin-profile-btn--primary:hover {
+  background: #1d4ed8;
+}
+
+.admin-profile-btn--secondary {
+  background: #fff;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+.admin-profile-btn--danger {
+  background: #dc2626;
+  color: #fff;
+}
+
+.admin-profile-btn--danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.admin-profile-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.admin-overlay__back-wrap {
+  text-align: center;
+  padding: 0 1rem 1rem;
+}
+
+.admin-overlay__back {
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.admin-confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.admin-confirm__box {
+  width: min(400px, 100%);
+  padding: 1.1rem;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.25);
+}
+
+.admin-confirm__box h3 {
+  margin: 0 0 0.5rem;
+}
+
+.admin-confirm__box p {
+  margin: 0 0 0.75rem;
+  color: #475569;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.admin-confirm__error {
+  color: #b91c1c;
+}
+
+.admin-confirm__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@media (max-width: 520px) {
+  .admin-profile-grid {
+    grid-template-columns: 1fr;
+  }
+}

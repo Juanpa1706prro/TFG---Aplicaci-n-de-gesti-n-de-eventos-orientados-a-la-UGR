@@ -44,8 +44,11 @@ export class UserProfile {
   @Column({ type: 'text', nullable: true })
   bio: string;
 
-  @Column({ nullable: true })
-  profilePicture: string;
+  @Column({ type: 'bytea', nullable: true })
+  profilePictureData: Buffer | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  profilePictureMimeType: string | null;
 
   // ------------------------------------------------------------
   // Relations.
