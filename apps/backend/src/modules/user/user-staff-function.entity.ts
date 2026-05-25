@@ -9,6 +9,10 @@ import {
 import { User } from './user.entity';
 import { StaffFunction } from './user-enums';
 
+// -------------------------------------------------------------------
+// User staff function link entity
+// Many-to-many style link: user may have multiple StaffFunction values.
+// -------------------------------------------------------------------
 @Entity('user_staff_functions')
 @Unique('UQ_user_staff_fn', ['user', 'function'])
 export class UserStaffFunction {

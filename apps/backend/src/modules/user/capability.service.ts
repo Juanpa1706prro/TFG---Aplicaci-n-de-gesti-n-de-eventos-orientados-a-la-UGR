@@ -1,11 +1,22 @@
 import { Injectable } from '@nestjs/common';
 import { GlobalCapability, StaffFunction } from './user-enums';
 
+// -------------------------------------------------------------------
+// Capability Service
+// Resolves global platform capabilities from staff functions and session persona.
+// -------------------------------------------------------------------
 @Injectable()
 export class CapabilityService {
+  // ------------------------------------------------------------
+  // Public methods
+  // ------------------------------------------------------------
+
   /**
-   * Capacidades globales según la función activa en sesión.
-   * Si hay varias funciones y aún no hay `activeStaffFunction`, solo asistencia hasta elegir perfil.
+   * Global capabilities for the active session staff function.
+   * If multiple functions exist and activeStaffFunction is unset, only ATTEND_EVENTS until persona is chosen.
+   * @param {StaffFunction[]} staffFunctions - All functions linked to the user.
+   * @param {StaffFunction | null} activeStaffFunction - Function selected for the current session.
+   * @returns {GlobalCapability[]} Capabilities granted for this session.
    */
   resolveGlobalCapabilities(
     staffFunctions: StaffFunction[],

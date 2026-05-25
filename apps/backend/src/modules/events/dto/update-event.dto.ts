@@ -14,6 +14,14 @@ import {
 } from 'class-validator';
 import { EventVisibility } from '../event-visibility.enum';
 
+// -------------------------------------------------------------------
+// Update event DTO
+// Request body for PATCH /events/:id (creator only).
+// -------------------------------------------------------------------
+
+/**
+ * Partial event update payload for the event creator.
+ */
 export class UpdateEventDto {
   @IsOptional()
   @IsString()

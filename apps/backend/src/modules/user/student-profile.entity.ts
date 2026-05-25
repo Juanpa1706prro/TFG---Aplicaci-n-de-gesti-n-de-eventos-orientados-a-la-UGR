@@ -8,6 +8,10 @@ import {
 import { User } from './user.entity';
 import { UserFaculty, UserCampus, UserDegree } from './user-enums';
 
+// -------------------------------------------------------------------
+// Student profile entity
+// Faculty, campus and degree for users with ESTUDIANTE staff function.
+// -------------------------------------------------------------------
 @Entity('student_profiles')
 export class StudentProfile {
   @PrimaryGeneratedColumn()

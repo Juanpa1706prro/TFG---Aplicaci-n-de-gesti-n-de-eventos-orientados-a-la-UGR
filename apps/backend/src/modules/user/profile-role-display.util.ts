@@ -6,29 +6,99 @@ import {
   UserFaculty,
 } from './user-enums';
 
+// -------------------------------------------------------------------
+// Profile role display utilities
+// Builds role sections for public profile API responses.
+// -------------------------------------------------------------------
+
+// ------------------------------------------------------------
+// Types
+// ------------------------------------------------------------
+
+/** Single labeled field in a role section. */
 export type ProfileRoleFieldView = {
   key: string;
   label: string;
   value: string;
 };
 
+/** Group of fields for one staff function on a public profile. */
 export type ProfileRoleSectionView = {
   function: StaffFunction;
   title: string;
   fields: ProfileRoleFieldView[];
 };
 
-/** Roles con datos de perfil implementados (ampliar al añadir nuevas entidades). */
+/** Roles with implemented profile data (extend when new entities are added). */
 export const PROFILE_DISPLAY_IMPLEMENTED_ROLES: StaffFunction[] = [
   StaffFunction.ESTUDIANTE,
   StaffFunction.PROFESOR,
 ];
 
+/** Student profile slice used when building role sections. */
 export type StudentProfileSlice = {
   faculty: string;
   campus: string;
   degree: string;
 } | null;
+
+// ------------------------------------------------------------
+// Public functions
+// ------------------------------------------------------------
+
+/**
+ * Role sections for another user's profile: one per implemented function with data.
+ * Order: student, then professor.
+ * @param {StaffFunction[]} staffFunctions - All functions on the account.
+ * @param {StudentProfileSlice} studentProfile - Student enum codes or null.
+ * @param {string | null} department - Staff department when applicable.
+ * @returns {ProfileRoleSectionView[]}
+ */
+export function buildPublicProfileRoleSections(
+  staffFunctions: StaffFunction[],
+  studentProfile: StudentProfileSlice,
+  department: string | null,
+): ProfileRoleSectionView[] {
+  const sections: ProfileRoleSectionView[] = [];
+  const roles = new Set(staffFunctions);
+
+  if (roles.has(StaffFunction.ESTUDIANTE) && studentProfile) {
+    const fields = buildStudentFields(studentProfile);
+    if (fields.length > 0) {
+      sections.push({
+        function: StaffFunction.ESTUDIANTE,
+        title: staffFunctionTitle(StaffFunction.ESTUDIANTE),
+        fields,
+      });
+    }
+  }
+
+  if (roles.has(StaffFunction.PROFESOR) && hasText(department)) {
+    sections.push({
+      function: StaffFunction.PROFESOR,
+      title: staffFunctionTitle(StaffFunction.PROFESOR),
+      fields: buildProfessorFields(department!),
+    });
+  }
+
+  return sections;
+}
+
+/**
+ * Staff function chips limited to roles with a display implementation.
+ * @param {StaffFunction[]} staffFunctions - All functions on the account.
+ * @returns {StaffFunction[]}
+ */
+export function filterImplementedStaffFunctions(
+  staffFunctions: StaffFunction[],
+): StaffFunction[] {
+  const implemented = new Set(PROFILE_DISPLAY_IMPLEMENTED_ROLES);
+  return staffFunctions.filter((fn) => implemented.has(fn));
+}
+
+// ------------------------------------------------------------
+// Private helpers
+// ------------------------------------------------------------
 
 function hasText(v: string | null | undefined): boolean {
   return !!v && v.trim().length > 0;
@@ -87,46 +157,4 @@ function buildProfessorFields(department: string): ProfileRoleFieldView[] {
       value: department.trim(),
     },
   ];
-}
-
-/**
- * Secciones de rol para perfil ajeno: una por función implementada con datos.
- * Orden: estudiante, luego profesor.
- */
-export function buildPublicProfileRoleSections(
-  staffFunctions: StaffFunction[],
-  studentProfile: StudentProfileSlice,
-  department: string | null,
-): ProfileRoleSectionView[] {
-  const sections: ProfileRoleSectionView[] = [];
-  const roles = new Set(staffFunctions);
-
-  if (roles.has(StaffFunction.ESTUDIANTE) && studentProfile) {
-    const fields = buildStudentFields(studentProfile);
-    if (fields.length > 0) {
-      sections.push({
-        function: StaffFunction.ESTUDIANTE,
-        title: staffFunctionTitle(StaffFunction.ESTUDIANTE),
-        fields,
-      });
-    }
-  }
-
-  if (roles.has(StaffFunction.PROFESOR) && hasText(department)) {
-    sections.push({
-      function: StaffFunction.PROFESOR,
-      title: staffFunctionTitle(StaffFunction.PROFESOR),
-      fields: buildProfessorFields(department!),
-    });
-  }
-
-  return sections;
-}
-
-/** Chips de funciones implementadas que el usuario tiene asignadas. */
-export function filterImplementedStaffFunctions(
-  staffFunctions: StaffFunction[],
-): StaffFunction[] {
-  const implemented = new Set(PROFILE_DISPLAY_IMPLEMENTED_ROLES);
-  return staffFunctions.filter((fn) => implemented.has(fn));
 }

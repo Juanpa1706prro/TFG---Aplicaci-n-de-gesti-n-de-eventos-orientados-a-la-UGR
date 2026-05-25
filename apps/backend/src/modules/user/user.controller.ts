@@ -19,7 +19,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { UsersService } from './user.service';
-import { JwtAuthGuard } from '../auth/auth.guard-jwt';
+import { JwtAuthGuard } from '../auth/guards/auth.guard-jwt';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
 import { SetSessionPersonaDto } from './dto/set-session-persona.dto';
@@ -27,11 +27,28 @@ import { sendStoredImage } from '../../common/image/image-response.util';
 import type { UploadedImageFile } from '../../common/image/uploaded-file.type';
 import { hasStoredImage } from '../../common/image/image-validation.util';
 
+// -------------------------------------------------------------------
+// Users Controller
+// Profile, onboarding, session persona and photos. Base route: /user
+// -------------------------------------------------------------------
 @Controller('user')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
+  // ------------------------------------------------------------
+  // Constructor: Injects required services.
+  // ------------------------------------------------------------
+
   constructor(private readonly userService: UsersService) {}
 
+  // ------------------------------------------------------------
+  // Endpoints
+  // ------------------------------------------------------------
+
+  /**
+   * Returns the authenticated user's full profile and session payload.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @returns {Promise<object>} Message and user with profile, student and staff data.
+   */
   @Get('profile')
   async getProfile(@Request() req: { user: { sub: number } }) {
     if (!req.user?.sub) {
@@ -71,6 +88,12 @@ export class UsersController {
     };
   }
 
+  /**
+   * Streams the authenticated user's profile photo from the database.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @param {Response} res - Express response for binary image output.
+   * @returns {Promise<void>}
+   */
   @Get('profile/photo')
   async getOwnProfilePhoto(
     @Request() req: { user: { sub: number } },
@@ -86,6 +109,13 @@ export class UsersController {
     sendStoredImage(res, photo);
   }
 
+  /**
+   * Uploads or replaces the authenticated user's profile photo.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @param {UploadedImageFile} [file] - Image file (multipart field: file).
+   * @returns {Promise<object>} Success message.
+   * @throws {BadRequestException} If no file was sent.
+   */
   @Put('profile/photo')
   @UseInterceptors(FileInterceptor('file'))
   async uploadOwnProfilePhoto(
@@ -98,11 +128,22 @@ export class UsersController {
     return this.userService.setProfilePhoto(req.user.sub, file.buffer, file.mimetype);
   }
 
+  /**
+   * Removes the authenticated user's stored profile photo.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @returns {Promise<object>} Success message.
+   */
   @Delete('profile/photo')
   async deleteOwnProfilePhoto(@Request() req: { user: { sub: number } }) {
     return this.userService.clearProfilePhoto(req.user.sub);
   }
 
+  /**
+   * Streams any user's profile photo by public user number (authenticated).
+   * @param {number} userNumber - 6-digit profile user number.
+   * @param {Response} res - Express response for binary image output.
+   * @returns {Promise<void>}
+   */
   @Get('public/:userNumber/photo')
   async getPublicProfilePhoto(
     @Param('userNumber', ParseIntPipe) userNumber: number,
@@ -112,7 +153,12 @@ export class UsersController {
     sendStoredImage(res, photo);
   }
 
-  /** Perfil visible para cualquier usuario autenticado (email solo si es el propio). */
+  /**
+   * Public profile for any authenticated user (email only when viewer is owner).
+   * @param {object} req - Request with authenticated user id (sub).
+   * @param {number} userNumber - Target 6-digit profile user number.
+   * @returns {Promise<object>} Message and PublicProfileView.
+   */
   @Get('public/:userNumber')
   async getPublicProfile(
     @Request() req: { user: { sub: number } },
@@ -128,6 +174,12 @@ export class UsersController {
     return { message: 'Perfil público', profile };
   }
 
+  /**
+   * Partial update of profile fields (post-onboarding).
+   * @param {object} req - Request with authenticated user id (sub).
+   * @param {UpdateProfileDto} body - Optional profile fields.
+   * @returns {Promise<object>} Updated profile message and data.
+   */
   @Patch('profile')
   async updateProfile(
     @Request() req: { user: { sub: number } },
@@ -137,6 +189,12 @@ export class UsersController {
     return this.userService.updateProfile(userId, body);
   }
 
+  /**
+   * Completes first-time onboarding based on email domain (@correo.ugr.es / @ugr.es).
+   * @param {object} req - Request with authenticated user id (sub).
+   * @param {CompleteOnboardingDto} body - Onboarding payload.
+   * @returns {Promise<object>} Session user after onboarding.
+   */
   @Patch('onboarding')
   async completeOnboarding(
     @Request() req: { user: { sub: number } },
@@ -145,6 +203,12 @@ export class UsersController {
     return this.userService.completeOnboarding(req.user.sub, body);
   }
 
+  /**
+   * Sets activeStaffFunction when the user has multiple staff roles.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @param {SetSessionPersonaDto} body - Chosen staff function.
+   * @returns {Promise<object>} Updated session user payload.
+   */
   @Patch('session-persona')
   async setSessionPersona(
     @Request() req: { user: { sub: number } },

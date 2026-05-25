@@ -13,6 +13,16 @@ import { ListAdminEventsQueryDto } from './dto/list-admin-events.query.dto';
 import { AdminUpdateEventDto } from './dto/admin-update-event.dto';
 import { hasStoredImage } from '../../common/image/image-validation.util';
 
+// -------------------------------------------------------------------
+// Admin Events Service
+// List, read, update and delete events for the operator panel.
+// -------------------------------------------------------------------
+
+// ------------------------------------------------------------
+// Types
+// ------------------------------------------------------------
+
+/** Summary row for GET /admin/events list. */
 export type AdminEventListItem = {
   id: number;
   title: string;
@@ -28,6 +38,7 @@ export type AdminEventListItem = {
   creatorLabel: string | null;
 };
 
+/** Full event view for GET /admin/events/:id. */
 export type AdminEventDetail = AdminEventListItem & {
   description: string;
   hasPhoto: boolean;
@@ -41,6 +52,10 @@ export type AdminEventDetail = AdminEventListItem & {
 
 @Injectable()
 export class AdminEventsService {
+  // ------------------------------------------------------------
+  // Constructor: Injects required services.
+  // ------------------------------------------------------------
+
   constructor(
     @InjectRepository(Event)
     private readonly eventRepository: Repository<Event>,
@@ -50,6 +65,15 @@ export class AdminEventsService {
     private readonly assignmentRepository: Repository<EventManagerAssignment>,
   ) {}
 
+  // ------------------------------------------------------------
+  // Public methods
+  // ------------------------------------------------------------
+
+  /**
+   * Paginated event list with status filter and optional title/location search.
+   * @param {ListAdminEventsQueryDto} query - Pagination, sort, status and search options.
+   * @returns {Promise<object>} items, page, limit and hasMore flag.
+   */
   async listEvents(query: ListAdminEventsQueryDto): Promise<{
     items: AdminEventListItem[];
     page: number;
@@ -109,6 +133,12 @@ export class AdminEventsService {
     };
   }
 
+  /**
+   * Loads a single event with attendee and manager counts (includes soft-deleted).
+   * @param {number} id - Event id.
+   * @returns {Promise<AdminEventDetail>} Full admin event detail.
+   * @throws {NotFoundException} If the event does not exist.
+   */
   async getEventDetail(id: number): Promise<AdminEventDetail> {
     const event = await this.eventRepository
       .createQueryBuilder('event')
@@ -140,6 +170,14 @@ export class AdminEventsService {
     };
   }
 
+  /**
+   * Applies partial updates and optional soft-delete restore, then returns fresh detail.
+   * @param {number} id - Event id.
+   * @param {AdminUpdateEventDto} dto - Partial event fields and optional restore flag.
+   * @returns {Promise<{ message: string; event: AdminEventDetail }>}
+   * @throws {NotFoundException} If the event does not exist.
+   * @throws {BadRequestException} If endsAt is not after startsAt.
+   */
   async updateEvent(
     id: number,
     dto: AdminUpdateEventDto,
@@ -206,6 +244,12 @@ export class AdminEventsService {
     };
   }
 
+  /**
+   * Soft-deletes an active event, or permanently removes one already soft-deleted.
+   * @param {number} id - Event id.
+   * @returns {Promise<{ message: string }>}
+   * @throws {NotFoundException} If the event does not exist.
+   */
   async deleteEvent(id: number): Promise<{ message: string }> {
     const event = await this.eventRepository.findOne({
       where: { id },
@@ -222,6 +266,16 @@ export class AdminEventsService {
     return { message: 'Evento eliminado' };
   }
 
+  // ------------------------------------------------------------
+  // Private helpers
+  // ------------------------------------------------------------
+
+  /**
+   * Maps an Event entity to a list item DTO.
+   * @param {Event} event - Event with creator profile loaded.
+   * @param {number} nowMs - Current timestamp for finished flag.
+   * @returns {AdminEventListItem}
+   */
   private toListItem(event: Event, nowMs: number): AdminEventListItem {
     const profile = event.creator?.profile;
     const endsMs = event.endsAt instanceof Date
@@ -251,10 +305,20 @@ export class AdminEventsService {
     };
   }
 
+  /**
+   * Escapes SQL LIKE wildcards in search input.
+   * @param {string} value - Raw search string.
+   * @returns {string} Escaped string safe for ILIKE patterns.
+   */
   private escapeLike(value: string): string {
     return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
   }
 
+  /**
+   * Normalizes a timestamp to ISO 8601 string.
+   * @param {Date | string} value - Date column from the database.
+   * @returns {string} ISO datetime string.
+   */
   private formatDateTimeIso(value: Date | string): string {
     if (value instanceof Date && !Number.isNaN(value.getTime())) {
       return value.toISOString();

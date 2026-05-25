@@ -6,6 +6,10 @@ import { FriendsService } from './friends.service';
 import { FriendsController } from './friends.controller';
 import { UsersModule } from '../user/user.module';
 
+// -------------------------------------------------------------------
+// Friends Module
+// Friend requests, friendships and relationship status. Base route: /friends
+// -------------------------------------------------------------------
 @Module({
   imports: [
     TypeOrmModule.forFeature([FriendRequest, Friendship]),

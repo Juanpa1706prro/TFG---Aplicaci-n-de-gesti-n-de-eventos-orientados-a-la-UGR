@@ -15,13 +15,13 @@ import { StaffProfile } from './staff-profile.entity';
 import { UserStaffFunction } from './user-staff-function.entity';
 
 // -------------------------------------------------------------------
-// User Entity
-// Represents the 'users' table in the database.
+// User entity
+// TypeORM model for table `users` (auth, roles, session persona, refresh tokens).
 // -------------------------------------------------------------------
 @Entity('users')
 export class User {
   // ------------------------------------------------------------
-  // Atributes.
+  // Attributes
   // ------------------------------------------------------------
 
   @PrimaryGeneratedColumn()
@@ -41,7 +41,7 @@ export class User {
   onboardingCompleted: boolean;
 
   /**
-   * Función con la que actúa la sesión. Si hay varias funciones en staff, queda null hasta que el usuario elija.
+   * Staff function for the current session. Null until chosen when multiple functions exist.
    */
   @Column({ type: 'enum', enum: StaffFunction, nullable: true })
   activeStaffFunction: StaffFunction | null;
@@ -51,7 +51,7 @@ export class User {
   hashedRefreshToken: string | null;
 
   /**
-   * Incrementa en cada rotación de refresh (OAuth BCP / detección de reutilización).
+   * Incremented on each refresh rotation (OAuth BCP / reuse detection).
    */
   @Column({ type: 'int', default: 0 })
   refreshTokenVersion: number;
@@ -61,9 +61,9 @@ export class User {
 
   @UpdateDateColumn()
   updatedAt: Date;
-  
+
   // ------------------------------------------------------------
-  // Relations.
+  // Relations
   // ------------------------------------------------------------
 
   @OneToOne(() => UserProfile, (profile) => profile.user, {

@@ -15,6 +15,16 @@ import { User } from '../user/user.entity';
 import { UserProfile } from '../user/user-profile.entity';
 import { hasStoredImage } from '../../common/image/image-validation.util';
 
+// -------------------------------------------------------------------
+// Friends Service
+// Friend requests, friendships, list sorting and relationship status.
+// -------------------------------------------------------------------
+
+// ------------------------------------------------------------
+// Types
+// ------------------------------------------------------------
+
+/** Public user summary shown in friend lists and requests. */
 export type FriendUserSummary = {
   userId: number;
   userNumber: number;
@@ -23,12 +33,14 @@ export type FriendUserSummary = {
   hasProfilePicture: boolean;
 };
 
+/** Incoming or outgoing pending request row for the UI. */
 export type FriendRequestItemView = {
   id: number;
   createdAt: Date;
   user: FriendUserSummary;
 };
 
+/** Result of POST /friends/requests (sent or reciprocal pending). */
 export type SendFriendRequestView =
   | {
       outcome: 'sent';
@@ -40,32 +52,40 @@ export type SendFriendRequestView =
       message: string;
     };
 
+/** Response after accepting a friend request. */
 export type AcceptFriendRequestView = {
   friendshipId: number;
   friendsSince: Date;
   user: FriendUserSummary;
 };
 
+/** Confirmed friend row for GET /friends. */
 export type FriendListItemView = {
   friendshipId: number;
   friendsSince: Date;
   user: FriendUserSummary;
 };
 
+/** Relationship between viewer and another user. */
 export type FriendRelationshipStatus =
   | 'none'
   | 'pending_outgoing'
   | 'pending_incoming'
   | 'friends';
 
+/** GET /friends/status/:userNumber response. */
 export type FriendRelationshipStatusView = {
   status: FriendRelationshipStatus;
-  /** Id de la solicitud de amistad pendiente (entrante o saliente). */
+  /** Pending friend request id (incoming or outgoing) when applicable. */
   requestId?: number;
 };
 
 @Injectable()
 export class FriendsService {
+  // ------------------------------------------------------------
+  // Constructor: Injects required services.
+  // ------------------------------------------------------------
+
   constructor(
     @InjectRepository(FriendRequest)
     private readonly friendRequestRepository: Repository<FriendRequest>,
@@ -74,6 +94,17 @@ export class FriendsService {
     private readonly usersService: UsersService,
   ) {}
 
+  // ------------------------------------------------------------
+  // Public methods
+  // ------------------------------------------------------------
+
+  /**
+   * Sends a friend request to another user (by user number or user id).
+   * @param {number} fromUserId - Authenticated sender user id.
+   * @param {SendFriendRequestDto} dto - Exactly one target field.
+   * @returns {Promise<SendFriendRequestView>}
+   * @throws {BadRequestException} On self-request, duplicates or already friends.
+   */
   async sendRequest(
     fromUserId: number,
     dto: SendFriendRequestDto,
@@ -128,6 +159,11 @@ export class FriendsService {
     };
   }
 
+  /**
+   * Lists friend requests received by the user (newest first).
+   * @param {number} userId - Authenticated user id.
+   * @returns {Promise<FriendRequestItemView[]>}
+   */
   async findIncomingRequests(userId: number): Promise<FriendRequestItemView[]> {
     const rows = await this.friendRequestRepository.find({
       where: {
@@ -140,6 +176,11 @@ export class FriendsService {
     return rows.map((row) => this.toRequestItemView(row.id, row.createdAt, row.fromUser));
   }
 
+  /**
+   * Lists friend requests sent by the user (newest first).
+   * @param {number} userId - Authenticated user id.
+   * @returns {Promise<FriendRequestItemView[]>}
+   */
   async findOutgoingRequests(userId: number): Promise<FriendRequestItemView[]> {
     const rows = await this.friendRequestRepository.find({
       where: {
@@ -152,6 +193,12 @@ export class FriendsService {
     return rows.map((row) => this.toRequestItemView(row.id, row.createdAt, row.toUser));
   }
 
+  /**
+   * Cancels an outgoing friend request (sender only).
+   * @param {number} requestId - Friend request id.
+   * @param {number} userId - Authenticated sender user id.
+   * @returns {Promise<void>}
+   */
   async cancelRequest(requestId: number, userId: number): Promise<void> {
     const row = await this.friendRequestRepository.findOne({
       where: { id: requestId },
@@ -170,6 +217,12 @@ export class FriendsService {
     await this.friendRequestRepository.remove(row);
   }
 
+  /**
+   * Accepts an incoming request and creates a canonical friendship row.
+   * @param {number} requestId - Friend request id.
+   * @param {number} userId - Authenticated recipient user id.
+   * @returns {Promise<AcceptFriendRequestView>}
+   */
   async acceptRequest(
     requestId: number,
     userId: number,
@@ -212,11 +265,23 @@ export class FriendsService {
     });
   }
 
+  /**
+   * Rejects an incoming friend request (recipient only).
+   * @param {number} requestId - Friend request id.
+   * @param {number} userId - Authenticated recipient user id.
+   * @returns {Promise<void>}
+   */
   async rejectRequest(requestId: number, userId: number): Promise<void> {
     const row = await this.loadIncomingRequestForRecipient(requestId, userId);
     await this.friendRequestRepository.remove(row);
   }
 
+  /**
+   * Returns relationship status between viewer and target by public user number.
+   * @param {number} viewerUserId - Authenticated viewer user id.
+   * @param {number} targetUserNumber - Target 6-digit profile number.
+   * @returns {Promise<FriendRelationshipStatusView>}
+   */
   async getRelationshipStatus(
     viewerUserId: number,
     targetUserNumber: number,
@@ -263,6 +328,12 @@ export class FriendsService {
     return { status: 'none' };
   }
 
+  /**
+   * Removes an existing friendship with a user by public number.
+   * @param {number} viewerUserId - Authenticated user id.
+   * @param {number} targetUserNumber - Friend's 6-digit profile number.
+   * @returns {Promise<void>}
+   */
   async removeFriendship(
     viewerUserId: number,
     targetUserNumber: number,
@@ -296,6 +367,12 @@ export class FriendsService {
     await this.friendshipRepository.remove(friendship);
   }
 
+  /**
+   * Returns the authenticated user's friends list with client-selected sort.
+   * @param {number} userId - Authenticated user id.
+   * @param {string} [sortParam] - FriendsListSort query value.
+   * @returns {Promise<FriendListItemView[]>}
+   */
   async findFriends(
     userId: number,
     sortParam?: string,
@@ -315,6 +392,16 @@ export class FriendsService {
     return items;
   }
 
+  // ------------------------------------------------------------
+  // Private helpers
+  // ------------------------------------------------------------
+
+  /**
+   * Parses and validates the friends list sort query parameter.
+   * @param {string} [sortParam] - Raw sort from query string.
+   * @returns {FriendsListSort}
+   * @throws {BadRequestException} If sort is invalid when provided.
+   */
   private parseFriendsListSort(sortParam?: string): FriendsListSort {
     const values = Object.values(FriendsListSort) as string[];
     if (sortParam && values.includes(sortParam)) {
@@ -328,6 +415,13 @@ export class FriendsService {
     return FriendsListSort.FRIENDS_NEWEST;
   }
 
+  /**
+   * Comparator for in-memory friends list sorting.
+   * @param {FriendListItemView} a - First item.
+   * @param {FriendListItemView} b - Second item.
+   * @param {FriendsListSort} sort - Desired sort order.
+   * @returns {number} Sort comparison result.
+   */
   private compareFriends(
     a: FriendListItemView,
     b: FriendListItemView,
@@ -346,6 +440,12 @@ export class FriendsService {
     }
   }
 
+  /**
+   * Locale-aware name comparison (Spanish collation).
+   * @param {FriendUserSummary} a - First user.
+   * @param {FriendUserSummary} b - Second user.
+   * @returns {number} Sort comparison result.
+   */
   private compareByName(a: FriendUserSummary, b: FriendUserSummary): number {
     const last = (a.lastName ?? '').localeCompare(b.lastName ?? '', 'es');
     if (last !== 0) {
@@ -358,6 +458,12 @@ export class FriendsService {
     return a.userNumber - b.userNumber;
   }
 
+  /**
+   * Maps a Friendship row to the list item for the viewer.
+   * @param {Friendship} row - Friendship with userLow/userHigh profiles loaded.
+   * @param {number} viewerId - Authenticated user id.
+   * @returns {FriendListItemView}
+   */
   private toFriendListItem(row: Friendship, viewerId: number): FriendListItemView {
     const other = row.userLowId === viewerId ? row.userHigh : row.userLow;
     const profile = other.profile as UserProfile;
@@ -374,6 +480,12 @@ export class FriendsService {
     };
   }
 
+  /**
+   * Loads a friend request and ensures the user is the recipient.
+   * @param {number} requestId - Friend request id.
+   * @param {number} recipientUserId - Authenticated recipient user id.
+   * @returns {Promise<FriendRequest>}
+   */
   private async loadIncomingRequestForRecipient(
     requestId: number,
     recipientUserId: number,
@@ -396,8 +508,10 @@ export class FriendsService {
   }
 
   /**
-   * Resuelve el destino por PK (perfil) o por userNumber (código).
-   * En BD las FK de friend_requests usan siempre users.id.
+   * Resolves request target by profile user number or user primary key.
+   * Friend request FKs always reference users.id.
+   * @param {SendFriendRequestDto} dto - Request payload.
+   * @returns {Promise<User>} Target user entity.
    */
   private async resolveTargetUser(dto: SendFriendRequestDto): Promise<User> {
     const hasNumber = dto.targetUserNumber != null;
@@ -428,6 +542,12 @@ export class FriendsService {
     return user;
   }
 
+  /**
+   * Checks whether two users already have a friendship row.
+   * @param {number} userIdA - First user id.
+   * @param {number} userIdB - Second user id.
+   * @returns {Promise<boolean>}
+   */
   private async areFriends(userIdA: number, userIdB: number): Promise<boolean> {
     const { userLowId, userHighId } = this.canonicalPair(userIdA, userIdB);
     return this.friendshipRepository.exists({
@@ -435,6 +555,12 @@ export class FriendsService {
     });
   }
 
+  /**
+   * Builds canonical (low, high) user id pair for unique friendship storage.
+   * @param {number} userIdA - First user id.
+   * @param {number} userIdB - Second user id.
+   * @returns {{ userLowId: number; userHighId: number }}
+   */
   private canonicalPair(
     userIdA: number,
     userIdB: number,
@@ -444,6 +570,13 @@ export class FriendsService {
       : { userLowId: userIdB, userHighId: userIdA };
   }
 
+  /**
+   * Maps a user to a pending request list item.
+   * @param {number} id - Request id.
+   * @param {Date} createdAt - Request timestamp.
+   * @param {User} user - Counterparty user with profile loaded.
+   * @returns {FriendRequestItemView}
+   */
   private toRequestItemView(
     id: number,
     createdAt: Date,

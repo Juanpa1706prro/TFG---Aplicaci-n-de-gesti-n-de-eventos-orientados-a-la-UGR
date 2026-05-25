@@ -12,6 +12,10 @@ import { AdminEventsController } from './admin-events.controller';
 import { AdminEventsService } from './admin-events.service';
 import { RolesGuard } from './guards/roles.guard';
 
+// -------------------------------------------------------------------
+// Admin Module
+// Operator panel: user and event management (ADMIN role only).
+// -------------------------------------------------------------------
 @Module({
   imports: [
     TypeOrmModule.forFeature([

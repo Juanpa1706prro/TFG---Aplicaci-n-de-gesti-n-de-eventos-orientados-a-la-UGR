@@ -29,12 +29,22 @@ import {
   parseUploadedImage,
 } from '../../common/image/image-validation.util';
 
+// -------------------------------------------------------------------
+// Users Service
+// User CRUD, onboarding, session persona, profile photos and public views.
+// -------------------------------------------------------------------
+
+// ------------------------------------------------------------
+// Types
+// ------------------------------------------------------------
+
+/** Session payload returned after login and persona changes. */
 export type PublicSessionUser = {
   id: number;
   email: string;
   userNumber: number;
   profileComplete: boolean;
-  /** true si debe elegir con qué función actuar (varias funciones y sin activeStaffFunction; tras cada login se limpia la función activa). */
+  /** True when user must pick activeStaffFunction (multiple roles; cleared on login). */
   needsPersonaSelection: boolean;
   role: SystemRole;
   staffFunctions: StaffFunction[];
@@ -42,8 +52,9 @@ export type PublicSessionUser = {
   globalCapabilities: GlobalCapability[];
 };
 
+/** Public profile for GET /user/public/:userNumber. */
 export type PublicProfileView = {
-  /** PK en users; para acciones directas (p. ej. solicitud de amistad desde perfil). */
+  /** users.id; used for direct actions (e.g. friend request from profile). */
   userId: number;
   userNumber: number;
   userName: string;
@@ -53,7 +64,7 @@ export type PublicProfileView = {
   hasProfilePicture: boolean;
   email?: string;
   viewerIsOwner: boolean;
-  /** Funciones con perfil implementado (estudiante, profesor). */
+  /** Staff functions with implemented profile UI (student, professor). */
   staffFunctions: StaffFunction[];
   studentProfile: {
     faculty: string;
@@ -66,6 +77,10 @@ export type PublicProfileView = {
 
 @Injectable()
 export class UsersService {
+  // ------------------------------------------------------------
+  // Constructor: Injects required services.
+  // ------------------------------------------------------------
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -78,33 +93,39 @@ export class UsersService {
     private readonly capabilityService: CapabilityService,
   ) {}
 
+  // ------------------------------------------------------------
+  // Public methods — lookups and persistence
+  // ------------------------------------------------------------
+
+  /**
+   * @param {string} email - User email address.
+   * @returns {boolean} True for @correo.ugr.es student accounts.
+   */
   isCorreoStudentEmail(email: string): boolean {
     return email.trim().toLowerCase().endsWith('@correo.ugr.es');
   }
 
+  /**
+   * @param {string} email - User email address.
+   * @returns {boolean} True for @ugr.es staff accounts.
+   */
   isUgrStaffEmail(email: string): boolean {
     return email.trim().toLowerCase().endsWith('@ugr.es');
   }
 
-  private hasText(v: string | null | undefined): boolean {
-    return !!v && v.trim().length > 0;
-  }
-
+  /**
+   * @param {User} user - User with staffFunctionLinks loaded.
+   * @returns {StaffFunction[]} Unique staff functions for the user.
+   */
   staffFunctionList(user: User): StaffFunction[] {
     return [...new Set((user.staffFunctionLinks ?? []).map((l) => l.function))];
   }
 
-  private needsTeachingDepartment(functions: StaffFunction[]): boolean {
-    return (
-      functions.includes(StaffFunction.PROFESOR) ||
-      functions.includes(StaffFunction.PDI_INVESTIGACION)
-    );
-  }
-
-  private staffDepartment(user: User): string | null {
-    return user.staffProfile?.department ?? null;
-  }
-
+  /**
+   * Whether the user must choose a session persona before full capabilities apply.
+   * @param {User} user - User with relations loaded.
+   * @returns {boolean}
+   */
   computeNeedsPersonaSelection(user: User): boolean {
     if (!this.computeProfileComplete(user)) {
       return false;
@@ -119,7 +140,11 @@ export class UsersService {
     return !fns.includes(user.activeStaffFunction);
   }
 
-  /** Datos obligatorios cumplidos → no hace falta onboarding de datos. */
+  /**
+   * Whether required profile data is filled (onboarding no longer required).
+   * @param {User} user - User with profile and role-specific relations.
+   * @returns {boolean}
+   */
   computeProfileComplete(user: User): boolean {
     if (!user.profile) {
       return false;
@@ -157,39 +182,28 @@ export class UsersService {
     return this.hasText(p.firstName) && this.hasText(p.lastName);
   }
 
-  private resolveInitialActiveStaffFunction(
-    functions: StaffFunction[],
-  ): StaffFunction | null {
-    const unique = [...new Set(functions)];
-    if (unique.length === 1) {
-      return unique[0]!;
-    }
-    return null;
-  }
-
-  private async syncPersistedProfileFlag(userId: number): Promise<void> {
-    const u = await this.findByID(userId);
-    if (!u) {
-      return;
-    }
-    const complete = this.computeProfileComplete(u);
-    if (u.onboardingCompleted !== complete) {
-      await this.userRepository.update(userId, { onboardingCompleted: complete });
-    }
-  }
-
+  /**
+   * @param {Partial<User>} data - User entity fields to persist.
+   * @returns {Promise<User>} Saved user.
+   */
   async create(data: Partial<User>) {
     const user = this.userRepository.create(data);
     return this.userRepository.save(user);
   }
 
+  /**
+   * @param {number} id - User id.
+   * @param {Partial<User>} data - Fields to update.
+   * @returns {Promise<import('typeorm').UpdateResult>}
+   */
   async update(id: number, data: Partial<User>) {
     return this.userRepository.update(id, data);
   }
 
   /**
-   * Tras un login explícito: si el perfil está completo y hay más de una función UGR,
-   * se olvida la función de sesión guardada para obligar a elegir perfil otra vez.
+   * After explicit login: clears activeStaffFunction when profile is complete and multiple roles exist.
+   * @param {number} userId - User id.
+   * @returns {Promise<void>}
    */
   async resetActivePersonaAfterLoginIfMultipleStaffFunctions(
     userId: number,
@@ -209,7 +223,9 @@ export class UsersService {
   }
 
   /**
-   * Si solo hay una función de personal, fija activeStaffFunction para cuentas antiguas o incoherentes.
+   * Sets activeStaffFunction when exactly one staff function exists (legacy accounts).
+   * @param {number} userId - User id.
+   * @returns {Promise<void>}
    */
   async ensureDefaultActivePersonaIfMissing(userId: number): Promise<void> {
     const user = await this.findByID(userId);
@@ -226,6 +242,11 @@ export class UsersService {
     }
   }
 
+  /**
+   * @param {number} userId - User id.
+   * @param {StaffFunction} staffFunction - Function to activate for the session.
+   * @returns {Promise<{ message: string; user: PublicSessionUser }>}
+   */
   async setSessionPersona(
     userId: number,
     staffFunction: StaffFunction,
@@ -250,6 +271,11 @@ export class UsersService {
     };
   }
 
+  /**
+   * @param {number} userId - User id.
+   * @param {UpdateProfileDto} updateData - Partial profile fields.
+   * @returns {Promise<object>} Message and updated profile.
+   */
   async updateProfile(userId: number, updateData: UpdateProfileDto) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
@@ -277,6 +303,12 @@ export class UsersService {
     };
   }
 
+  /**
+   * First-time onboarding for @correo.ugr.es and @ugr.es accounts.
+   * @param {number} userId - User id.
+   * @param {CompleteOnboardingDto} dto - Onboarding payload.
+   * @returns {Promise<{ message: string; user: PublicSessionUser }>}
+   */
   async completeOnboarding(
     userId: number,
     dto: CompleteOnboardingDto,
@@ -437,6 +469,11 @@ export class UsersService {
     };
   }
 
+  /**
+   * Maps a User entity to the session DTO used by auth and the frontend shell.
+   * @param {User} user - User with profile and staff links loaded.
+   * @returns {PublicSessionUser}
+   */
   toPublicSession(user: User): PublicSessionUser {
     const staffFunctions = this.staffFunctionList(user);
     const needsPersonaSelection = this.computeNeedsPersonaSelection(user);
@@ -458,6 +495,11 @@ export class UsersService {
     };
   }
 
+  /**
+   * @param {number} userNumber - Public 6-digit profile number.
+   * @param {number} requesterUserId - Viewer's user id.
+   * @returns {Promise<PublicProfileView>}
+   */
   async getPublicProfileByUserNumber(
     userNumber: number,
     requesterUserId: number,
@@ -512,6 +554,10 @@ export class UsersService {
     return base;
   }
 
+  /**
+   * Generates a unique 6-digit public user number for new registrations.
+   * @returns {Promise<number>}
+   */
   async generateUniqueUserNumber(): Promise<number> {
     let exists = true;
     let randomNumber: number = 0;
@@ -532,6 +578,10 @@ export class UsersService {
     return randomNumber;
   }
 
+  /**
+   * @param {string} email - User email.
+   * @returns {Promise<User | null>}
+   */
   async findByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({
       where: { email },
@@ -544,6 +594,10 @@ export class UsersService {
     });
   }
 
+  /**
+   * @param {number} id - User primary key.
+   * @returns {Promise<User | null>}
+   */
   async findByID(id: number): Promise<User | null> {
     return this.userRepository.findOne({
       where: { id },
@@ -556,7 +610,11 @@ export class UsersService {
     });
   }
 
-  /** Usuario por su número público de perfil (p. ej. invitaciones a coeditar un evento). */
+  /**
+   * Lookup by public profile user number (e.g. event manager invites, admin).
+   * @param {number} userNumber - 6-digit profile number.
+   * @returns {Promise<User | null>}
+   */
   async findByProfileUserNumber(userNumber: number): Promise<User | null> {
     return this.userRepository.findOne({
       where: { profile: { userNumber } },
@@ -569,6 +627,14 @@ export class UsersService {
     });
   }
 
+  // ------------------------------------------------------------
+  // Public methods — profile photos
+  // ------------------------------------------------------------
+
+  /**
+   * @param {number} userNumber - Public profile user number.
+   * @returns {Promise<{ data: Buffer; mimeType: AllowedImageMimeType }>}
+   */
   async getProfilePhotoByUserNumber(
     userNumber: number,
   ): Promise<{ data: Buffer; mimeType: AllowedImageMimeType }> {
@@ -593,6 +659,12 @@ export class UsersService {
     };
   }
 
+  /**
+   * @param {number} userId - User id.
+   * @param {Buffer} buffer - Raw image bytes.
+   * @param {string} mimeType - Declared MIME type (validated).
+   * @returns {Promise<{ message: string }>}
+   */
   async setProfilePhoto(
     userId: number,
     buffer: Buffer,
@@ -609,6 +681,10 @@ export class UsersService {
     return { message: 'Foto de perfil actualizada' };
   }
 
+  /**
+   * @param {number} userId - User id.
+   * @returns {Promise<{ message: string }>}
+   */
   async clearProfilePhoto(userId: number): Promise<{ message: string }> {
     const user = await this.findByID(userId);
     if (!user?.profile) {
@@ -620,6 +696,13 @@ export class UsersService {
     return { message: 'Foto de perfil eliminada' };
   }
 
+  /**
+   * Admin upload of profile photo by public user number.
+   * @param {number} userNumber - Target 6-digit profile number.
+   * @param {Buffer} buffer - Raw image bytes.
+   * @param {string} mimeType - Declared MIME type (validated).
+   * @returns {Promise<{ message: string }>}
+   */
   async setProfilePhotoByUserNumberAsAdmin(
     userNumber: number,
     buffer: Buffer,
@@ -634,5 +717,45 @@ export class UsersService {
     user.profile.profilePictureMimeType = parsed.mimeType;
     await this.userRepository.save(user);
     return { message: 'Foto de perfil actualizada' };
+  }
+
+  // ------------------------------------------------------------
+  // Private helpers
+  // ------------------------------------------------------------
+
+  private hasText(v: string | null | undefined): boolean {
+    return !!v && v.trim().length > 0;
+  }
+
+  private needsTeachingDepartment(functions: StaffFunction[]): boolean {
+    return (
+      functions.includes(StaffFunction.PROFESOR) ||
+      functions.includes(StaffFunction.PDI_INVESTIGACION)
+    );
+  }
+
+  private staffDepartment(user: User): string | null {
+    return user.staffProfile?.department ?? null;
+  }
+
+  private resolveInitialActiveStaffFunction(
+    functions: StaffFunction[],
+  ): StaffFunction | null {
+    const unique = [...new Set(functions)];
+    if (unique.length === 1) {
+      return unique[0]!;
+    }
+    return null;
+  }
+
+  private async syncPersistedProfileFlag(userId: number): Promise<void> {
+    const u = await this.findByID(userId);
+    if (!u) {
+      return;
+    }
+    const complete = this.computeProfileComplete(u);
+    if (u.onboardingCompleted !== complete) {
+      await this.userRepository.update(userId, { onboardingCompleted: complete });
+    }
   }
 }

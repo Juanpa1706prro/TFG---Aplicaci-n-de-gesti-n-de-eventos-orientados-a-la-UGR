@@ -10,6 +10,14 @@ import {
 } from 'class-validator';
 import { IsUgrEmailConstraint } from '../validators/ugr-email.validator';
 
+// -------------------------------------------------------------------
+// Register DTO
+// Request body for POST /auth/register.
+// -------------------------------------------------------------------
+
+/**
+ * Payload for user registration (UGR email, password and optional operator key).
+ */
 export class RegisterDto {
   @Validate(IsUgrEmailConstraint)
   @IsEmail({}, { message: 'Email inválido' })
@@ -25,7 +33,7 @@ export class RegisterDto {
   })
   password: string;
 
-  /** Demo: ADMIN, MANAGER o MODERATOR para operadores del sistema; vacío = USER. */
+  /** Demo: ADMIN, MANAGER or MODERATOR for system operators; empty = USER. */
   @IsOptional()
   @IsString()
   @MaxLength(32)

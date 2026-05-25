@@ -1,6 +1,13 @@
 import { SystemRole } from '../user/user-enums';
 
-/** Demo: claves provisionales en el registro para asignar SystemRole. */
+// -------------------------------------------------------------------
+// Operator key resolver (demo)
+// Maps provisional registration keys to SystemRole values.
+// -------------------------------------------------------------------
+
+/**
+ * Demo mapping from registration operator keys to system roles.
+ */
 const OPERATOR_KEY_TO_ROLE: Record<string, SystemRole> = {
   ADMIN: SystemRole.ADMIN,
   MANAGER: SystemRole.MANAGER,
@@ -8,8 +15,10 @@ const OPERATOR_KEY_TO_ROLE: Record<string, SystemRole> = {
 };
 
 /**
- * Si la clave coincide exactamente con ADMIN, MANAGER o MODERATOR, devuelve ese rol.
- * Cualquier otro valor (vacío, incorrecto) deja al usuario como USER.
+ * Resolves the system role from an optional operator key at registration.
+ * Exact match on ADMIN, MANAGER or MODERATOR; otherwise USER.
+ * @param {string | undefined | null} operatorKey - Key from RegisterDto.
+ * @returns {SystemRole} Assigned role for the new user.
  */
 export function resolveSystemRoleFromOperatorKey(
   operatorKey: string | undefined | null,

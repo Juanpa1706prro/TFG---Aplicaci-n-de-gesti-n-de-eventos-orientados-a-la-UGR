@@ -22,20 +22,49 @@ import { UpdateEventDto } from './dto/update-event.dto';
 import { sendStoredImage } from '../../common/image/image-response.util';
 import type { UploadedImageFile } from '../../common/image/uploaded-file.type';
 
+// -------------------------------------------------------------------
+// Events Controller
+// Event lifecycle, map data, attendance and photos. Base route: /events
+// -------------------------------------------------------------------
 @Controller('events')
 export class EventsController {
+  // ------------------------------------------------------------
+  // Constructor: Injects required services.
+  // ------------------------------------------------------------
+
   constructor(private readonly eventsService: EventsService) {}
 
+  // ------------------------------------------------------------
+  // Endpoints
+  // ------------------------------------------------------------
+
+  /**
+   * Returns map markers visible to the authenticated user (active events with coordinates).
+   * @param {object} req - Request with authenticated user id (sub).
+   * @returns {Promise<MapMarkerView[]>}
+   */
   @Get('map-markers')
   mapMarkers(@Request() req: { user: { sub: number } }) {
     return this.eventsService.findMapMarkersForUser(req.user.sub);
   }
 
+  /**
+   * Returns the user's event lists: active, attended and managed.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @returns {Promise<MyEventListsView>}
+   */
   @Get('my-lists')
   myLists(@Request() req: { user: { sub: number } }) {
     return this.eventsService.findMyEventListsForUser(req.user.sub);
   }
 
+  /**
+   * Streams the event photo if the user may view the event.
+   * @param {number} id - Event id.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @param {Response} res - Express response for binary image output.
+   * @returns {Promise<void>}
+   */
   @Get(':id/photo')
   async getPhoto(
     @Param('id', ParseIntPipe) id: number,
@@ -46,6 +75,14 @@ export class EventsController {
     sendStoredImage(res, photo);
   }
 
+  /**
+   * Uploads or replaces the event photo (creator only, multipart field: file).
+   * @param {number} id - Event id.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @param {UploadedImageFile} [file] - Image file from multer memory storage.
+   * @returns {Promise<object>} Success message.
+   * @throws {BadRequestException} If no file was sent.
+   */
   @Put(':id/photo')
   @UseInterceptors(FileInterceptor('file'))
   async uploadPhoto(
@@ -64,6 +101,12 @@ export class EventsController {
     );
   }
 
+  /**
+   * Removes the stored photo for an event (creator only).
+   * @param {number} id - Event id.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @returns {Promise<object>} Success message.
+   */
   @Delete(':id/photo')
   async deletePhoto(
     @Param('id', ParseIntPipe) id: number,
@@ -72,6 +115,12 @@ export class EventsController {
     return this.eventsService.clearEventPhoto(id, req.user.sub);
   }
 
+  /**
+   * Returns full event detail including people lists and attendance state.
+   * @param {number} id - Event id.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @returns {Promise<EventDetailView>}
+   */
   @Get(':id')
   getDetail(
     @Param('id', ParseIntPipe) id: number,
@@ -80,6 +129,12 @@ export class EventsController {
     return this.eventsService.findEventDetailForUser(id, req.user.sub);
   }
 
+  /**
+   * Registers the authenticated user as attending the event.
+   * @param {number} id - Event id.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @returns {Promise<EventDetailView>} Updated event detail.
+   */
   @Post(':id/attendance')
   attend(
     @Param('id', ParseIntPipe) id: number,
@@ -88,6 +143,12 @@ export class EventsController {
     return this.eventsService.attendEvent(id, req.user.sub);
   }
 
+  /**
+   * Removes the authenticated user's attendance registration.
+   * @param {number} id - Event id.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @returns {Promise<EventDetailView>} Updated event detail.
+   */
   @Delete(':id/attendance')
   unattend(
     @Param('id', ParseIntPipe) id: number,
@@ -96,6 +157,12 @@ export class EventsController {
     return this.eventsService.unattendEvent(id, req.user.sub);
   }
 
+  /**
+   * Creates a new event (requires CREATE_AND_MANAGE_OWN_EVENTS capability).
+   * @param {object} req - Request with authenticated user id (sub).
+   * @param {CreateEventDto} body - Event data and optional manager invites.
+   * @returns {Promise<{ message: string; event: CreatedEventView }>}
+   */
   @Post()
   async create(
     @Request() req: { user: { sub: number } },
@@ -104,6 +171,13 @@ export class EventsController {
     return this.eventsService.create(req.user.sub, body);
   }
 
+  /**
+   * Updates an event (creator only).
+   * @param {number} id - Event id.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @param {UpdateEventDto} body - Partial event fields.
+   * @returns {Promise<{ message: string; event: CreatedEventView }>}
+   */
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -113,6 +187,12 @@ export class EventsController {
     return this.eventsService.updateEventByCreator(id, req.user.sub, body);
   }
 
+  /**
+   * Soft-deletes an event (creator only).
+   * @param {number} id - Event id.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @returns {Promise<{ message: string }>}
+   */
   @Delete(':id')
   remove(
     @Param('id', ParseIntPipe) id: number,

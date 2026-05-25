@@ -7,27 +7,28 @@ import { AuthController } from './auth.controller';
 import { UsersModule } from '../user/user.module';
 import { jwtConstants } from './constants';
 import { APP_GUARD } from '@nestjs/core';
-import { JwtAuthGuard } from './auth.guard-jwt';
+import { JwtAuthGuard } from './guards/auth.guard-jwt';
 
-// ------------------------------------------------------------
-// Authentication Module.
-// ------------------------------------------------------------
+// -------------------------------------------------------------------
+// Authentication Module
+// Registers auth controller, service, JWT and global JwtAuthGuard.
+// -------------------------------------------------------------------
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
     UsersModule,
     JwtModule.register({
       global: true,
-      secret: jwtConstants.accessSecret
+      secret: jwtConstants.accessSecret,
     }),
   ],
   providers: [
     AuthService,
     {
-      // Registers the JwtAuthGuard globally. It will automatically protect all endpoints unless they use the @Public() decorator.
+      // Registers JwtAuthGuard globally; protects all routes unless @Public() is set.
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
-    }
+    },
   ],
   controllers: [AuthController],
   exports: [AuthService],

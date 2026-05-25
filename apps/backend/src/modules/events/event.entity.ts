@@ -12,6 +12,10 @@ import {
 import { User } from '../user/user.entity';
 import { EventVisibility } from './event-visibility.enum';
 
+// -------------------------------------------------------------------
+// Event entity
+// TypeORM model for table `events` (map markers, detail, soft delete).
+// -------------------------------------------------------------------
 @Entity('events')
 export class Event {
   @PrimaryGeneratedColumn()
@@ -39,7 +43,7 @@ export class Event {
   @Column({ type: 'varchar', length: 500 })
   location: string;
 
-  /** Coordenadas WGS84 para MapLibre (marcador). */
+  /** WGS84 coordinates for MapLibre marker placement. */
   @Column({ type: 'double precision', nullable: true })
   latitude: number | null;
 
@@ -49,15 +53,15 @@ export class Event {
   @Column({ type: 'varchar', length: 20, default: EventVisibility.PUBLIC })
   visibility: EventVisibility;
 
-  /** null = sin límite de asistentes */
+  /** null = unlimited attendees */
   @Column({ type: 'int', nullable: true })
   maxAttendees: number | null;
 
-  /** Inicio del evento (UTC en BD). */
+  /** Event start (UTC in database). */
   @Column({ type: 'timestamptz' })
   startsAt: Date;
 
-  /** Fin del evento (UTC en BD). Se usa para filtrar marcadores activos. */
+  /** Event end (UTC in database). Used to filter active map markers. */
   @Index('IDX_events_endsAt')
   @Column({ type: 'timestamptz' })
   endsAt: Date;

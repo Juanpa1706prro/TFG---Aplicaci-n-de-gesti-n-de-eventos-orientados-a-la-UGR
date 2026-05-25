@@ -17,6 +17,14 @@ import {
 import { EventManagerAssignmentRole } from '../event-manager-assignment.entity';
 import { EventVisibility } from '../event-visibility.enum';
 
+// -------------------------------------------------------------------
+// Create event DTOs
+// Request body for POST /events.
+// -------------------------------------------------------------------
+
+/**
+ * Editor or moderator invite included in event creation.
+ */
 export class EventManagerInviteDto {
   @IsInt()
   @Min(100_000)
@@ -27,6 +35,9 @@ export class EventManagerInviteDto {
   role: EventManagerAssignmentRole;
 }
 
+/**
+ * Payload for creating a new event with optional manager invites.
+ */
 export class CreateEventDto {
   @IsString()
   @MinLength(1)
@@ -50,20 +61,20 @@ export class CreateEventDto {
   @IsLongitude()
   longitude: number;
 
-  /** ISO 8601 (UTC o con offset). */
+  /** ISO 8601 (UTC or with offset). */
   @IsDateString()
   startsAt: string;
 
-  /** ISO 8601 (UTC o con offset). Debe ser posterior a startsAt. */
+  /** ISO 8601 (UTC or with offset). Must be after startsAt. */
   @IsDateString()
   endsAt: string;
 
-  /** Por defecto público; privado para tutorías u otros (solo creador y gestores en mapa). */
+  /** Defaults to public; private for tutorials etc. (map: creator and managers only). */
   @IsOptional()
   @IsEnum(EventVisibility)
   visibility?: EventVisibility;
 
-  /** Omitir o null explícito en JSON = sin límite */
+  /** Omit or explicit null in JSON = no attendee limit */
   @IsOptional()
   @IsInt()
   @Min(1)

@@ -7,6 +7,10 @@ import { EventsService } from './events.service';
 import { EventsController } from './events.controller';
 import { UsersModule } from '../user/user.module';
 
+// -------------------------------------------------------------------
+// Events Module
+// Event CRUD, map markers, attendance and photo storage.
+// -------------------------------------------------------------------
 @Module({
   imports: [
     TypeOrmModule.forFeature([Event, EventManagerAssignment, EventAttendance]),

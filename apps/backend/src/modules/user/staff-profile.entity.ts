@@ -7,6 +7,10 @@ import {
 } from 'typeorm';
 import { User } from './user.entity';
 
+// -------------------------------------------------------------------
+// Staff profile entity
+// Department / institute for teaching and research staff.
+// -------------------------------------------------------------------
 @Entity('staff_profiles')
 export class StaffProfile {
   @PrimaryGeneratedColumn()
@@ -16,7 +20,7 @@ export class StaffProfile {
   @JoinColumn()
   user: User;
 
-  /** Departamento o instituto para profesorado/PDI. */
+  /** Department or institute for professor / PDI roles. */
   @Column({ type: 'varchar', length: 200 })
   department: string;
 }

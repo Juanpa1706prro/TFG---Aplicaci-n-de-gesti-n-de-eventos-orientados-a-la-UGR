@@ -15,6 +15,14 @@ import {
 } from 'class-validator';
 import { EventVisibility } from '../../events/event-visibility.enum';
 
+// -------------------------------------------------------------------
+// Admin update event DTO
+// Request body for PATCH /admin/events/:id.
+// -------------------------------------------------------------------
+
+/**
+ * Partial event update payload for administrators (includes soft-delete restore).
+ */
 export class AdminUpdateEventDto {
   @IsOptional()
   @IsString()
@@ -61,7 +69,7 @@ export class AdminUpdateEventDto {
   @Max(1_000_000)
   maxAttendees?: number | null;
 
-  /** Restaura un evento soft-deleted (solo admin). */
+  /** Restores a soft-deleted event (admin only). */
   @IsOptional()
   @IsBoolean()
   restore?: boolean;

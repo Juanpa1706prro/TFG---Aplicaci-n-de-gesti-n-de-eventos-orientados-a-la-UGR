@@ -10,7 +10,10 @@ import {
 } from 'typeorm';
 import { User } from '../user/user.entity';
 
-/** Cola de solicitudes de amistad pendientes; se elimina al aceptar, rechazar o cancelar. */
+// -------------------------------------------------------------------
+// Friend request entity
+// Pending friend requests; removed on accept, reject or cancel.
+// -------------------------------------------------------------------
 @Entity('friend_requests')
 @Check(`"fromUserId" <> "toUserId"`)
 @Index('IDX_friend_requests_to', ['toUserId'])

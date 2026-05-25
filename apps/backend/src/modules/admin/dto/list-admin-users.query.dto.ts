@@ -9,6 +9,14 @@ import {
   Min,
 } from 'class-validator';
 
+// -------------------------------------------------------------------
+// List admin users query DTO
+// Query parameters for GET /admin/users.
+// -------------------------------------------------------------------
+
+/**
+ * Pagination, sorting and search options for the admin user list.
+ */
 export class ListAdminUsersQueryDto {
   @IsOptional()
   @Type(() => Number)

@@ -27,20 +27,44 @@ import { UsersService } from '../user/user.service';
 import { sendStoredImage } from '../../common/image/image-response.util';
 import type { UploadedImageFile } from '../../common/image/uploaded-file.type';
 
+// -------------------------------------------------------------------
+// Admin Users Controller
+// User management for operators. Base route: /admin/users
+// Requires JWT + SystemRole.ADMIN (@Roles + RolesGuard).
+// -------------------------------------------------------------------
 @Controller('admin/users')
 @UseGuards(RolesGuard)
 @Roles(SystemRole.ADMIN)
 export class AdminUsersController {
+  // ------------------------------------------------------------
+  // Constructor: Injects required services.
+  // ------------------------------------------------------------
+
   constructor(
     private readonly adminUsersService: AdminUsersService,
     private readonly usersService: UsersService,
   ) {}
 
+  // ------------------------------------------------------------
+  // Endpoints
+  // ------------------------------------------------------------
+
+  /**
+   * Returns a paginated, sortable and searchable list of users.
+   * @param {ListAdminUsersQueryDto} query - Page, limit, sort, order and search term.
+   * @returns {Promise<object>} List items and pagination metadata.
+   */
   @Get()
   listUsers(@Query() query: ListAdminUsersQueryDto) {
     return this.adminUsersService.listUsers(query);
   }
 
+  /**
+   * Streams the profile photo stored in the database for a user.
+   * @param {number} userNumber - Public 6-digit user number.
+   * @param {Response} res - Express response for binary image output.
+   * @returns {Promise<void>}
+   */
   @Get(':userNumber/photo')
   async getUserPhoto(
     @Param('userNumber', ParseIntPipe) userNumber: number,
@@ -50,6 +74,13 @@ export class AdminUsersController {
     sendStoredImage(res, photo);
   }
 
+  /**
+   * Uploads or replaces a user's profile photo (multipart field: file).
+   * @param {number} userNumber - Public 6-digit user number.
+   * @param {UploadedImageFile} [file] - Image file from multer memory storage.
+   * @returns {Promise<object>} Success message from UsersService.
+   * @throws {BadRequestException} If no file was sent.
+   */
   @Put(':userNumber/photo')
   @UseInterceptors(FileInterceptor('file'))
   async uploadUserPhoto(
@@ -66,11 +97,22 @@ export class AdminUsersController {
     );
   }
 
+  /**
+   * Returns full admin detail for a single user.
+   * @param {number} userNumber - Public 6-digit user number.
+   * @returns {Promise<AdminUserDetail>} User profile and role data.
+   */
   @Get(':userNumber')
   getUser(@Param('userNumber', ParseIntPipe) userNumber: number) {
     return this.adminUsersService.getUserDetail(userNumber);
   }
 
+  /**
+   * Updates profile fields and/or system role for a user.
+   * @param {number} userNumber - Public 6-digit user number.
+   * @param {AdminUpdateUserDto} body - Partial profile and optional role.
+   * @returns {Promise<{ message: string; user: AdminUserDetail }>}
+   */
   @Patch(':userNumber')
   updateUser(
     @Param('userNumber', ParseIntPipe) userNumber: number,
@@ -79,6 +121,12 @@ export class AdminUsersController {
     return this.adminUsersService.updateUser(userNumber, body);
   }
 
+  /**
+   * Permanently deletes a user account (not allowed on self).
+   * @param {object} req - Request with authenticated admin user id (sub).
+   * @param {number} userNumber - Public 6-digit user number to delete.
+   * @returns {Promise<{ message: string }>}
+   */
   @Delete(':userNumber')
   deleteUser(
     @Request() req: { user: { sub: number } },

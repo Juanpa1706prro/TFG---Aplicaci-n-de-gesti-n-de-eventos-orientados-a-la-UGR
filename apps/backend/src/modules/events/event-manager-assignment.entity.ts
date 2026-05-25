@@ -9,6 +9,12 @@ import {
 import { User } from '../user/user.entity';
 import { Event } from './event.entity';
 
+// -------------------------------------------------------------------
+// Event manager assignment entity
+// Editors and moderators invited to help manage an event.
+// -------------------------------------------------------------------
+
+/** Role assigned when inviting a manager to an event. */
 export enum EventManagerAssignmentRole {
   EDITOR = 'EDITOR',
   MODERATOR = 'MODERATOR',

@@ -18,7 +18,7 @@ import { JwtService } from '@nestjs/jwt';
 
 // -------------------------------------------------------------------
 // Authentication Controller
-// Exposes endpoints for user registration, login, logout and token refresh..
+// Exposes endpoints for user registration, login, logout and token refresh.
 // Base route: /auth
 // -------------------------------------------------------------------
 @Controller('auth')
@@ -33,8 +33,11 @@ export class AuthController {
   ) {}
 
   /**
-   * Devuelve la sesión del usuario autenticado por cookie (mismo payload que tras login).
-   * No es público: requiere JWT de acceso válido.
+   * Returns the authenticated user's session from the cookie (same payload as after login).
+   * Not public: requires a valid access JWT.
+   * @param {object} req - Request carrying the authenticated user id (sub).
+   * @returns {Promise<any>} Session payload for the current user.
+   * @throws {UnauthorizedException} If the user is not authenticated.
    */
   @Get('me')
   async me(@Req() req: { user?: { sub: number } }) {
@@ -54,7 +57,7 @@ export class AuthController {
    */
   private readonly baseCookieOptions: CookieOptions = {
     httpOnly: true,
-    secure: false, // true solo en producción con HTTPS
+    secure: false, // set to true in production with HTTPS
     sameSite: 'lax',
   };
 
@@ -167,7 +170,7 @@ export class AuthController {
             await this.authService.logout(decoded.sub);
           }
         } catch {
-          // refresh ilegible: solo borrar cookies
+          // unreadable refresh token: only clear cookies
         }
       }
 

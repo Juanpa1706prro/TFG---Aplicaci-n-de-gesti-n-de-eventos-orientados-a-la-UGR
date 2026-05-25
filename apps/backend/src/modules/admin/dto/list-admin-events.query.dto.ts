@@ -10,6 +10,14 @@ import {
   Min,
 } from 'class-validator';
 
+// -------------------------------------------------------------------
+// List admin events query DTO
+// Query parameters for GET /admin/events.
+// -------------------------------------------------------------------
+
+/**
+ * Pagination, sorting, status filter and search options for the admin event list.
+ */
 export class ListAdminEventsQueryDto {
   @IsOptional()
   @Type(() => Number)
@@ -32,7 +40,7 @@ export class ListAdminEventsQueryDto {
   @IsIn(['asc', 'desc'])
   order?: 'asc' | 'desc' = 'desc';
 
-  /** active = endsAt > now; finished = endsAt <= now; all = sin filtro por fin */
+  /** active = endsAt > now; finished = endsAt <= now; all = no end-date filter */
   @IsOptional()
   @IsIn(['active', 'finished', 'all'])
   status?: 'active' | 'finished' | 'all' = 'all';

@@ -8,11 +8,16 @@ import {
 import { User } from './user.entity';
 import { UserGender } from './user-enums';
 
+// -------------------------------------------------------------------
+// User profile entity
+// Public identity and personal data (table `user_profiles`).
+// -------------------------------------------------------------------
 @Entity('user_profiles')
 export class UserProfile {
   // ------------------------------------------------------------
-  // Atributes.
+  // Attributes
   // ------------------------------------------------------------
+
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -21,8 +26,6 @@ export class UserProfile {
 
   @Column({ unique: true })
   userNumber: number;
-
-  //--- Personal Data ---
 
   @Column({ nullable: true })
   firstName: string;
@@ -39,8 +42,6 @@ export class UserProfile {
   @Column({ nullable: true })
   phoneNumber: string;
 
-  // --- Other data ---
-
   @Column({ type: 'text', nullable: true })
   bio: string;
 
@@ -51,7 +52,7 @@ export class UserProfile {
   profilePictureMimeType: string | null;
 
   // ------------------------------------------------------------
-  // Relations.
+  // Relations
   // ------------------------------------------------------------
 
   @OneToOne(() => User, { onDelete: 'CASCADE' })

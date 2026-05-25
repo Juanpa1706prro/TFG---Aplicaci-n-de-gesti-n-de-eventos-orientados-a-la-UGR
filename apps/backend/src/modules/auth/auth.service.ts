@@ -14,6 +14,15 @@ import * as bcrypt from 'bcrypt';
 import { UserProfile } from '../user/user-profile.entity';
 import { resolveSystemRoleFromOperatorKey } from './operator-key.util';
 
+// -------------------------------------------------------------------
+// Authentication Service
+// Handles registration, login, token refresh and session management.
+// -------------------------------------------------------------------
+
+// ------------------------------------------------------------
+// Types
+// ------------------------------------------------------------
+
 interface AccessJwtPayload {
   sub: number;
 }
@@ -23,9 +32,6 @@ interface RefreshJwtPayload {
   ver: number;
 }
 
-// ------------------------------------------------------------
-// Authentication Service.
-// ------------------------------------------------------------
 @Injectable()
 export class AuthService {
   // ------------------------------------------------------------
@@ -40,13 +46,14 @@ export class AuthService {
   ) {}
 
   // ------------------------------------------------------------
-  // Methods.
+  // Public methods
   // ------------------------------------------------------------
 
   /**
    * Registers a new user in the system.
    * @param {string} email - The user's email address.
    * @param {string} pass - The user's plain-text password.
+   * @param {string} [operatorKey] - Optional demo key to assign ADMIN, MANAGER or MODERATOR.
    * @returns {Promise<any>} The newly created user entity.
    * @throws {ConflictException} If the email already exists in the database.
    */
@@ -87,13 +94,11 @@ export class AuthService {
    * Authenticates a user on the system.
    * @param {string} email - The user's email address.
    * @param {string} pass - The user's plain-text password.
-   * @returns {Promise<{ accessToken: string, refreshToken: string, user: any } | null>} An object containing the signed JWT and sanitized user data, or null if credentials are invalid.
+   * @returns {Promise<{ accessToken: string, refreshToken: string, user: any } | null>} Signed tokens and sanitized user data, or null if credentials are invalid.
    */
   async login(email: string, pass: string) {
-
     const user = await this.usersService.findByEmail(email);
     if (!user) return null;
-
 
     const isMatch = await bcrypt.compare(pass, user.password);
     if (!isMatch) return null;
@@ -124,7 +129,10 @@ export class AuthService {
   }
 
   /**
-   * Sesión actual a partir del JWT (cookies): mismo shape que el usuario devuelto en el login.
+   * Returns the current session for an authenticated user (same shape as login response user).
+   * @param {number} userId - Authenticated user id from the access JWT.
+   * @returns {Promise<any>} Public session payload for the user.
+   * @throws {UnauthorizedException} If the user does not exist.
    */
   async getMe(userId: number) {
     await this.usersService.ensureDefaultActivePersonaIfMissing(userId);
@@ -133,11 +141,12 @@ export class AuthService {
       throw new UnauthorizedException('Usuario no encontrado');
     }
     return this.usersService.toPublicSession(user);
-   }
+  }
 
   /**
    * Logs out the user by removing their refresh token hash from the database.
    * @param {number} userId - The ID of the user logging out.
+   * @returns {Promise<void>}
    */
   async logout(userId: number) {
     await this.usersService.update(userId, {
@@ -148,7 +157,7 @@ export class AuthService {
 
   /**
    * Generates a short-lived access token.
-   * @param {JwtPayload} payload - The user data to embed in the token.
+   * @param {AccessJwtPayload} payload - The user data to embed in the token.
    * @returns {Promise<string>} The signed JWT access token.
    */
   async generateAccessToken(payload: AccessJwtPayload): Promise<string> {
@@ -160,8 +169,8 @@ export class AuthService {
 
   /**
    * Generates a long-lived refresh token.
-   * @param payload - The user data to embed in the refresh token.
-   * @returns {Promise<string>} The signed JWT access token.
+   * @param {RefreshJwtPayload} payload - The user data to embed in the refresh token.
+   * @returns {Promise<string>} The signed JWT refresh token.
    */
   async generateRefreshToken(payload: RefreshJwtPayload): Promise<string> {
     return this.jwtService.signAsync(payload, {
@@ -171,8 +180,13 @@ export class AuthService {
   }
 
   /**
-   * Rotación de refresh (RFC 9700 / OAuth BCP): nuevo access + nuevo refresh en cada uso.
-   * La versión en el JWT y en BD detecta reutilización de un refresh ya rotado.
+   * Rotates access and refresh tokens on each use (RFC 9700 / OAuth BCP).
+   * JWT version and DB version detect reuse of an already-rotated refresh token.
+   * @param {number} userId - User id from the refresh JWT.
+   * @param {string} rawToken - Raw refresh token from the cookie.
+   * @param {number} tokenVersion - Version claim from the refresh JWT.
+   * @returns {Promise<{ accessToken: string; refreshToken: string }>} New token pair.
+   * @throws {ForbiddenException} If the session is missing, outdated or reused.
    */
   async refreshTokens(
     userId: number,
@@ -218,21 +232,11 @@ export class AuthService {
     });
   }
 
-  private async persistRefreshSession(
-    userId: number,
-    refreshToken: string,
-    version: number,
-  ): Promise<void> {
-    const salt = await bcrypt.genSalt();
-    const hash = await bcrypt.hash(refreshToken, salt);
-    await this.usersService.update(userId, {
-      hashedRefreshToken: hash,
-      refreshTokenVersion: version,
-    });
-  }
-
   /**
    * Verifies the cryptographic signature and expiration of a refresh token.
+   * @param {string} token - Raw refresh token from the cookie.
+   * @returns {Promise<RefreshJwtPayload>} Verified payload with sub and ver.
+   * @throws {UnauthorizedException} If the token is invalid or expired.
    */
   async verifyRefreshToken(token: string): Promise<RefreshJwtPayload> {
     try {
@@ -253,5 +257,29 @@ export class AuthService {
       }
       throw new UnauthorizedException('Invalid or outdated Refresh token');
     }
+  }
+
+  // ------------------------------------------------------------
+  // Private helpers
+  // ------------------------------------------------------------
+
+  /**
+   * Hashes and persists the refresh token and its version for a user session.
+   * @param {number} userId - User id.
+   * @param {string} refreshToken - Raw refresh JWT to store hashed.
+   * @param {number} version - Refresh token version for rotation checks.
+   * @returns {Promise<void>}
+   */
+  private async persistRefreshSession(
+    userId: number,
+    refreshToken: string,
+    version: number,
+  ): Promise<void> {
+    const salt = await bcrypt.genSalt();
+    const hash = await bcrypt.hash(refreshToken, salt);
+    await this.usersService.update(userId, {
+      hashedRefreshToken: hash,
+      refreshTokenVersion: version,
+    });
   }
 }

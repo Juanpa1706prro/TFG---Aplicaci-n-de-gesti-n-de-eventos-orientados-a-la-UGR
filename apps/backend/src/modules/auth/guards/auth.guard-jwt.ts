@@ -5,28 +5,34 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { jwtConstants } from './constants';
+import { jwtConstants } from '../constants';
 import { Reflector } from '@nestjs/core';
-import { IS_PUBLIC_KEY } from './public.decorator';
+import { IS_PUBLIC_KEY } from '../public.decorator';
 
 // -------------------------------------------------------------------
-// JWT Authentication Guard.
+// JWT Authentication Guard
+// Global guard: validates access_token cookie unless route is @Public().
 // -------------------------------------------------------------------
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   // ------------------------------------------------------------
   // Constructor: Injects required services.
   // ------------------------------------------------------------
+
   constructor(
     private jwtService: JwtService,
     private reflector: Reflector,
   ) {}
 
+  // ------------------------------------------------------------
+  // Guard lifecycle
+  // ------------------------------------------------------------
+
   /**
    * Determines whether the current request is allowed to proceed to the route handler.
-   * @param context - The execution context that provides details about the current HTTP request pipeline.
-   * @returns {Promise<boolean>} Resolves to `true` if the token is valid, granting access to the route.
-   * @throws {UnauthorizedException} If the 'access_token' cookie is missing, tampered with, or expired.
+   * @param {ExecutionContext} context - Current HTTP request pipeline context.
+   * @returns {Promise<boolean>} Resolves to true if the token is valid or the route is public.
+   * @throws {UnauthorizedException} If the access_token cookie is missing, tampered with, or expired.
    */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Check if the route is marked as public using the @Public() decorator

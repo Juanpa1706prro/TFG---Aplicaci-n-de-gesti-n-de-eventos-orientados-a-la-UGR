@@ -9,15 +9,12 @@ import { UsersService } from './user.service';
 import { UsersController } from './user.controller';
 import { CapabilityService } from './capability.service';
 
-// ------------------------------------------------------------
-// Users Module.
-// ------------------------------------------------------------
+// -------------------------------------------------------------------
+// Users Module
+// User accounts, profiles, onboarding, session persona and capabilities.
+// -------------------------------------------------------------------
 @Module({
   imports: [
-    // -------------------------------------------------------------------
-    // Registers the User entity within this module's scope.
-    // This allows injecting the TypeORM Repository<User> into the UsersService.
-    // -------------------------------------------------------------------
     TypeOrmModule.forFeature([
       User,
       UserProfile,

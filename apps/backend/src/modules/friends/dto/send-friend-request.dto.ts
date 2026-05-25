@@ -1,10 +1,15 @@
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
+// -------------------------------------------------------------------
+// Send friend request DTO
+// Request body for POST /friends/requests.
+// -------------------------------------------------------------------
+
 /**
- * Destino de la solicitud de amistad: exactamente uno de los dos campos.
- * - targetUserNumber: formulario / código (lookup por perfil).
- * - targetUserId: botón en perfil ajeno (lookup directo por PK).
+ * Friend request target: exactly one of the two fields must be set.
+ * - targetUserNumber: form / code lookup by profile user number.
+ * - targetUserId: profile button lookup by user primary key.
  */
 export class SendFriendRequestDto {
   @IsOptional()

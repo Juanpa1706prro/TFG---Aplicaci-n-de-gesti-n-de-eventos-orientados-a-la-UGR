@@ -13,6 +13,16 @@ import { AdminUpdateUserDto } from './dto/admin-update-user.dto';
 import { UpdateProfileDto } from '../user/dto/update-profile.dto';
 import { hasStoredImage } from '../../common/image/image-validation.util';
 
+// -------------------------------------------------------------------
+// Admin Users Service
+// List, read, update and delete users for the operator panel.
+// -------------------------------------------------------------------
+
+// ------------------------------------------------------------
+// Types
+// ------------------------------------------------------------
+
+/** Summary row for GET /admin/users list. */
 export type AdminUserListItem = {
   userId: number;
   userNumber: number;
@@ -25,6 +35,7 @@ export type AdminUserListItem = {
   hasProfilePicture: boolean;
 };
 
+/** Full user view for GET /admin/users/:userNumber. */
 export type AdminUserDetail = AdminUserListItem & {
   bio: string | null;
   gender: string | null;
@@ -35,12 +46,25 @@ export type AdminUserDetail = AdminUserListItem & {
 
 @Injectable()
 export class AdminUsersService {
+  // ------------------------------------------------------------
+  // Constructor: Injects required services.
+  // ------------------------------------------------------------
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly usersService: UsersService,
   ) {}
 
+  // ------------------------------------------------------------
+  // Public methods
+  // ------------------------------------------------------------
+
+  /**
+   * Paginated user list with optional text search (email, name, user number).
+   * @param {ListAdminUsersQueryDto} query - Pagination and sort options.
+   * @returns {Promise<object>} items, page, limit and hasMore flag.
+   */
   async listUsers(query: ListAdminUsersQueryDto): Promise<{
     items: AdminUserListItem[];
     page: number;
@@ -96,6 +120,12 @@ export class AdminUsersService {
     };
   }
 
+  /**
+   * Loads a single user by public user number for the admin detail view.
+   * @param {number} userNumber - 6-digit profile user number.
+   * @returns {Promise<AdminUserDetail>} Full admin user detail.
+   * @throws {NotFoundException} If the user does not exist.
+   */
   async getUserDetail(userNumber: number): Promise<AdminUserDetail> {
     const user = await this.usersService.findByProfileUserNumber(userNumber);
     if (!user?.profile) {
@@ -104,6 +134,13 @@ export class AdminUsersService {
     return this.toDetail(user);
   }
 
+  /**
+   * Updates profile fields and/or system role, then returns fresh detail.
+   * @param {number} userNumber - 6-digit profile user number.
+   * @param {AdminUpdateUserDto} dto - Partial profile and optional role.
+   * @returns {Promise<{ message: string; user: AdminUserDetail }>}
+   * @throws {NotFoundException} If the user does not exist.
+   */
   async updateUser(
     userNumber: number,
     dto: AdminUpdateUserDto,
@@ -135,6 +172,14 @@ export class AdminUsersService {
     };
   }
 
+  /**
+   * Permanently removes a user; the acting admin cannot delete themselves.
+   * @param {number} actorUserId - Authenticated admin user id.
+   * @param {number} userNumber - Target user's public number.
+   * @returns {Promise<{ message: string }>}
+   * @throws {NotFoundException} If the user does not exist.
+   * @throws {BadRequestException} If attempting self-deletion.
+   */
   async deleteUser(
     actorUserId: number,
     userNumber: number,
@@ -151,6 +196,15 @@ export class AdminUsersService {
     return { message: 'Usuario eliminado' };
   }
 
+  // ------------------------------------------------------------
+  // Private helpers
+  // ------------------------------------------------------------
+
+  /**
+   * Maps a User entity to a list item DTO.
+   * @param {User} user - User with profile relation loaded.
+   * @returns {AdminUserListItem}
+   */
   private toListItem(user: User): AdminUserListItem {
     const profile = user.profile;
     return {
@@ -166,6 +220,11 @@ export class AdminUsersService {
     };
   }
 
+  /**
+   * Maps a User entity to the admin detail DTO.
+   * @param {User} user - User with profile relation loaded.
+   * @returns {AdminUserDetail}
+   */
   private toDetail(user: User): AdminUserDetail {
     const profile = user.profile;
     return {
@@ -178,11 +237,20 @@ export class AdminUsersService {
     };
   }
 
+  /**
+   * Escapes SQL LIKE wildcards in user search input.
+   * @param {string} value - Raw search string.
+   * @returns {string} Escaped string safe for ILIKE patterns.
+   */
   private escapeLike(value: string): string {
     return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
   }
 
-  /** TypeORM puede devolver `date` como string (`YYYY-MM-DD`). */
+  /**
+   * Normalizes a date column to YYYY-MM-DD (TypeORM may return string or Date).
+   * @param {Date | string | null | undefined} value - birthDate from the database.
+   * @returns {string | null} ISO date portion or null.
+   */
   private formatDateOnly(value: Date | string | null | undefined): string | null {
     if (value == null) {
       return null;
@@ -201,6 +269,11 @@ export class AdminUsersService {
       : parsed.toISOString().slice(0, 10);
   }
 
+  /**
+   * Normalizes a timestamp to ISO 8601 string.
+   * @param {Date | string} value - createdAt or similar column.
+   * @returns {string} ISO datetime string.
+   */
   private formatDateTimeIso(value: Date | string): string {
     if (value instanceof Date && !Number.isNaN(value.getTime())) {
       return value.toISOString();

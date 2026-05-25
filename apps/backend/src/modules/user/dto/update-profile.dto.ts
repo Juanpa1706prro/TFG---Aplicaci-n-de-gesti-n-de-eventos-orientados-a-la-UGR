@@ -8,7 +8,14 @@ import {
 } from 'class-validator';
 import { UserGender } from '../user-enums';
 
-/** Actualización puntual del perfil tras el onboarding (todos opcionales). */
+// -------------------------------------------------------------------
+// Update profile DTO
+// Request body for PATCH /user/profile (all fields optional).
+// -------------------------------------------------------------------
+
+/**
+ * Partial profile update after onboarding.
+ */
 export class UpdateProfileDto {
   @IsOptional()
   @IsString()

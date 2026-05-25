@@ -17,7 +17,14 @@ import {
   StaffFunction,
 } from '../user-enums';
 
-/** Cuerpo flexible: la validación estricta la hace UsersService según el tipo de correo. */
+// -------------------------------------------------------------------
+// Complete onboarding DTO
+// Request body for PATCH /user/onboarding.
+// -------------------------------------------------------------------
+
+/**
+ * Flexible onboarding payload; strict rules are enforced in UsersService by email domain.
+ */
 export class CompleteOnboardingDto {
   @IsOptional()
   @IsString()

@@ -9,10 +9,11 @@ import {
 } from 'typeorm';
 import { User } from '../user/user.entity';
 
-/**
- * Amistad confirmada entre dos usuarios (una fila por pareja).
- * userLowId / userHighId = min/max de los dos user id (par canónico).
- */
+// -------------------------------------------------------------------
+// Friendship entity
+// Confirmed friendship between two users (one row per pair).
+// userLowId / userHighId = min/max of the two user ids (canonical pair).
+// -------------------------------------------------------------------
 @Entity('friendships')
 @Unique('UQ_friendship_pair', ['userLowId', 'userHighId'])
 export class Friendship {

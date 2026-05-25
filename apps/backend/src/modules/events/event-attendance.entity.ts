@@ -10,6 +10,10 @@ import {
 import { User } from '../user/user.entity';
 import { Event } from './event.entity';
 
+// -------------------------------------------------------------------
+// Event attendance entity
+// One row per user registered for an event (unique per event + user).
+// -------------------------------------------------------------------
 @Entity('event_attendances')
 @Unique('UQ_event_attendance_user', ['eventId', 'userId'])
 export class EventAttendance {

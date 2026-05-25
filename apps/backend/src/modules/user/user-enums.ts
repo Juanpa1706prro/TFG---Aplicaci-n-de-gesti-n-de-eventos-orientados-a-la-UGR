@@ -1,22 +1,27 @@
-/** Capacidades de plataforma (sesión actual según activeStaffFunction). */
+// -------------------------------------------------------------------
+// User domain enums and display labels
+// Persisted enum codes plus Spanish labels for faculties and degrees.
+// -------------------------------------------------------------------
+
+/** Platform capabilities for the current session (from activeStaffFunction). */
 export enum GlobalCapability {
-  /** Ver/asistir a eventos públicos o inscribirse. */
+  /** View public events and register attendance. */
   ATTEND_EVENTS = 'ATTEND_EVENTS',
-  /** Crear eventos y gestionar los propios a nivel plataforma (profesorado / PDI en contexto docente). */
+  /** Create events and manage own events at platform level (teaching / research staff). */
   CREATE_AND_MANAGE_OWN_EVENTS = 'CREATE_AND_MANAGE_OWN_EVENTS',
-  /** Invitar co-gestores a eventos que posee (cuando exista CRUD de eventos). */
+  /** Invite co-managers to owned events. */
   INVITE_EVENT_MANAGERS = 'INVITE_EVENT_MANAGERS',
 }
 
 export enum SystemRole {
-  /** Rol base. Las funciones universitarias se modelan con StaffFunction. */
+  /** Base role; university functions are modeled with StaffFunction. */
   USER = 'USER',
   MODERATOR = 'MODERATOR',
   MANAGER = 'MANAGER',
   ADMIN = 'ADMIN',
 }
 
-/** Funciones en la universidad (una cuenta puede marcar varias). */
+/** University staff functions (a user may have several). */
 export enum StaffFunction {
   ESTUDIANTE = 'ESTUDIANTE',
   PROFESOR = 'PROFESOR',
@@ -46,8 +51,8 @@ export enum UserCampus {
 }
 
 /**
- * Código corto (≤20) persistido en BD. La etiqueta larga va en `USER_FACULTY_LABELS`.
- * Misma lista para onboarding y presets de ubicación de eventos.
+ * Short code (≤20 chars) stored in DB. Long label in `USER_FACULTY_LABELS`.
+ * Same list for onboarding and event location presets.
  */
 export enum UserFaculty {
   ETSIIT = 'ETSIIT',
