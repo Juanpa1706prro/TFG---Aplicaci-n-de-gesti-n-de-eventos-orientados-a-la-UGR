@@ -16,5 +16,8 @@ module.exports = {
   '/user': apiProxy,
   '/events': apiProxy,
   '/friends': apiProxy,
+  '/notifications': apiProxy,
   '/admin': apiProxy,
+  '/routing': apiProxy,
+  '/ai': apiProxy,
 };

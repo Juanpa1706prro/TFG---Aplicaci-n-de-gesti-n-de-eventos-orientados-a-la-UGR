@@ -194,9 +194,8 @@ function addCustomExtrusionLayer(
           12,
         ],
       ],
-      'fill-extrusion-opacity': theme === 'neutro' ? 0.94 : 0.97,
-      'fill-extrusion-vertical-gradient':
-        theme === 'neutro' || theme === 'sunset',
+      'fill-extrusion-opacity': 0.97,
+      'fill-extrusion-vertical-gradient': theme === 'sunset',
     },
   };
 
@@ -327,18 +326,6 @@ function resolveExtrusionColor(
     ];
   }
 
-  if (theme === 'neutro') {
-    return [
-      'interpolate',
-      ['linear'],
-      ['zoom'],
-      14,
-      '#eceae4',
-      16,
-      '#ddd9d2',
-    ];
-  }
-
   return paintFor3DTheme(theme).color;
 }
 
@@ -350,8 +337,6 @@ function paintFor3DTheme(theme: MapVisualTheme): { color: string } {
       return { color: '#95a3b3' };
     case 'sunset':
       return { color: '#d9d5cd' };
-    case 'neutro':
-      return { color: '#eaeae5' };
     case 'day':
     default:
       return { color: '#d9d5cd' };

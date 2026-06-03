@@ -1,0 +1,42 @@
+<aside class="notifications-panel" aria-label="Notificaciones">
+  <header class="notifications-panel__header">
+    <div>
+      <h2 class="notifications-panel__title">Notificaciones</h2>
+      <p class="notifications-panel__subtitle">Avisos de eventos y amistad</p>
+    </div>
+    <button
+      type="button"
+      class="notifications-panel__close"
+      aria-label="Cerrar notificaciones"
+      (click)="close()"
+    >
+      ×
+    </button>
+  </header>
+
+  @if (loadError()) {
+    <p class="notifications-panel__error" role="alert">{{ loadError() }}</p>
+  }
+
+  <div class="notifications-panel__list" role="list">
+    @if (loading()) {
+      <p class="notifications-panel__empty">Cargando…</p>
+    } @else if (items().length === 0) {
+      <p class="notifications-panel__empty">No tienes notificaciones.</p>
+    } @else {
+      @for (item of items(); track item.id) {
+        <button
+          type="button"
+          class="notifications-panel__item"
+          [class.notifications-panel__item--unread]="isUnread(item)"
+          role="listitem"
+          [disabled]="openingId() === item.id"
+          (click)="openNotification(item)"
+        >
+          <span class="notifications-panel__item-text">{{ message(item) }}</span>
+          <span class="notifications-panel__item-meta">{{ timeLabel(item) }}</span>
+        </button>
+      }
+    }
+  </div>
+</aside>

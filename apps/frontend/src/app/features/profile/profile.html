@@ -16,11 +16,11 @@
   } @else if (profileView) {
     <app-my-profile-view [profile]="profileView" />
   } @else if (loadError) {
-    <div class="loading-state">
+    <div class="loading-state" role="alert">
       <p>No se ha podido cargar este perfil.</p>
     </div>
   } @else {
-    <div class="loading-state">
+    <div class="loading-state" role="status">
       <p>Cargando perfil…</p>
     </div>
   }

@@ -211,12 +211,6 @@ export class AdminEventsService {
     if (dto.longitude != null) {
       event.longitude = dto.longitude;
     }
-    if (dto.visibility != null) {
-      event.visibility =
-        dto.visibility === EventVisibility.PRIVATE
-          ? EventVisibility.PRIVATE
-          : EventVisibility.PUBLIC;
-    }
     if (dto.maxAttendees !== undefined) {
       event.maxAttendees = dto.maxAttendees;
     }

@@ -5,6 +5,7 @@ import { Friendship } from './friendship.entity';
 import { FriendsService } from './friends.service';
 import { FriendsController } from './friends.controller';
 import { UsersModule } from '../user/user.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 // -------------------------------------------------------------------
 // Friends Module
@@ -14,6 +15,7 @@ import { UsersModule } from '../user/user.module';
   imports: [
     TypeOrmModule.forFeature([FriendRequest, Friendship]),
     UsersModule,
+    NotificationsModule,
   ],
   providers: [FriendsService],
   controllers: [FriendsController],

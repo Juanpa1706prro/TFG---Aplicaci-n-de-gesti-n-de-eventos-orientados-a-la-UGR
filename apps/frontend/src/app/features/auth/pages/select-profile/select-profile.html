@@ -1,26 +1,37 @@
-<div class="onboarding-layout">
-  <div class="onboarding-card">
-    <h1>Perfil de sesión</h1>
-    <p class="subtitle">
-      Tienes <strong>varias funciones</strong> en la UGR. Elige con cuál quieres actuar en esta sesión (puedes cambiarlo más adelante).
-    </p>
+<div class="ugr-auth-flow">
+  <article class="ugr-auth-flow__panel">
+    <header>
+      <img class="ugr-auth-flow__logo" [src]="logoUrl" [alt]="logoAlt" />
+      <p class="ugr-auth-flow__eyebrow ugr-font-label">Sesión</p>
+      <h1 class="ugr-auth-flow__title">Perfil de sesión</h1>
+      <p class="ugr-auth-flow__lead">
+        Tienes <strong>varias funciones</strong> en la UGR. Elige con cuál quieres actuar ahora; podrás
+        cambiarla más adelante desde tu perfil.
+      </p>
+    </header>
 
     @if (errorMessage) {
-      <p class="error-banner">{{ errorMessage }}</p>
+      <p class="ugr-auth-banner ugr-auth-banner--error" role="alert">{{ errorMessage }}</p>
     }
 
-    <h2>Tu función activa</h2>
-    <div class="persona-grid">
+    @if (submitting) {
+      <p class="ugr-auth-banner" role="status">Guardando tu elección…</p>
+    }
+
+    <h2 class="ugr-auth-flow__section-title">Tu función activa</h2>
+    <div class="ugr-persona-grid">
       @for (opt of availableOptions(); track opt.fn) {
         <button
           type="button"
-          class="persona-card"
+          class="ugr-persona-card"
           [disabled]="submitting"
           (click)="choose(opt.fn)"
         >
-          <span class="persona-label">{{ opt.label }}</span>
+          <span class="ugr-persona-card__dot" aria-hidden="true"></span>
+          <span class="ugr-persona-card__label">{{ opt.label }}</span>
+          <span class="ugr-persona-card__meta">Usar en esta sesión</span>
         </button>
       }
     </div>
-  </div>
+  </article>
 </div>

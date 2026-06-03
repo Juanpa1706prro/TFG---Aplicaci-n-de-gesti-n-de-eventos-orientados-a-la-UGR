@@ -244,7 +244,6 @@ export class AdminEditEventComponent implements OnInit {
       longitude: v.longitude,
       startsAt: startsAt.toISOString(),
       endsAt: endsAt.toISOString(),
-      visibility: v.visibility,
       maxAttendees: v.unlimitedAttendees ? null : v.maxAttendees,
       ...(v.restore && this.showRestoreOption() ? { restore: true } : {}),
     };
@@ -260,6 +259,7 @@ export class AdminEditEventComponent implements OnInit {
         next: () => {
           this.syncEventPhoto(eventId, () => {
             this.submitting.set(false);
+            this.shellUi.requestMapRefresh();
             this.cancel();
           });
         },

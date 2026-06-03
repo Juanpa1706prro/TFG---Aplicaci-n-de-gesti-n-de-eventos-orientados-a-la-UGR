@@ -25,7 +25,7 @@
           @case ('none') {
             <button
               type="button"
-              class="profile-friend-btn profile-friend-btn--primary"
+              class="profile-friend-btn profile-friend-btn--primary ugr-btn-primary"
               [disabled]="friendActionLoading()"
               (click)="sendFriendRequest.emit()"
             >
@@ -43,7 +43,7 @@
             </span>
             <button
               type="button"
-              class="profile-friend-btn profile-friend-btn--primary"
+              class="profile-friend-btn profile-friend-btn--primary ugr-btn-primary"
               [disabled]="friendActionLoading()"
               (click)="acceptFriendRequest.emit()"
             >
@@ -51,7 +51,7 @@
             </button>
             <button
               type="button"
-              class="profile-friend-btn profile-friend-btn--secondary"
+              class="profile-friend-btn profile-friend-btn--secondary ugr-btn-secondary"
               [disabled]="friendActionLoading()"
               (click)="rejectFriendRequest.emit()"
             >

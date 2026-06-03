@@ -1,0 +1,23 @@
+.auth-form__title {
+  margin: 0 0 var(--spacing-2);
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.auth-form__subtitle {
+  margin: 0 0 var(--spacing-6);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--color-on-surface-variant);
+}
+
+.auth-form__submit {
+  width: 100%;
+  margin-top: var(--spacing-2);
+}
+
+.auth-form .ugr-field:last-of-type {
+  margin-bottom: var(--spacing-6);
+}

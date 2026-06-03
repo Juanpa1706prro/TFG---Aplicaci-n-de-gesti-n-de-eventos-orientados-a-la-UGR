@@ -1,9 +1,33 @@
 <app-column-overlay (close)="closeToMap()">
-  <div class="account-wrap">
-    <h1>Mi cuenta</h1>
-    <p class="muted">
-      Aquí irá el cambio de contraseña y otros ajustes sensibles. Solo tú puedes abrir esta
-      página con tu número de usuario.
-    </p>
+  <div class="profile-container">
+    <article class="profile-card account-card">
+      <header class="account-header">
+        <p class="account-eyebrow ugr-font-label">Seguridad</p>
+        <h1>Mi cuenta</h1>
+        <p class="account-lead">
+          Ajustes sensibles de tu acceso. Solo tú puedes abrir esta página con tu número de
+          usuario.
+        </p>
+      </header>
+
+      <section class="account-section">
+        <h2 class="account-section__title">Contraseña</h2>
+        <p class="account-section__text">
+          El cambio de contraseña estará disponible en una próxima versión.
+        </p>
+        <span class="account-badge">Próximamente</span>
+      </section>
+
+      <section class="account-section account-section--muted">
+        <h2 class="account-section__title">Sesión</h2>
+        <p class="account-section__text">
+          Para cerrar sesión en este dispositivo, usa el menú lateral → Cerrar sesión.
+        </p>
+      </section>
+
+      <p class="account-back">
+        <a [routerLink]="profileLink()">← Volver al perfil</a>
+      </p>
+    </article>
   </div>
 </app-column-overlay>

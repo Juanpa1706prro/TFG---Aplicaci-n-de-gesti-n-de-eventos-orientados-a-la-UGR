@@ -55,7 +55,6 @@ export type AdminUpdateEventPayload = {
   longitude?: number;
   startsAt?: string;
   endsAt?: string;
-  visibility?: EventVisibility;
   maxAttendees?: number | null;
   restore?: boolean;
 };

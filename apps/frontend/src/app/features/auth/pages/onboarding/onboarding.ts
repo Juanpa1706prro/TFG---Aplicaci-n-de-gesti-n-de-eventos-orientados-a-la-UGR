@@ -5,6 +5,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
+import { APP_LOGO_ALT, APP_LOGO_MARK_URL } from '@core/config/brand.config';
 import { AuthService } from '@core/services/auth.services';
 import { CompleteOnboardingPayload } from '@core/interfaces/auth-interface';
 import {
@@ -25,6 +26,8 @@ import {
   styleUrl: './onboarding.css',
 })
 export class OnboardingComponent implements OnInit {
+  readonly logoUrl = APP_LOGO_MARK_URL;
+  readonly logoAlt = APP_LOGO_ALT;
   private readonly fb = inject(FormBuilder);
   private readonly authService = inject(AuthService);
 

@@ -114,7 +114,7 @@ export class AdminEventsListComponent implements OnInit, AfterViewInit {
   }
 
   visibilityLabel(v: EventVisibility): string {
-    return v === EventVisibility.PRIVATE ? 'Privado' : 'Público';
+    return v === EventVisibility.PRIVATE ? 'Reunión' : 'Evento público';
   }
 
   statusBadge(event: AdminEventListItem): string {

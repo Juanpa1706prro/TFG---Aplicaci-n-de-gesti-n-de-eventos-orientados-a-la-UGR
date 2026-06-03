@@ -36,6 +36,16 @@ export class EventManagerInviteDto {
 }
 
 /**
+ * Invitee for a private meeting (reunión) at creation time.
+ */
+export class EventParticipantInviteDto {
+  @IsInt()
+  @Min(100_000)
+  @Max(999_999)
+  userNumber: number;
+}
+
+/**
  * Payload for creating a new event with optional manager invites.
  */
 export class CreateEventDto {
@@ -69,7 +79,7 @@ export class CreateEventDto {
   @IsDateString()
   endsAt: string;
 
-  /** Defaults to public; private for tutorials etc. (map: creator and managers only). */
+  /** Defaults to public; private = reunión (requires participants). */
   @IsOptional()
   @IsEnum(EventVisibility)
   visibility?: EventVisibility;
@@ -86,4 +96,11 @@ export class CreateEventDto {
   @ValidateNested({ each: true })
   @Type(() => EventManagerInviteDto)
   managers?: EventManagerInviteDto[];
+
+  /** Required for private meetings: at least one invitee (not the creator). */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => EventParticipantInviteDto)
+  participants?: EventParticipantInviteDto[];
 }

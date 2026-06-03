@@ -1,24 +1,53 @@
-<!doctype html>
-<html>
-  <head>
-    <title>TFG</title>
-  </head>
-  <body>
-    <div class="auth-wrapper">
-      <div class="auth-sidebar">
-        <div class="auth-card">
-          <div class="tabs">
-            <button [class.active]="isLoginMode" (click)="toggleMode(true)">Login</button>
-            <button [class.active]="!isLoginMode" (click)="toggleMode(false)">Registro</button>
-          </div>
+<div class="auth-page">
+  <aside class="auth-hero" aria-hidden="false">
+    <img class="auth-hero__logo" [src]="logoUrl" [alt]="logoAlt" />
+    <p class="auth-hero__eyebrow ugr-font-label">Universidad de Granada</p>
+    <h1 class="auth-hero__title">UGR Eventos</h1>
+    <p class="auth-hero__lead">
+      Mapa, agenda y comunidad universitaria en un solo espacio — diseñado con la
+      claridad de un archivo editorial.
+    </p>
+    <blockquote class="auth-hero__quote">
+      «Cada evento es un capítulo en el mapa del campus.»
+    </blockquote>
+  </aside>
 
-          @if (isLoginMode) {
-            <app-login></app-login>
-          } @else {
-            <app-register></app-register>
-          }
-        </div>
-      </div>
+  <main class="auth-main">
+    <div class="auth-panel">
+      <header class="auth-panel__header">
+        <img class="auth-panel__logo" [src]="logoUrl" [alt]="logoAlt" />
+        <p class="auth-panel__eyebrow ugr-font-label">Acceso</p>
+        <nav class="auth-tabs" aria-label="Iniciar sesión o registrarse">
+          <button
+            type="button"
+            class="auth-tab"
+            [class.auth-tab--active]="isLoginMode"
+            [attr.aria-selected]="isLoginMode"
+            (click)="toggleMode(true)"
+          >
+            Iniciar sesión
+          </button>
+          <button
+            type="button"
+            class="auth-tab"
+            [class.auth-tab--active]="!isLoginMode"
+            [attr.aria-selected]="!isLoginMode"
+            (click)="toggleMode(false)"
+          >
+            Crear cuenta
+          </button>
+        </nav>
+      </header>
+
+      @if (successMessage) {
+        <p class="ugr-auth-banner" role="status">{{ successMessage }}</p>
+      }
+
+      @if (isLoginMode) {
+        <app-login />
+      } @else {
+        <app-register (registered)="onRegistered($event)" />
+      }
     </div>
-  </body>
-</html>
+  </main>
+</div>

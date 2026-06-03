@@ -19,6 +19,7 @@ import type { Response } from 'express';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { InviteEventFriendDto } from './dto/invite-event-friend.dto';
 import { sendStoredImage } from '../../common/image/image-response.util';
 import type { UploadedImageFile } from '../../common/image/uploaded-file.type';
 
@@ -155,6 +156,54 @@ export class EventsController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.eventsService.unattendEvent(id, req.user.sub);
+  }
+
+  /**
+   * Confirms attendance to a meeting invitation (reunión).
+   * @param {number} id - Event id.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @returns {Promise<EventDetailView>}
+   */
+  @Post(':id/participants/me/accept')
+  acceptMeetingInvitation(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.eventsService.acceptMeetingInvitation(id, req.user.sub);
+  }
+
+  /**
+   * Rejects a meeting invitation (reunión).
+   * @param {number} id - Event id.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @returns {Promise<{ message: string }>}
+   */
+  @Post(':id/participants/me/reject')
+  rejectMeetingInvitation(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.eventsService.rejectMeetingInvitation(id, req.user.sub);
+  }
+
+  /**
+   * Recommends a public event to a friend (creates notification).
+   * @param {number} id - Public event id.
+   * @param {object} req - Request with authenticated user id (sub).
+   * @param {InviteEventFriendDto} body - Friend user number.
+   * @returns {Promise<{ message: string; invitationId: number }>}
+   */
+  @Post(':id/invitations')
+  inviteFriendToPublicEvent(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() body: InviteEventFriendDto,
+  ) {
+    return this.eventsService.inviteFriendToPublicEvent(
+      id,
+      req.user.sub,
+      body.userNumber,
+    );
   }
 
   /**

@@ -13,11 +13,15 @@ import {
   EventManagerAssignmentRole,
 } from './event-manager-assignment.entity';
 import { EventAttendance } from './event-attendance.entity';
+import { EventParticipant } from './event-participant.entity';
+import { EventParticipantStatus } from './event-participant-status.enum';
 import { UserProfile } from '../user/user-profile.entity';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { User } from '../user/user.entity';
 import { UsersService } from '../user/user.service';
+import { FriendsService } from '../friends/friends.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CapabilityService } from '../user/capability.service';
 import { GlobalCapability } from '../user/user-enums';
 import { EventVisibility } from './event-visibility.enum';
@@ -78,6 +82,13 @@ export type EventUserSummary = {
   hasProfilePicture: boolean;
 };
 
+/** Invitee row on a meeting (reunión) detail panel. */
+export type EventParticipantView = {
+  user: EventUserSummary;
+  status: EventParticipantStatus;
+  respondedAt: Date | null;
+};
+
 /** Full event detail for the side panel / event page. */
 export type EventDetailView = MapMarkerView & {
   creator: EventUserSummary;
@@ -86,6 +97,11 @@ export type EventDetailView = MapMarkerView & {
   attendeeCount: number;
   isAttending: boolean;
   viewerIsCreator: boolean;
+  isMeeting: boolean;
+  viewerParticipantStatus: EventParticipantStatus | null;
+  participants: EventParticipantView[];
+  confirmedCount: number;
+  pendingCount: number;
 };
 
 /** How the current user relates to an event in "my lists". */
@@ -125,7 +141,11 @@ export class EventsService {
     private readonly assignmentRepository: Repository<EventManagerAssignment>,
     @InjectRepository(EventAttendance)
     private readonly attendanceRepository: Repository<EventAttendance>,
+    @InjectRepository(EventParticipant)
+    private readonly participantRepository: Repository<EventParticipant>,
     private readonly usersService: UsersService,
+    private readonly friendsService: FriendsService,
+    private readonly notificationsService: NotificationsService,
     private readonly capabilityService: CapabilityService,
   ) {}
 
@@ -166,7 +186,7 @@ export class EventsService {
    * @param {CreateEventDto} dto - Event payload from POST /events.
    * @returns {Promise<{ message: string; event: CreatedEventView }>}
    * @throws {ForbiddenException} If the user cannot create events.
-   * @throws {BadRequestException} On invalid dates or manager invites.
+   * @throws {BadRequestException} On invalid dates, manager invites or meeting participants.
    */
   async create(
     creatorUserId: number,
@@ -196,6 +216,28 @@ export class EventsService {
         ? EventVisibility.PRIVATE
         : EventVisibility.PUBLIC;
 
+    const participantsInput = dto.participants ?? [];
+    const managersInput = dto.managers ?? [];
+
+    if (visibility === EventVisibility.PUBLIC && participantsInput.length > 0) {
+      throw new BadRequestException(
+        'Los eventos públicos no admiten participantes; usa una reunión (privada).',
+      );
+    }
+
+    if (visibility === EventVisibility.PRIVATE) {
+      if (managersInput.length > 0) {
+        throw new BadRequestException(
+          'Las reuniones no admiten gestores; añade participantes.',
+        );
+      }
+      if (participantsInput.length === 0) {
+        throw new BadRequestException(
+          'Una reunión requiere al menos otra persona además del creador.',
+        );
+      }
+    }
+
     const event = this.eventRepository.create({
       creatorId: creatorUserId,
       title: dto.title.trim(),
@@ -210,7 +252,22 @@ export class EventsService {
     });
     const saved = await this.eventRepository.save(event);
 
-    const managers = dto.managers ?? [];
+    if (visibility === EventVisibility.PRIVATE) {
+      const participantRows = await this.buildMeetingParticipants(
+        saved.id,
+        creatorUserId,
+        participantsInput,
+      );
+      const savedParticipants =
+        await this.participantRepository.save(participantRows);
+      await this.notificationsService.createMeetingInvitationNotifications(
+        creatorUserId,
+        saved.id,
+        savedParticipants,
+      );
+    }
+
+    const managers = managersInput;
     const seenNumbers = new Set<number>();
     const assignments: EventManagerAssignment[] = [];
 
@@ -250,13 +307,80 @@ export class EventsService {
     }
 
     return {
-      message: 'Evento creado',
+      message:
+        visibility === EventVisibility.PRIVATE ? 'Reunión creada' : 'Evento creado',
       event: this.toCreatedView(saved),
     };
   }
 
   /**
-   * Lists for the events page: active visible, attended and managed.
+   * Recommends a public event to a friend (informational notification, no RSVP).
+   * @param {number} eventId - Public event id.
+   * @param {number} inviterUserId - Authenticated user recommending the event.
+   * @param {number} targetUserNumber - Friend public profile number.
+   * @returns {Promise<{ message: string; invitationId: number }>}
+   * @throws {NotFoundException} If the event or user does not exist.
+   * @throws {BadRequestException} On invalid target, non-friend or duplicate recommendation.
+   * @throws {ForbiddenException} If the user cannot view the event.
+   */
+  async inviteFriendToPublicEvent(
+    eventId: number,
+    inviterUserId: number,
+    targetUserNumber: number,
+  ): Promise<{ message: string; invitationId: number }> {
+    const event = await this.eventRepository.findOne({
+      where: { id: eventId },
+    });
+    if (!event || event.deletedAt) {
+      throw new NotFoundException('Evento no encontrado.');
+    }
+
+    if (event.visibility !== EventVisibility.PUBLIC) {
+      throw new BadRequestException(
+        'Solo puedes recomendar eventos públicos a tus amigos.',
+      );
+    }
+
+    if (event.endsAt <= new Date()) {
+      throw new BadRequestException('El evento ya ha finalizado.');
+    }
+
+    await this.assertUserCanViewEvent(event, inviterUserId);
+
+    const target =
+      await this.usersService.findByProfileUserNumber(targetUserNumber);
+    if (!target) {
+      throw new NotFoundException(
+        `No existe ningún usuario con número ${targetUserNumber}.`,
+      );
+    }
+
+    if (target.id === inviterUserId) {
+      throw new BadRequestException(
+        'No puedes recomendarte un evento a ti mismo.',
+      );
+    }
+
+    if (!(await this.friendsService.areFriends(inviterUserId, target.id))) {
+      throw new BadRequestException(
+        'Solo puedes recomendar eventos a tus amigos.',
+      );
+    }
+
+    const result = await this.notificationsService.createPublicEventRecommendation(
+      inviterUserId,
+      eventId,
+      target.id,
+    );
+
+    return {
+      message: 'Recomendación enviada',
+      invitationId: result.invitationId,
+    };
+  }
+
+  /**
+   * Lists for the events page: active (public + reunions visible to the user), attended and managed.
    * @param {number} userId - Authenticated user id.
    * @returns {Promise<MyEventListsView>}
    */
@@ -282,7 +406,7 @@ export class EventsService {
   }
 
   /**
-   * Map markers for MapLibre: public events for everyone; private only for creator/managers.
+   * Map markers for MapLibre: public events for everyone; reunions for creator and invitees.
    * @param {number} userId - Authenticated user id.
    * @returns {Promise<MapMarkerView[]>} Events with valid coordinates only.
    */
@@ -316,12 +440,12 @@ export class EventsService {
   }
 
   /**
-   * Full event detail with creator, managers, attendees and viewer flags.
+   * Full event detail with creator, managers, attendees, meeting participants and viewer flags.
    * @param {number} eventId - Event id.
    * @param {number} userId - Authenticated user id.
    * @returns {Promise<EventDetailView>}
    * @throws {NotFoundException} If the event does not exist or is not visible.
-   * @throws {ForbiddenException} If the user may not view a private event.
+   * @throws {ForbiddenException} If the user may not view the reunión.
    */
   async findEventDetailForUser(
     eventId: number,
@@ -337,6 +461,9 @@ export class EventsService {
 
     await this.assertUserCanViewEvent(event, userId);
 
+    const isMeeting = event.visibility === EventVisibility.PRIVATE;
+    const viewerIsCreator = event.creatorId === userId;
+
     const assignments = await this.assignmentRepository.find({
       where: { eventId },
       relations: { user: { profile: true } },
@@ -349,7 +476,45 @@ export class EventsService {
       order: { registeredAt: 'ASC' },
     });
 
-    const isAttending = attendances.some((row) => row.userId === userId);
+    let participants: EventParticipantView[] = [];
+    let viewerParticipantStatus: EventParticipantStatus | null = null;
+    let confirmedCount = 0;
+    let pendingCount = 0;
+
+    if (isMeeting) {
+      const participantRows = await this.participantRepository.find({
+        where: {
+          eventId,
+          status: In([
+            EventParticipantStatus.PENDING,
+            EventParticipantStatus.ACCEPTED,
+          ]),
+        },
+        relations: { user: { profile: true } },
+      });
+
+      const sorted = this.sortMeetingParticipants(participantRows);
+      participants = sorted.map((row) => ({
+        user: this.toUserSummary(row.user.profile),
+        status: row.status,
+        respondedAt: row.respondedAt,
+      }));
+      confirmedCount = participants.filter(
+        (p) => p.status === EventParticipantStatus.ACCEPTED,
+      ).length;
+      pendingCount = participants.filter(
+        (p) => p.status === EventParticipantStatus.PENDING,
+      ).length;
+
+      if (!viewerIsCreator) {
+        const viewerRow = participantRows.find((row) => row.userId === userId);
+        viewerParticipantStatus = viewerRow?.status ?? null;
+      }
+    }
+
+    const isAttending = isMeeting
+      ? viewerParticipantStatus === EventParticipantStatus.ACCEPTED
+      : attendances.some((row) => row.userId === userId);
 
     return {
       ...this.toMapMarkerView(event),
@@ -358,7 +523,12 @@ export class EventsService {
       attendees: attendances.map((row) => this.toUserSummary(row.user.profile)),
       attendeeCount: attendances.length,
       isAttending,
-      viewerIsCreator: event.creatorId === userId,
+      viewerIsCreator,
+      isMeeting,
+      viewerParticipantStatus,
+      participants,
+      confirmedCount,
+      pendingCount,
     };
   }
 
@@ -398,12 +568,6 @@ export class EventsService {
     if (dto.longitude != null) {
       event.longitude = dto.longitude;
     }
-    if (dto.visibility != null) {
-      event.visibility =
-        dto.visibility === EventVisibility.PRIVATE
-          ? EventVisibility.PRIVATE
-          : EventVisibility.PUBLIC;
-    }
     if (dto.maxAttendees !== undefined) {
       event.maxAttendees = dto.maxAttendees;
     }
@@ -426,7 +590,10 @@ export class EventsService {
 
     const saved = await this.eventRepository.save(event);
     return {
-      message: 'Evento actualizado',
+      message:
+        saved.visibility === EventVisibility.PRIVATE
+          ? 'Reunión actualizada'
+          : 'Evento actualizado',
       event: this.toCreatedView(saved),
     };
   }
@@ -474,6 +641,10 @@ export class EventsService {
       throw new BadRequestException('El evento ya ha finalizado.');
     }
 
+    if (event.visibility === EventVisibility.PRIVATE) {
+      return this.acceptMeetingInvitation(eventId, userId);
+    }
+
     const existing = await this.attendanceRepository.findOne({
       where: { eventId, userId },
     });
@@ -507,11 +678,85 @@ export class EventsService {
       throw new NotFoundException('Evento no encontrado.');
     }
 
+    if (event.visibility === EventVisibility.PRIVATE) {
+      throw new BadRequestException(
+        'En una reunión confirma o rechaza la invitación; no puedes usar este endpoint.',
+      );
+    }
+
     await this.assertUserCanViewEvent(event, userId);
 
     await this.attendanceRepository.delete({ eventId, userId });
 
     return this.findEventDetailForUser(eventId, userId);
+  }
+
+  /**
+   * Accepts a meeting invitation (PENDING → ACCEPTED) and registers attendance.
+   * @param {number} eventId - Meeting event id.
+   * @param {number} userId - Invited user id.
+   * @returns {Promise<EventDetailView>} Updated event detail.
+   */
+  async acceptMeetingInvitation(
+    eventId: number,
+    userId: number,
+  ): Promise<EventDetailView> {
+    const user = await this.usersService.findByID(userId);
+    if (!user) {
+      throw new ForbiddenException('Usuario no encontrado');
+    }
+    this.assertUserCanAttendEvents(user);
+
+    const event = await this.requireActiveMeeting(eventId);
+    const participant = await this.requireMeetingParticipantRow(eventId, userId);
+
+    if (participant.status === EventParticipantStatus.REJECTED) {
+      throw new BadRequestException('Ya rechazaste esta reunión.');
+    }
+
+    if (participant.status === EventParticipantStatus.ACCEPTED) {
+      return this.findEventDetailForUser(eventId, userId);
+    }
+
+    participant.status = EventParticipantStatus.ACCEPTED;
+    participant.respondedAt = new Date();
+    await this.participantRepository.save(participant);
+
+    await this.ensureAttendanceRegistered(event, userId);
+
+    return this.findEventDetailForUser(eventId, userId);
+  }
+
+  /**
+   * Rejects a meeting invitation (PENDING → REJECTED). Revokes map access for the invitee.
+   * @param {number} eventId - Meeting event id.
+   * @param {number} userId - Invited user id.
+   * @returns {Promise<{ message: string }>}
+   */
+  async rejectMeetingInvitation(
+    eventId: number,
+    userId: number,
+  ): Promise<{ message: string }> {
+    await this.requireActiveMeeting(eventId);
+    const participant = await this.requireMeetingParticipantRow(eventId, userId);
+
+    if (participant.status === EventParticipantStatus.REJECTED) {
+      return { message: 'Ya habías rechazado esta reunión.' };
+    }
+
+    if (participant.status === EventParticipantStatus.ACCEPTED) {
+      throw new BadRequestException(
+        'No puedes rechazar una reunión que ya has confirmado.',
+      );
+    }
+
+    participant.status = EventParticipantStatus.REJECTED;
+    participant.respondedAt = new Date();
+    await this.participantRepository.save(participant);
+
+    await this.attendanceRepository.delete({ eventId, userId });
+
+    return { message: 'Invitación rechazada' };
   }
 
   /**
@@ -666,6 +911,64 @@ export class EventsService {
   }
 
   /**
+   * Resolves and validates meeting invitees for POST /events (private).
+   * @param {number} eventId - Saved event id.
+   * @param {number} creatorUserId - Creator user id.
+   * @param {CreateEventDto['participants']} invites - Raw invite list from DTO.
+   * @returns {Promise<EventParticipant[]>} Rows ready to persist (status PENDING).
+   * @throws {BadRequestException} On duplicates, self-invite or unknown user numbers.
+   */
+  private async buildMeetingParticipants(
+    eventId: number,
+    creatorUserId: number,
+    invites: NonNullable<CreateEventDto['participants']>,
+  ): Promise<EventParticipant[]> {
+    const seenNumbers = new Set<number>();
+    const rows: EventParticipant[] = [];
+
+    for (const invite of invites) {
+      if (seenNumbers.has(invite.userNumber)) {
+        throw new BadRequestException(
+          `El número de usuario ${invite.userNumber} está repetido en la lista de participantes.`,
+        );
+      }
+      seenNumbers.add(invite.userNumber);
+
+      const target = await this.usersService.findByProfileUserNumber(
+        invite.userNumber,
+      );
+      if (!target) {
+        throw new BadRequestException(
+          `No existe ningún usuario con número ${invite.userNumber}.`,
+        );
+      }
+      if (target.id === creatorUserId) {
+        throw new BadRequestException(
+          'No puedes añadirte a ti mismo como participante (ya eres el creador de la reunión).',
+        );
+      }
+
+      if (!(await this.friendsService.areFriends(creatorUserId, target.id))) {
+        throw new BadRequestException(
+          `Solo puedes invitar a tus amigos. El usuario ${invite.userNumber} no está en tu lista de amigos.`,
+        );
+      }
+
+      rows.push(
+        this.participantRepository.create({
+          eventId,
+          userId: target.id,
+          invitedById: creatorUserId,
+          status: EventParticipantStatus.PENDING,
+          respondedAt: null,
+        }),
+      );
+    }
+
+    return rows;
+  }
+
+  /**
    * Ensures the user has permission to create events.
    * @param {User} user - Creator candidate.
    * @throws {ForbiddenException} If capability is missing.
@@ -684,7 +987,7 @@ export class EventsService {
   }
 
   /**
-   * Active events visible to the user (public + private as creator or manager).
+   * Active events visible to the user (public + reunions as creator or invited participant).
    * @param {number} userId - Authenticated user id.
    * @returns {Promise<Event[]>}
    */
@@ -695,12 +998,6 @@ export class EventsService {
       where: { visibility: EventVisibility.PUBLIC, endsAt: MoreThan(now) },
     });
 
-    const assignmentRows = await this.assignmentRepository.find({
-      where: { userId },
-      select: { eventId: true },
-    });
-    const managedEventIds = [...new Set(assignmentRows.map((r) => r.eventId))];
-
     const privateAsCreator = await this.eventRepository.find({
       where: {
         visibility: EventVisibility.PRIVATE,
@@ -709,12 +1006,26 @@ export class EventsService {
       },
     });
 
-    let privateAsManager: Event[] = [];
-    if (managedEventIds.length > 0) {
-      privateAsManager = await this.eventRepository.find({
+    const participantRows = await this.participantRepository.find({
+      where: {
+        userId,
+        status: In([
+          EventParticipantStatus.PENDING,
+          EventParticipantStatus.ACCEPTED,
+        ]),
+      },
+      select: { eventId: true },
+    });
+    const invitedEventIds = [
+      ...new Set(participantRows.map((row) => row.eventId)),
+    ];
+
+    let privateAsParticipant: Event[] = [];
+    if (invitedEventIds.length > 0) {
+      privateAsParticipant = await this.eventRepository.find({
         where: {
           visibility: EventVisibility.PRIVATE,
-          id: In(managedEventIds),
+          id: In(invitedEventIds),
           endsAt: MoreThan(now),
         },
       });
@@ -727,7 +1038,7 @@ export class EventsService {
     for (const e of privateAsCreator) {
       byId.set(e.id, e);
     }
-    for (const e of privateAsManager) {
+    for (const e of privateAsParticipant) {
       byId.set(e.id, e);
     }
 
@@ -833,12 +1144,103 @@ export class EventsService {
   }
 
   /**
-   * Enforces visibility rules: public, creator, manager, or finished (creator only).
+   * Whether the user is an invited meeting participant with map/detail access.
+   * @param {number} eventId - Meeting event id.
+   * @param {number} userId - Authenticated user id.
+   * @returns {Promise<boolean>}
+   */
+  private async userHasMeetingAccess(
+    eventId: number,
+    userId: number,
+  ): Promise<boolean> {
+    return this.participantRepository.exists({
+      where: {
+        eventId,
+        userId,
+        status: In([
+          EventParticipantStatus.PENDING,
+          EventParticipantStatus.ACCEPTED,
+        ]),
+      },
+    });
+  }
+
+  /**
+   * Loads an active private meeting or throws.
+   * @param {number} eventId - Event id.
+   * @returns {Promise<Event>}
+   */
+  private async requireActiveMeeting(eventId: number): Promise<Event> {
+    const event = await this.eventRepository.findOne({ where: { id: eventId } });
+    if (!event) {
+      throw new NotFoundException('Evento no encontrado.');
+    }
+    if (event.visibility !== EventVisibility.PRIVATE) {
+      throw new BadRequestException('Esta acción solo aplica a reuniones.');
+    }
+    if (event.endsAt <= new Date()) {
+      throw new BadRequestException('La reunión ya ha finalizado.');
+    }
+    return event;
+  }
+
+  /**
+   * Loads the invitee row for a meeting or throws.
+   * @param {number} eventId - Event id.
+   * @param {number} userId - Invited user id.
+   * @returns {Promise<EventParticipant>}
+   */
+  private async requireMeetingParticipantRow(
+    eventId: number,
+    userId: number,
+  ): Promise<EventParticipant> {
+    const participant = await this.participantRepository.findOne({
+      where: { eventId, userId },
+    });
+    if (!participant) {
+      throw new ForbiddenException('No estás invitado a esta reunión.');
+    }
+    return participant;
+  }
+
+  /**
+   * Creates an attendance row if missing (respects maxAttendees).
+   * @param {Event} event - Target event.
+   * @param {number} userId - Attendee user id.
+   * @returns {Promise<void>}
+   */
+  private async ensureAttendanceRegistered(
+    event: Event,
+    userId: number,
+  ): Promise<void> {
+    const existing = await this.attendanceRepository.findOne({
+      where: { eventId: event.id, userId },
+    });
+    if (existing) {
+      return;
+    }
+
+    if (event.maxAttendees != null) {
+      const count = await this.attendanceRepository.count({
+        where: { eventId: event.id },
+      });
+      if (count >= event.maxAttendees) {
+        throw new BadRequestException('La reunión ha alcanzado el aforo máximo.');
+      }
+    }
+
+    await this.attendanceRepository.save(
+      this.attendanceRepository.create({ eventId: event.id, userId }),
+    );
+  }
+
+  /**
+   * Enforces visibility rules: public, creator, or meeting participant (PENDING/ACCEPTED).
    * @param {Event} event - Target event.
    * @param {number} userId - Authenticated user id.
    * @returns {Promise<void>}
    * @throws {NotFoundException} For hidden finished events.
-   * @throws {ForbiddenException} For private events without access.
+   * @throws {ForbiddenException} For reunions without access.
    */
   private async assertUserCanViewEvent(event: Event, userId: number): Promise<void> {
     if (event.creatorId === userId) {
@@ -853,10 +1255,7 @@ export class EventsService {
       return;
     }
 
-    const isManager = await this.assignmentRepository.exists({
-      where: { eventId: event.id, userId },
-    });
-    if (isManager) {
+    if (await this.userHasMeetingAccess(event.id, userId)) {
       return;
     }
 
@@ -875,6 +1274,42 @@ export class EventsService {
       lastName: profile.lastName,
       hasProfilePicture: hasStoredImage(profile.profilePictureData),
     };
+  }
+
+  /**
+   * Sorts meeting participants: ACCEPTED first, then PENDING; by display name within each group.
+   * @param {EventParticipant[]} rows - Participant rows with user.profile loaded.
+   * @returns {EventParticipant[]}
+   */
+  private sortMeetingParticipants(rows: EventParticipant[]): EventParticipant[] {
+    const statusRank = (status: EventParticipantStatus): number =>
+      status === EventParticipantStatus.ACCEPTED ? 0 : 1;
+
+    return [...rows].sort((a, b) => {
+      const byStatus = statusRank(a.status) - statusRank(b.status);
+      if (byStatus !== 0) {
+        return byStatus;
+      }
+      return this.profileDisplayName(a.user.profile).localeCompare(
+        this.profileDisplayName(b.user.profile),
+        'es',
+      );
+    });
+  }
+
+  /**
+   * Display name for sorting participant lists.
+   * @param {UserProfile} profile - User profile row.
+   * @returns {string}
+   */
+  private profileDisplayName(profile: UserProfile): string {
+    const parts = [profile.firstName, profile.lastName].filter(
+      (part): part is string => Boolean(part?.trim()),
+    );
+    if (parts.length > 0) {
+      return parts.join(' ');
+    }
+    return String(profile.userNumber);
   }
 
   /**

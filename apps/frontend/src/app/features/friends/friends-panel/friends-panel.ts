@@ -2,7 +2,7 @@ import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { forkJoin } from 'rxjs';
 import { FriendsService } from '@core/services/friends.service';
@@ -35,6 +35,7 @@ const SORT_OPTIONS: { value: FriendsListSort; label: string }[] = [
 })
 export class FriendsPanelComponent implements OnInit {
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
   private readonly friendsService = inject(FriendsService);
   private readonly shellUi = inject(ShellUiService);
@@ -65,6 +66,14 @@ export class FriendsPanelComponent implements OnInit {
     this.shellUi.closeSidebar();
     this.loadFriends();
     this.refreshPendingIncomingCount();
+
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => {
+        if (params.get('tab') === 'requests') {
+          this.openRequests();
+        }
+      });
   }
 
   get headerTitle(): string {

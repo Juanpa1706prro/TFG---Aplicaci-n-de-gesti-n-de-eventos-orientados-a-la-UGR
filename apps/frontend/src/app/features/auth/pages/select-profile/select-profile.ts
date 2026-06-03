@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { APP_LOGO_ALT, APP_LOGO_MARK_URL } from '@core/config/brand.config';
 import { AuthService } from '@core/services/auth.services';
 import { StaffFunction } from '@core/constants/user-enums';
 
@@ -12,6 +13,8 @@ import { StaffFunction } from '@core/constants/user-enums';
   styleUrl: './select-profile.css',
 })
 export class SelectProfileComponent {
+  readonly logoUrl = APP_LOGO_MARK_URL;
+  readonly logoAlt = APP_LOGO_ALT;
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 

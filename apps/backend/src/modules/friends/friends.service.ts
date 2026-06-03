@@ -11,6 +11,7 @@ import { Friendship } from './friendship.entity';
 import { FriendsListSort } from './friends-enums';
 import { SendFriendRequestDto } from './dto/send-friend-request.dto';
 import { UsersService } from '../user/user.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { User } from '../user/user.entity';
 import { UserProfile } from '../user/user-profile.entity';
 import { hasStoredImage } from '../../common/image/image-validation.util';
@@ -92,6 +93,7 @@ export class FriendsService {
     @InjectRepository(Friendship)
     private readonly friendshipRepository: Repository<Friendship>,
     private readonly usersService: UsersService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // ------------------------------------------------------------
@@ -152,6 +154,12 @@ export class FriendsService {
       fromUserId,
       toUserId: target.id,
     });
+
+    await this.notificationsService.createFriendRequestNotification(
+      fromUserId,
+      target.id,
+      saved.id,
+    );
 
     return {
       outcome: 'sent',
@@ -548,7 +556,7 @@ export class FriendsService {
    * @param {number} userIdB - Second user id.
    * @returns {Promise<boolean>}
    */
-  private async areFriends(userIdA: number, userIdB: number): Promise<boolean> {
+  async areFriends(userIdA: number, userIdB: number): Promise<boolean> {
     const { userLowId, userHighId } = this.canonicalPair(userIdA, userIdB);
     return this.friendshipRepository.exists({
       where: { userLowId, userHighId },

@@ -95,22 +95,94 @@ export function eventMarkerTimeText(
 const TIME_TICK_BUFFER_MS = 50;
 const DETAIL_COUNTDOWN_TICK_MS = 1000;
 
+/** Map marker ring/fill by event schedule (not selection). */
+export type EventMapMarkerPhase = 'upcoming' | 'live' | 'ending' | 'ended';
+
+const MARKER_PHASE_CLASSES: EventMapMarkerPhase[] = [
+  'upcoming',
+  'live',
+  'ending',
+  'ended',
+];
+
 /**
- * Cuándo actualizar marcadores que aún muestran «Inicio» (pasan a «Final» al empezar).
- * Sin ticks periódicos: un solo aviso en la hora de inicio.
+ * upcoming: not started (no status ring).
+ * live: in progress, more than half the duration left.
+ * ending: in progress, half or less remaining.
+ * ended: after endsAt.
  */
-export function msUntilNextMarkerLabelRefresh(
-  startsAtList: string[],
+export function eventMapMarkerPhase(
+  startsAtIso: string,
+  endsAtIso: string,
+  nowMs = Date.now(),
+): EventMapMarkerPhase {
+  const startMs = Date.parse(startsAtIso);
+  const endMs = Date.parse(endsAtIso);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+    return 'upcoming';
+  }
+  if (nowMs >= endMs) {
+    return 'ended';
+  }
+  if (nowMs < startMs) {
+    return 'upcoming';
+  }
+  const halfMs = startMs + (endMs - startMs) / 2;
+  if (nowMs >= halfMs) {
+    return 'ending';
+  }
+  return 'live';
+}
+
+/** CSS class toggled on HTML map markers (card and dot). */
+export function applyEventMapMarkerPhaseClass(
+  element: HTMLElement,
+  startsAtIso: string,
+  endsAtIso: string,
+  nowMs = Date.now(),
+): EventMapMarkerPhase {
+  const phase = eventMapMarkerPhase(startsAtIso, endsAtIso, nowMs);
+  for (const name of MARKER_PHASE_CLASSES) {
+    element.classList.remove(`event-map-marker-phase--${name}`);
+  }
+  element.classList.add(`event-map-marker-phase--${phase}`);
+  return phase;
+}
+
+export function clearEventMapMarkerPhaseClasses(element: HTMLElement): void {
+  for (const name of MARKER_PHASE_CLASSES) {
+    element.classList.remove(`event-map-marker-phase--${name}`);
+  }
+}
+
+/**
+ * Cuándo actualizar etiquetas y fase visual de marcadores (inicio, mitad, fin).
+ */
+export function msUntilNextMarkerStateRefresh(
+  events: { startsAt: string; endsAt: string }[],
   nowMs = Date.now(),
 ): number | null {
   let nextMs = Number.POSITIVE_INFINITY;
 
-  for (const startsAtIso of startsAtList) {
+  for (const { startsAt: startsAtIso, endsAt: endsAtIso } of events) {
     const startMs = Date.parse(startsAtIso);
-    if (!Number.isFinite(startMs) || nowMs >= startMs) {
+    const endMs = Date.parse(endsAtIso);
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
       continue;
     }
-    nextMs = Math.min(nextMs, startMs - nowMs);
+
+    if (nowMs < startMs) {
+      nextMs = Math.min(nextMs, startMs - nowMs);
+      continue;
+    }
+
+    if (nowMs < endMs) {
+      const halfMs = startMs + (endMs - startMs) / 2;
+      if (nowMs < halfMs) {
+        nextMs = Math.min(nextMs, halfMs - nowMs);
+      }
+      nextMs = Math.min(nextMs, endMs - nowMs);
+    }
   }
 
   if (!Number.isFinite(nextMs)) {

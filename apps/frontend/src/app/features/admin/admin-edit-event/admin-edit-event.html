@@ -64,13 +64,14 @@
           </label>
         </div>
 
-        <label>
-          Visibilidad
-          <select formControlName="visibility">
-            <option [ngValue]="EventVisibility.PUBLIC">Público</option>
-            <option [ngValue]="EventVisibility.PRIVATE">Privado</option>
-          </select>
-        </label>
+        <p class="admin-overlay__hint">
+          Tipo:
+          {{
+            form.controls.visibility.value === EventVisibility.PRIVATE
+              ? 'Reunión (fijo; no editable)'
+              : 'Evento público (fijo; no editable)'
+          }}
+        </p>
 
         <label class="admin-overlay__check">
           <input type="checkbox" formControlName="unlimitedAttendees" />

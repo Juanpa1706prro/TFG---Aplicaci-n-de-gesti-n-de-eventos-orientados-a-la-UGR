@@ -1,8 +1,12 @@
-import { EventManagerAssignmentRole, EventVisibility } from '@core/constants/event-enums';
+import { EventManagerAssignmentRole, EventParticipantStatus, EventVisibility } from '@core/constants/event-enums';
 
 export interface EventManagerInvitePayload {
   userNumber: number;
   role: EventManagerAssignmentRole;
+}
+
+export interface EventParticipantInvitePayload {
+  userNumber: number;
 }
 
 export interface CreateEventPayload {
@@ -16,6 +20,7 @@ export interface CreateEventPayload {
   visibility?: EventVisibility;
   maxAttendees?: number | null;
   managers?: EventManagerInvitePayload[];
+  participants?: EventParticipantInvitePayload[];
 }
 
 export interface CreatedEventDto {
@@ -57,6 +62,12 @@ export interface EventParticipantDto {
   hasProfilePicture: boolean;
 }
 
+export interface EventMeetingParticipantDto {
+  user: EventParticipantDto;
+  status: EventParticipantStatus;
+  respondedAt: string | null;
+}
+
 export type EventManagementRole = 'creator' | 'editor' | 'moderator';
 
 export interface EventListItemDto {
@@ -85,6 +96,11 @@ export interface EventDetailDto extends MapMarkerDto {
   attendeeCount: number;
   isAttending: boolean;
   viewerIsCreator: boolean;
+  isMeeting: boolean;
+  viewerParticipantStatus: EventParticipantStatus | null;
+  participants: EventMeetingParticipantDto[];
+  confirmedCount: number;
+  pendingCount: number;
 }
 
 export type UpdateEventPayload = Omit<CreateEventPayload, 'managers'>;

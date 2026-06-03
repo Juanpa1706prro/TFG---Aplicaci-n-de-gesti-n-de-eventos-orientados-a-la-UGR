@@ -2,7 +2,6 @@ import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsDateString,
-  IsEnum,
   IsInt,
   IsLatitude,
   IsLongitude,
@@ -13,11 +12,11 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { EventVisibility } from '../../events/event-visibility.enum';
 
 // -------------------------------------------------------------------
 // Admin update event DTO
 // Request body for PATCH /admin/events/:id.
+// Event type (public event vs reunión) cannot be changed after creation.
 // -------------------------------------------------------------------
 
 /**
@@ -59,9 +58,7 @@ export class AdminUpdateEventDto {
   @IsDateString()
   endsAt?: string;
 
-  @IsOptional()
-  @IsEnum(EventVisibility)
-  visibility?: EventVisibility;
+  /** Event type (public / reunión) is fixed at creation and cannot be changed. */
 
   @IsOptional()
   @IsInt()

@@ -116,7 +116,7 @@ export class EventsListComponent implements OnInit {
   }
 
   visibilityLabel(visibility: EventVisibility): string {
-    return visibility === EventVisibility.PRIVATE ? 'Privado' : 'Público';
+    return visibility === EventVisibility.PRIVATE ? 'Reunión' : 'Evento público';
   }
 
   managementRoleLabel(role: EventManagementRole): string {

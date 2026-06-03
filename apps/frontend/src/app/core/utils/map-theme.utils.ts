@@ -78,8 +78,6 @@ export function resolveVisualTheme(
       return 'day';
     case 'night':
       return 'night';
-    case 'neutro':
-      return 'neutro';
     case 'auto':
     default:
       return resolveAutoVisualTheme(date);
@@ -98,9 +96,6 @@ export function mapStyleUrlForPreference(
 }
 
 export function visualThemeFromStyleUrl(styleUrl: string): MapVisualTheme {
-  if (styleUrl.includes('/positron')) {
-    return 'neutro';
-  }
   if (styleUrl.includes('/fiord')) {
     return 'night';
   }
@@ -115,8 +110,11 @@ export function readStoredMapThemePreference(): MapThemePreference {
     return 'auto';
   }
   const raw = localStorage.getItem(MAP_THEME_STORAGE_KEY);
-  if (raw === 'day' || raw === 'night' || raw === 'neutro' || raw === 'auto') {
+  if (raw === 'day' || raw === 'night' || raw === 'auto') {
     return raw;
+  }
+  if (raw === 'neutro') {
+    return 'auto';
   }
   return 'auto';
 }

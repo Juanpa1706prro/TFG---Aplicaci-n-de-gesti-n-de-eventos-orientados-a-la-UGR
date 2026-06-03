@@ -93,7 +93,7 @@ export class AdminEventDetailComponent implements OnInit {
   }
 
   visibilityLabel(v: EventVisibility): string {
-    return v === EventVisibility.PRIVATE ? 'Privado' : 'Público';
+    return v === EventVisibility.PRIVATE ? 'Reunión' : 'Evento público';
   }
 
   formatDateTime(iso: string): string {
@@ -148,6 +148,7 @@ export class AdminEventDetailComponent implements OnInit {
         next: () => {
           this.deleting.set(false);
           this.showDeleteConfirm.set(false);
+          this.shellUi.requestMapRefresh();
           this.closeToList();
         },
         error: (err) => {

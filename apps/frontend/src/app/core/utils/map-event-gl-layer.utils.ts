@@ -1,14 +1,20 @@
 import type maplibregl from 'maplibre-gl';
 import type { FeatureCollection, Point } from 'geojson';
 import { MapMarkerDto } from '@core/interfaces/event-interface';
+import { eventMapMarkerPhase } from '@core/utils/event-time.utils';
 import { DEFAULT_SCREEN_CLUSTER_CONFIG } from '@core/utils/map-event-cluster.utils';
 
 export const UGR_EVENTS_GL_SOURCE_ID = 'ugr-events-gl';
 export const UGR_EVENTS_GL_LAYER_ID = 'ugr-events-gl-dots';
 
+/** Neutral highlight when a GL dot is selected. */
+export const EVENT_GL_DOT_SELECTED_COLOR = '#94a3b8';
+export const EVENT_GL_DOT_SELECTED_STROKE = '#e2e8f0';
+
 type EventGlFeatureProps = {
   id: number;
   visibility: string;
+  phase: string;
 };
 
 export function usesGlDotLayer(
@@ -20,6 +26,7 @@ export function usesGlDotLayer(
 
 export function buildEventMarkersGeoJson(
   markers: MapMarkerDto[],
+  nowMs = Date.now(),
 ): FeatureCollection<Point, EventGlFeatureProps> {
   return {
     type: 'FeatureCollection',
@@ -32,9 +39,84 @@ export function buildEventMarkersGeoJson(
       properties: {
         id: marker.id,
         visibility: marker.visibility ?? 'public',
+        phase: eventMapMarkerPhase(marker.startsAt, marker.endsAt, nowMs),
       },
     })),
   };
+}
+
+function circleColorExpression(
+  selectedId: number | null,
+): maplibregl.ExpressionSpecification {
+  const phaseColor: maplibregl.ExpressionSpecification = [
+    'match',
+    ['get', 'phase'],
+    'live',
+    '#16a34a',
+    'ending',
+    '#dc2626',
+    'ended',
+    '#64748b',
+    '#475569',
+  ];
+
+  if (selectedId == null) {
+    return phaseColor;
+  }
+
+  return [
+    'case',
+    ['==', ['get', 'id'], selectedId],
+    EVENT_GL_DOT_SELECTED_COLOR,
+    phaseColor,
+  ];
+}
+
+function circleStrokeWidthExpression(
+  selectedId: number | null,
+): maplibregl.DataDrivenPropertyValueSpecification<number> {
+  if (selectedId == null) {
+    return 2;
+  }
+  return ['case', ['==', ['get', 'id'], selectedId], 3, 2];
+}
+
+function circleStrokeColorExpression(
+  selectedId: number | null,
+): maplibregl.DataDrivenPropertyValueSpecification<string> {
+  if (selectedId == null) {
+    return '#ffffff';
+  }
+  return [
+    'case',
+    ['==', ['get', 'id'], selectedId],
+    EVENT_GL_DOT_SELECTED_STROKE,
+    '#ffffff',
+  ];
+}
+
+export function applyEventGlDotPaint(
+  map: maplibregl.Map,
+  selectedId: number | null,
+): void {
+  if (!map.getLayer(UGR_EVENTS_GL_LAYER_ID)) {
+    return;
+  }
+  map.setPaintProperty(
+    UGR_EVENTS_GL_LAYER_ID,
+    'circle-color',
+    circleColorExpression(selectedId),
+  );
+  map.setPaintProperty(
+    UGR_EVENTS_GL_LAYER_ID,
+    'circle-stroke-width',
+    circleStrokeWidthExpression(selectedId),
+  );
+  map.setPaintProperty(
+    UGR_EVENTS_GL_LAYER_ID,
+    'circle-stroke-color',
+    circleStrokeColorExpression(selectedId),
+  );
 }
 
 export function ensureEventGlDotLayer(
@@ -70,13 +152,7 @@ export function ensureEventGlDotLayer(
           maxZoom - 0.25,
           8,
         ],
-        'circle-color': [
-          'match',
-          ['get', 'visibility'],
-          'private',
-          '#7c3aed',
-          '#dc2626',
-        ],
+        'circle-color': circleColorExpression(null),
         'circle-stroke-width': 2,
         'circle-stroke-color': '#ffffff',
         'circle-opacity': 0.95,
@@ -88,6 +164,7 @@ export function ensureEventGlDotLayer(
 export function updateEventGlDotSource(
   map: maplibregl.Map,
   markers: MapMarkerDto[],
+  nowMs = Date.now(),
 ): void {
   const source = map.getSource(UGR_EVENTS_GL_SOURCE_ID) as
     | maplibregl.GeoJSONSource
@@ -95,31 +172,14 @@ export function updateEventGlDotSource(
   if (!source) {
     return;
   }
-  source.setData(buildEventMarkersGeoJson(markers));
+  source.setData(buildEventMarkersGeoJson(markers, nowMs));
 }
 
 export function updateEventGlDotSelection(
   map: maplibregl.Map,
   selectedId: number | null,
 ): void {
-  if (!map.getLayer(UGR_EVENTS_GL_LAYER_ID)) {
-    return;
-  }
-
-  const strokeWidth = (
-    selectedId
-      ? ['case', ['==', ['get', 'id'], selectedId], 3, 2]
-      : 2
-  ) as maplibregl.ExpressionSpecification;
-
-  const strokeColor = (
-    selectedId
-      ? ['case', ['==', ['get', 'id'], selectedId], '#fbbf24', '#ffffff']
-      : '#ffffff'
-  ) as maplibregl.ExpressionSpecification;
-
-  map.setPaintProperty(UGR_EVENTS_GL_LAYER_ID, 'circle-stroke-width', strokeWidth);
-  map.setPaintProperty(UGR_EVENTS_GL_LAYER_ID, 'circle-stroke-color', strokeColor);
+  applyEventGlDotPaint(map, selectedId);
 }
 
 export function clearEventGlDotSource(map: maplibregl.Map): void {

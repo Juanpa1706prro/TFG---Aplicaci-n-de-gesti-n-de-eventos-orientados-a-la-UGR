@@ -1,0 +1,110 @@
+<aside class="ai-panel" aria-label="Asistente UGR Eventos">
+  <header class="ai-panel__header">
+    <div>
+      <h2 class="ai-panel__title">Asistente</h2>
+      <p class="ai-panel__subtitle">UGR Eventos · Gemini</p>
+    </div>
+    <div class="ai-panel__header-actions">
+      <button
+        type="button"
+        class="ai-panel__icon-btn"
+        title="Nueva conversación"
+        aria-label="Nueva conversación"
+        (click)="newConversation()"
+      >
+        ↺
+      </button>
+      <button
+        type="button"
+        class="ai-panel__icon-btn"
+        aria-label="Cerrar asistente"
+        (click)="close()"
+      >
+        ×
+      </button>
+    </div>
+  </header>
+
+  @if (configured() === false) {
+    <p class="ugr-auth-banner ugr-auth-banner--error ai-panel__banner" role="status">
+      El asistente no está configurado en el servidor. Añade
+      <code>GEMINI_API_KEY</code> en <code>apps/backend/.env</code> y reinicia
+      el backend.
+    </p>
+  }
+
+  <div class="ai-panel__messages" role="log" aria-live="polite">
+    @if (lines().length === 0 && !loading()) {
+      <p class="ai-panel__empty">
+        Pregunta sobre la app o los eventos. Si eres profesorado, puedes
+        pedirme que cree un evento; te pediré los datos que falten y
+        confirmación antes de publicarlo.
+      </p>
+    }
+
+    @for (line of lines(); track $index) {
+      <div
+        class="ai-panel__message"
+        [class.ai-panel__message--user]="line.role === 'user'"
+        [class.ai-panel__message--assistant]="line.role === 'assistant'"
+      >
+        <div
+          class="ai-panel__bubble"
+          [class.ai-panel__bubble--user]="line.role === 'user'"
+          [class.ai-panel__bubble--assistant]="line.role === 'assistant'"
+        >
+          {{ line.text }}
+        </div>
+
+        @if (line.actions?.length) {
+          <div class="ai-panel__actions">
+            @for (action of line.actions; track action.eventId) {
+              @if (action.type === 'event_created') {
+                <button
+                  type="button"
+                  class="ai-panel__action-btn"
+                  (click)="openEventOnMap(action.eventId)"
+                >
+                  Ver «{{ action.title }}» en el mapa
+                </button>
+              }
+            }
+          </div>
+        }
+      </div>
+    }
+
+    @if (loading()) {
+      <div class="ai-panel__bubble ai-panel__bubble--assistant ai-panel__typing">
+        <span class="ai-panel__dot"></span>
+        <span class="ai-panel__dot"></span>
+        <span class="ai-panel__dot"></span>
+      </div>
+    }
+
+    @if (error()) {
+      <p class="ai-panel__error" role="alert">{{ error() }}</p>
+    }
+
+    <div #scrollAnchor class="ai-panel__scroll-anchor"></div>
+  </div>
+
+  <footer class="ai-panel__footer">
+    <textarea
+      class="ai-panel__input ugr-textarea"
+      rows="2"
+      placeholder="Escribe un mensaje… (p. ej. «Crea un evento en la ETSIIT mañana a las 19:00»)"
+      [disabled]="loading() || configured() === false"
+      [(ngModel)]="draft"
+      (keydown)="onKeydown($event)"
+    ></textarea>
+    <button
+      type="button"
+      class="ai-panel__send ugr-btn-primary"
+      [disabled]="loading() || configured() === false || !draft.trim()"
+      (click)="send()"
+    >
+      Enviar
+    </button>
+  </footer>
+</aside>

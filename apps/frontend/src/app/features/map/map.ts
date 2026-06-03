@@ -26,36 +26,47 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink } from '@angular/router';
 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { filter } from 'rxjs';
+import { filter, firstValueFrom } from 'rxjs';
 
 import maplibregl from 'maplibre-gl';
 
 import { EventsService } from '@core/services/events.service';
+import { FriendsService } from '@core/services/friends.service';
+import { NotificationsService } from '@core/services/notifications.service';
 import { AuthService } from '@core/services/auth.services';
+import { ShellUiService } from '@core/services/shell-ui.service';
 import { MapThemeService } from '@core/services/map-theme.service';
+import { RoutingApiService } from '@core/services/routing-api.service';
+import { ROUTING_UI_BLOCKED } from '@core/config/routing-availability.config';
 
 import {
   EventDetailDto,
   EventParticipantDto,
   MapMarkerDto,
 } from '@core/interfaces/event-interface';
+import { FriendListItemDto } from '@core/interfaces/friend-interface';
 import {
   eventParticipantDisplayName,
   eventParticipantInitials,
 } from '@core/utils/event-participant.utils';
 
-import { EventVisibility } from '@core/constants/event-enums';
+import { EventParticipantStatus, EventVisibility } from '@core/constants/event-enums';
 
 import {
+  applyEventMapMarkerPhaseClass,
+  clearEventMapMarkerPhaseClasses,
   eventMarkerTimeText,
   eventTimeDisplayText,
   msUntilNextDetailTimeRefresh,
-  msUntilNextMarkerLabelRefresh,
+  msUntilNextMarkerStateRefresh,
 } from '@core/utils/event-time.utils';
-import { openGoogleMapsDirectionsFromCurrentLocation } from '@core/utils/google-maps-directions.utils';
+import type { MapDirectionsTravelMode } from '@core/interfaces/route-directions.interface';
+import { getCurrentLngLat } from '@core/utils/google-maps-directions.utils';
 import {
-  MAP_DEMO_STYLES,
-  MAP_THEME_PREFERENCE_OPTIONS,
+  clearRouteFromMap,
+  showRouteOnMap,
+} from '@core/utils/map-route-layer.util';
+import {
   MapThemePreference,
   MapVisualTheme,
 } from '@core/config/map-styles.config';
@@ -70,12 +81,10 @@ import {
   shouldRunMarkerSync,
 } from '@core/utils/map-marker-sync-threshold.utils';
 import { applyMapLandcoverTheme } from '@core/utils/map-landcover-theme.utils';
-import { applyMapNeutroTheme } from '@core/utils/map-neutro-theme.utils';
 import {
   mapStyleUrlForTheme,
   msUntilNextAutoThemeBoundary,
   resolveVisualTheme,
-  visualThemeFromStyleUrl,
 } from '@core/utils/map-theme.utils';
 import {
   buildMarkersById,
@@ -104,6 +113,10 @@ import {
   eventPhotoUrl,
   userProfilePhotoUrl,
 } from '@core/utils/image-api.util';
+import { MapDirectionsOverlayComponent } from './components/map-directions-overlay/map-directions-overlay.component';
+import { MapClusterPanelComponent } from './components/map-cluster-panel/map-cluster-panel.component';
+import { MapInviteFriendsDialogComponent } from './components/map-invite-friends-dialog/map-invite-friends-dialog.component';
+import { MapEventDeleteDialogComponent } from './components/map-event-delete-dialog/map-event-delete-dialog.component';
 
 type MarkerHandle = {
   data: MapMarkerDto;
@@ -131,7 +144,14 @@ const EVENT_MARKER_FLOAT_ANIMATION =
 
   standalone: true,
 
-  imports: [CommonModule, RouterLink],
+  imports: [
+    CommonModule,
+    RouterLink,
+    MapDirectionsOverlayComponent,
+    MapClusterPanelComponent,
+    MapInviteFriendsDialogComponent,
+    MapEventDeleteDialogComponent,
+  ],
 
   templateUrl: './map.html',
 
@@ -152,7 +172,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef);
 
   private readonly eventsService = inject(EventsService);
+  private readonly friendsService = inject(FriendsService);
+  private readonly notificationsService = inject(NotificationsService);
+  private readonly routingApi = inject(RoutingApiService);
   private readonly authService = inject(AuthService);
+  private readonly shellUi = inject(ShellUiService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly mapTheme = inject(MapThemeService);
@@ -192,15 +216,39 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   readonly ownerDeleteLoading = signal(false);
   readonly ownerDeleteError = signal<string | null>(null);
   readonly showOwnerDeleteConfirm = signal(false);
+  readonly showInviteFriends = signal(false);
+  readonly inviteFriendsLoading = signal(false);
+  readonly inviteFriendsError = signal<string | null>(null);
+  readonly inviteFriendsSuccess = signal<string | null>(null);
+  readonly inviteActionUserNumber = signal<number | null>(null);
+  readonly invitedFriendNumbers = signal<ReadonlySet<number>>(new Set());
+  readonly inviteFriendsList = signal<FriendListItemDto[]>([]);
 
   readonly activeVisualTheme = signal<MapVisualTheme>(
     this.mapTheme.resolveTheme(),
   );
-  readonly demoPanelOpen = signal(false);
-  readonly activeDemoStyleId = signal<string | null>(null);
   readonly locatingUser = signal(false);
 
-  readonly demoStyles = MAP_DEMO_STYLES;
+  // ------------------------------------------------------------
+  // In-map directions (Google Routes API via backend /routing)
+  // ------------------------------------------------------------
+
+  /** Gate from routing-availability.config; blocks «Cómo llegar» until Google approval. */
+  readonly routingUiBlocked = ROUTING_UI_BLOCKED;
+  readonly EventParticipantStatus = EventParticipantStatus;
+  readonly EventVisibility = EventVisibility;
+  /** Full-map directions UI (sidebar hidden, top toolbar). */
+  readonly directionsViewActive = signal(false);
+  /** WALK or DRIVE for the next computeDirections request. */
+  readonly directionsTravelMode = signal<MapDirectionsTravelMode>('WALK');
+  readonly directionsLoading = signal(false);
+  readonly directionsError = signal<string | null>(null);
+  /** Parsed route stats for the directions top bar (Spanish labels). */
+  readonly routeDisplay = signal<{
+    durationLabel: string;
+    distanceLabel: string;
+    altNote: string | null;
+  } | null>(null);
 
   nowMs = Date.now();
 
@@ -212,6 +260,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   /** Centro por defecto (Granada) si no hay geolocalización. */
   private static readonly DEFAULT_MAP_CENTER: [number, number] = [-3.6245, 37.197];
   private static readonly DEFAULT_MAP_ZOOM = 17;
+  /** Min gap before route-activation refresh (avoids double fetch after mutations). */
+  private static readonly MAP_MARKERS_STALE_MS = 2_000;
   private static readonly GEOLOCATION_OPTIONS: PositionOptions = {
     enableHighAccuracy: true,
     timeout: 8000,
@@ -225,6 +275,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private autoThemeTimer: ReturnType<typeof setTimeout> | null = null;
   private detailTimeTimer: ReturnType<typeof setTimeout> | null = null;
   private markerLabelTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastMapMarkersFetchedAt = 0;
 
   constructor() {
     this.destroyRef.onDestroy(() => {
@@ -242,12 +293,16 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         return;
       }
 
-      if (this.activeDemoStyleId()) {
-        this.activeDemoStyleId.set(null);
-      }
-
       this.applyMapTheme(this.mapTheme.resolveTheme(preference));
       this.resetAutoThemeSchedule();
+    });
+
+    effect(() => {
+      const tick = this.shellUi.mapRefreshTick();
+      if (tick === 0 || !this.mapReady || !this.map) {
+        return;
+      }
+      this.refreshMapMarkers();
     });
 
     this.router.events
@@ -255,46 +310,22 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         filter((e): e is NavigationEnd => e instanceof NavigationEnd),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe(() => {
+      .subscribe((event) => {
         if (this.mapReady && this.map) {
           requestAnimationFrame(() => this.map.resize());
+        }
+        if (
+          this.isBaseMapRoute(event.urlAfterRedirects) &&
+          this.shouldRefreshStaleMapMarkers()
+        ) {
+          this.refreshMapMarkers();
         }
       });
   }
 
-  currentThemeLabel(): string {
-    const demoId = this.activeDemoStyleId();
-    if (demoId) {
-      const demo = MAP_DEMO_STYLES.find((s) => s.id === demoId);
-      if (demo) {
-        return demo.label;
-      }
-    }
-    return this.mapTheme.themeLabel(this.mapTheme.themePreference());
-  }
-
-  otherThemeOptions(): typeof MAP_THEME_PREFERENCE_OPTIONS {
-    const current = this.mapTheme.themePreference();
-    return MAP_THEME_PREFERENCE_OPTIONS.filter((o) => o.value !== current);
-  }
-
-  toggleDemoPanel(): void {
-    this.demoPanelOpen.update((open) => !open);
-  }
-
   selectThemePreference(preference: MapThemePreference): void {
-    this.demoPanelOpen.set(false);
-    this.activeDemoStyleId.set(null);
     this.mapTheme.setThemePreference(preference);
   }
-
-  applyDemoStyle(style: (typeof MAP_DEMO_STYLES)[number]): void {
-    this.clearAutoThemeSchedule();
-    this.activeDemoStyleId.set(style.id);
-    this.applyMapStyleUrl(style.url, style.visualTheme);
-  }
-
-
 
   /** Marcador: Inicio (futuro) o Final (ya empezado); sin cuenta atrás. */
   markerTimeLabel(m: MapMarkerDto): string {
@@ -310,7 +341,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   visibilityLabel(visibility: EventVisibility): string {
 
-    return visibility === EventVisibility.PRIVATE ? 'Privado' : 'Público';
+    return visibility === EventVisibility.PRIVATE ? 'Reunión' : 'Evento público';
 
   }
 
@@ -340,6 +371,18 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       return `${detail.attendeeCount} apuntados · sin límite`;
     }
     return `${detail.attendeeCount} / ${detail.maxAttendees} apuntados`;
+  }
+
+  meetingParticipantsSummary(detail: EventDetailDto): string {
+    return `${detail.confirmedCount} confirmados · ${detail.pendingCount} pendientes`;
+  }
+
+  participantStatusLabel(status: EventParticipantStatus): string {
+    return status === EventParticipantStatus.ACCEPTED ? 'Confirmada' : 'Pendiente';
+  }
+
+  isParticipantConfirmed(status: EventParticipantStatus): boolean {
+    return status === EventParticipantStatus.ACCEPTED;
   }
 
   canToggleAttendance(detail: EventDetailDto): boolean {
@@ -385,6 +428,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
 
   closeDetail(): void {
+    this.exitDirectionsView(false);
+    this.resetInviteFriendsState();
     this.selectedEvent.set(null);
     this.eventDetail.set(null);
     this.eventDetailLoading.set(false);
@@ -393,6 +438,16 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.showOwnerDeleteConfirm.set(false);
     this.updateMarkerSelection(null);
     this.clearDetailTimeSchedule();
+  }
+
+  resetInviteFriendsState(): void {
+    this.showInviteFriends.set(false);
+    this.inviteFriendsLoading.set(false);
+    this.inviteFriendsError.set(null);
+    this.inviteFriendsSuccess.set(null);
+    this.inviteActionUserNumber.set(null);
+    this.invitedFriendNumbers.set(new Set());
+    this.inviteFriendsList.set([]);
   }
 
   closeClusterPanel(): void {
@@ -474,9 +529,27 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.addEventMarkers(this.map);
   }
 
+  private markMapMarkersFetched(): void {
+    this.lastMapMarkersFetchedAt = Date.now();
+  }
+
+  private shouldRefreshStaleMapMarkers(): boolean {
+    return Date.now() - this.lastMapMarkersFetchedAt > MapComponent.MAP_MARKERS_STALE_MS;
+  }
+
+  private isBaseMapRoute(url: string): boolean {
+    const path = url.split('?')[0];
+    return /^\/u\/\d+\/map$/.test(path);
+  }
+
   toggleAttendance(): void {
     const detail = this.eventDetail();
-    if (!detail || this.attendActionLoading() || !this.canToggleAttendance(detail)) {
+    if (
+      !detail ||
+      detail.isMeeting ||
+      this.attendActionLoading() ||
+      !this.canToggleAttendance(detail)
+    ) {
       return;
     }
 
@@ -501,11 +574,313 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  openDirections(ev: MapMarkerDto): void {
-    void openGoogleMapsDirectionsFromCurrentLocation({
-      lat: ev.latitude,
-      lng: ev.longitude,
+  acceptMeetingInvitation(): void {
+    const detail = this.eventDetail();
+    if (
+      !detail?.isMeeting ||
+      detail.viewerIsCreator ||
+      detail.viewerParticipantStatus !== EventParticipantStatus.PENDING ||
+      this.attendActionLoading()
+    ) {
+      return;
+    }
+
+    this.attendActionLoading.set(true);
+    this.attendError.set(null);
+
+    this.eventsService.acceptMeetingInvitation(detail.id).subscribe({
+      next: (updated) => {
+        this.eventDetail.set(updated);
+        this.attendActionLoading.set(false);
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.attendActionLoading.set(false);
+        this.attendError.set(this.readAttendError(err));
+        this.cdr.markForCheck();
+      },
     });
+  }
+
+  rejectMeetingInvitation(): void {
+    const detail = this.eventDetail();
+    if (
+      !detail?.isMeeting ||
+      detail.viewerIsCreator ||
+      detail.viewerParticipantStatus !== EventParticipantStatus.PENDING ||
+      this.attendActionLoading()
+    ) {
+      return;
+    }
+
+    this.attendActionLoading.set(true);
+    this.attendError.set(null);
+
+    this.eventsService.rejectMeetingInvitation(detail.id).subscribe({
+      next: () => {
+        this.attendActionLoading.set(false);
+        this.closeDetail();
+        this.shellUi.requestMapRefresh();
+        this.refreshMapMarkers();
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.attendActionLoading.set(false);
+        this.attendError.set(this.readAttendError(err));
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  openInviteFriendsOverlay(): void {
+    const detail = this.eventDetail();
+    if (
+      !detail ||
+      detail.isMeeting ||
+      detail.visibility !== EventVisibility.PUBLIC
+    ) {
+      return;
+    }
+    this.showInviteFriends.set(true);
+    this.inviteFriendsError.set(null);
+    this.inviteFriendsSuccess.set(null);
+    this.loadInviteFriends();
+  }
+
+  closeInviteFriendsOverlay(): void {
+    this.showInviteFriends.set(false);
+    this.inviteFriendsError.set(null);
+    this.inviteFriendsSuccess.set(null);
+  }
+
+  loadInviteFriends(): void {
+    this.inviteFriendsLoading.set(true);
+    this.inviteFriendsError.set(null);
+    this.friendsService.getFriends().subscribe({
+      next: (friends) => {
+        this.inviteFriendsList.set(friends);
+        this.inviteFriendsLoading.set(false);
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.inviteFriendsLoading.set(false);
+        this.inviteFriendsError.set('No se pudo cargar la lista de amigos.');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  inviteFriendToEvent(friend: FriendListItemDto): void {
+    const detail = this.eventDetail();
+    if (!detail || this.inviteActionUserNumber() !== null) {
+      return;
+    }
+
+    this.inviteActionUserNumber.set(friend.user.userNumber);
+    this.inviteFriendsError.set(null);
+    this.inviteFriendsSuccess.set(null);
+
+    this.eventsService
+      .inviteFriendToPublicEvent(detail.id, friend.user.userNumber)
+      .subscribe({
+      next: () => {
+        this.invitedFriendNumbers.update((set) => {
+          const next = new Set(set);
+          next.add(friend.user.userNumber);
+          return next;
+        });
+        this.inviteActionUserNumber.set(null);
+        this.inviteFriendsSuccess.set(
+          `Recomendación enviada a ${this.friendDisplayName(friend)}.`,
+        );
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.inviteActionUserNumber.set(null);
+        const msg = err?.error?.message;
+        const text = Array.isArray(msg) ? msg.join(' ') : msg;
+        if (typeof text === 'string' && text.includes('Ya has recomendado')) {
+          this.invitedFriendNumbers.update((set) => {
+            const next = new Set(set);
+            next.add(friend.user.userNumber);
+            return next;
+          });
+          this.inviteFriendsError.set('Ya habías recomendado este evento a ese amigo.');
+        } else {
+          this.inviteFriendsError.set(
+            typeof text === 'string' && text ? text : 'No se pudo enviar la recomendación.',
+          );
+        }
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  friendDisplayName(friend: FriendListItemDto): string {
+    const parts = [friend.user.firstName, friend.user.lastName].filter(Boolean);
+    if (parts.length > 0) {
+      return parts.join(' ');
+    }
+    return `#${friend.user.userNumber}`;
+  }
+
+  /**
+   * Label for the primary directions button (Spanish copy for the UI).
+   * @returns {string}
+   */
+  directionsButtonLabel(): string {
+    if (this.routingUiBlocked) {
+      return 'Cómo llegar (próximamente)';
+    }
+    if (this.directionsLoading()) {
+      return 'Calculando ruta…';
+    }
+    return 'Cómo llegar';
+  }
+
+  /**
+   * Starts in-map routing: geolocation → POST /routing/directions → MapLibre line.
+   * No-op when ROUTING_UI_BLOCKED is true.
+   * @param {MapMarkerDto} ev - Selected event marker (destination).
+   * @returns {void}
+   */
+  openDirections(ev: MapMarkerDto): void {
+    if (this.routingUiBlocked) {
+      return;
+    }
+    this.directionsViewActive.set(true);
+    this.cdr.markForCheck();
+    void this.loadInMapDirections(ev);
+  }
+
+  /**
+   * Leaves full-screen directions and optionally restores the event sidebar camera.
+   * @param {boolean} [restoreEventCamera=true] - Fly back to the selected event with map tilt.
+   * @returns {void}
+   */
+  exitDirectionsView(restoreEventCamera = true): void {
+    this.directionsViewActive.set(false);
+    this.clearDisplayedRoute();
+    if (restoreEventCamera) {
+      const ev = this.selectedEvent();
+      if (ev && this.map) {
+        this.map.flyTo({
+          center: [ev.longitude, ev.latitude],
+          zoom: Math.max(this.map.getZoom(), 17),
+          pitch: 62,
+          bearing: -20,
+          duration: 900,
+          essential: true,
+        });
+      }
+    }
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Sets walk/drive mode; recalculates while the directions view is active.
+   * @param {MapDirectionsTravelMode} mode - WALK or DRIVE.
+   * @returns {void}
+   */
+  setDirectionsTravelMode(mode: MapDirectionsTravelMode): void {
+    if (this.directionsTravelMode() === mode) {
+      return;
+    }
+    this.directionsTravelMode.set(mode);
+    const ev = this.selectedEvent();
+    if (
+      ev &&
+      !this.routingUiBlocked &&
+      this.directionsViewActive() &&
+      !this.directionsLoading()
+    ) {
+      void this.loadInMapDirections(ev);
+    }
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Removes the route line from MapLibre and clears directions UI state.
+   * @returns {void}
+   */
+  clearDisplayedRoute(): void {
+    clearRouteFromMap(this.map);
+    this.routeDisplay.set(null);
+    this.directionsError.set(null);
+    this.directionsLoading.set(false);
+  }
+
+  /**
+   * Fetches the fastest route from the backend and renders it on the map.
+   * @param {MapMarkerDto} ev - Destination event.
+   * @returns {Promise<void>}
+   */
+  private async loadInMapDirections(ev: MapMarkerDto): Promise<void> {
+    if (!this.mapReady || !this.map) {
+      this.directionsError.set('El mapa aún no está listo.');
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.directionsLoading.set(true);
+    this.directionsError.set(null);
+    this.routeDisplay.set(null);
+    this.cdr.markForCheck();
+
+    try {
+      const origin = await getCurrentLngLat();
+      const route = await firstValueFrom(
+        this.routingApi.computeDirections({
+          originLat: origin.lat,
+          originLng: origin.lng,
+          destinationLat: ev.latitude,
+          destinationLng: ev.longitude,
+          travelMode: this.directionsTravelMode(),
+        }),
+      );
+
+      showRouteOnMap(this.map, route.geoJson, {
+        origin: [origin.lng, origin.lat],
+        destination: [ev.longitude, ev.latitude],
+        overviewFromAbove: true,
+        travelMode: route.travelMode,
+      });
+      this.routeDisplay.set(this.buildRouteDisplay(route));
+    } catch {
+      this.directionsError.set('No se pudo calcular la ruta.');
+      clearRouteFromMap(this.map);
+    } finally {
+      this.directionsLoading.set(false);
+      this.cdr.markForCheck();
+    }
+  }
+
+  /**
+   * Builds display labels for the directions top bar.
+   * @param {object} route - Normalized directions response fields.
+   * @returns {{ durationLabel: string; distanceLabel: string; altNote: string | null }}
+   */
+  private buildRouteDisplay(route: {
+    distanceMeters: number;
+    durationSeconds: number;
+    travelMode: MapDirectionsTravelMode;
+    routesReturned: number;
+  }): {
+    durationLabel: string;
+    distanceLabel: string;
+    altNote: string | null;
+  } {
+    const distanceLabel =
+      route.distanceMeters >= 1000
+        ? `${(route.distanceMeters / 1000).toFixed(1)} km`
+        : `${route.distanceMeters} m`;
+    const minutes = Math.max(1, Math.round(route.durationSeconds / 60));
+    const durationLabel = `~${minutes} min`;
+    const altNote =
+      route.routesReturned > 1
+        ? `Ruta más rápida de ${route.routesReturned} opciones`
+        : null;
+    return { durationLabel, distanceLabel, altNote };
   }
 
   goToMyLocation(): void {
@@ -533,6 +908,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.exitDirectionsView(false);
     this.unbindMap3dSync?.();
     this.unbindMap3dSync = null;
     this.unbindMarkerAnimationSync?.();
@@ -565,6 +941,27 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  private refreshMarkerPhases(): void {
+    const nowMs = Date.now();
+    for (const handle of this.markerHandles) {
+      applyEventMapMarkerPhaseClass(
+        handle.clickEl,
+        handle.data.startsAt,
+        handle.data.endsAt,
+        nowMs,
+      );
+    }
+    if (this.map && usesGlDotLayer(this.map.getZoom())) {
+      updateEventGlDotSource(this.map, this.allMapMarkers, nowMs);
+      updateEventGlDotSelection(this.map, this.selectedEvent()?.id ?? null);
+    }
+  }
+
+  private refreshMarkerState(): void {
+    this.refreshMarkerTimeLabels();
+    this.refreshMarkerPhases();
+  }
+
   private clearMarkerLabelSchedule(): void {
     if (this.markerLabelTimer !== null) {
       clearTimeout(this.markerLabelTimer);
@@ -572,20 +969,22 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  /** Un timer por marcador futuro: al empezar, Inicio → Final (sin cuenta atrás). */
-  private scheduleMarkerLabelRefresh(): void {
+  /** Timer en inicio, mitad y fin de cada evento visible (etiqueta + color). */
+  private scheduleMarkerStateRefresh(): void {
     this.clearMarkerLabelSchedule();
-    const delay = msUntilNextMarkerLabelRefresh(
-      this.markerHandles.map((h) => h.data.startsAt),
-    );
+    const events = this.allMapMarkers.map((m) => ({
+      startsAt: m.startsAt,
+      endsAt: m.endsAt,
+    }));
+    const delay = msUntilNextMarkerStateRefresh(events);
     if (delay === null) {
       return;
     }
 
     this.markerLabelTimer = setTimeout(() => {
       this.ngZone.runOutsideAngular(() => {
-        this.refreshMarkerTimeLabels();
-        this.scheduleMarkerLabelRefresh();
+        this.refreshMarkerState();
+        this.scheduleMarkerStateRefresh();
       });
     }, delay);
   }
@@ -636,6 +1035,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private selectEvent(m: MapMarkerDto): void {
     this.closeClusterPanel();
+    if (this.directionsViewActive()) {
+      this.exitDirectionsView(false);
+    } else {
+      this.clearDisplayedRoute();
+    }
     this.selectedEvent.set(m);
     this.updateMarkerSelection(m.id);
     this.loadEventDetail(m.id);
@@ -696,6 +1100,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
           this.selectEventWithDetail(detail);
           this.openingEventFromList = false;
           this.cdr.markForCheck();
+        });
+        this.notificationsService.markReadByEvent(eventId).subscribe({
+          next: () => this.shellUi.requestNotificationRefresh(),
         });
       },
       error: () => {
@@ -773,6 +1180,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     card.type = 'button';
 
     card.className = `event-map-marker event-map-marker--${m.visibility}`;
+    applyEventMapMarkerPhaseClass(card, m.startsAt, m.endsAt);
 
     card.setAttribute('aria-label', `Ver evento: ${m.title}`);
 
@@ -859,6 +1267,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const dot = document.createElement('button');
     dot.type = 'button';
     dot.className = `event-map-marker-dot event-map-marker-dot--${m.visibility}`;
+    applyEventMapMarkerPhaseClass(dot, m.startsAt, m.endsAt);
     dot.setAttribute('aria-label', `Ver evento: ${m.title}`);
 
     root.append(dot, shadow);
@@ -1001,6 +1410,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       'event-map-marker--selected',
       'event-map-marker-dot--selected',
     );
+    clearEventMapMarkerPhaseClasses(handle.clickEl);
     this.eventMarkerPool.push(handle);
   }
 
@@ -1026,11 +1436,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     if (handle.isDot) {
       handle.clickEl.className = `event-map-marker-dot event-map-marker-dot--${m.visibility}`;
+      applyEventMapMarkerPhaseClass(handle.clickEl, m.startsAt, m.endsAt);
       handle.clickEl.setAttribute('aria-label', `Ver evento: ${m.title}`);
       return;
     }
 
     handle.clickEl.className = `event-map-marker event-map-marker--${m.visibility}`;
+    applyEventMapMarkerPhaseClass(handle.clickEl, m.startsAt, m.endsAt);
     handle.clickEl.setAttribute('aria-label', `Ver evento: ${m.title}`);
     const titleEl = handle.clickEl.querySelector('.event-map-marker__title');
     if (titleEl) {
@@ -1399,7 +1811,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     this.lastVisibleMarkersFingerprint = fingerprint;
     this.applyVisibleMarkersDiff(displays, selectedId);
-    this.scheduleMarkerLabelRefresh();
+    this.scheduleMarkerStateRefresh();
     this.lastMarkerSyncCamera = captureMarkerSyncCamera(this.map);
   }
 
@@ -1416,6 +1828,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private addEventMarkers(map: maplibregl.Map): void {
     this.eventsService.getMapMarkers().subscribe({
       next: (markers) => {
+        this.markMapMarkersFetched();
         this.clearEventMarkers();
         this.closeClusterPanel();
 
@@ -1432,6 +1845,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       },
 
       error: (err) => {
+        this.markMapMarkersFetched();
         this.clearEventMarkers();
         this.allMapMarkers = [];
         this.markersById.clear();
@@ -1746,11 +2160,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   /** Programa el siguiente cambio de tema Auto (5:30, 7:00, 19:00, 21:00). */
   private scheduleAutoThemeSync(): void {
     this.clearAutoThemeSchedule();
-    if (
-      this.mapTheme.themePreference() !== 'auto' ||
-      !this.map ||
-      this.activeDemoStyleId()
-    ) {
+    if (this.mapTheme.themePreference() !== 'auto' || !this.map) {
       return;
     }
 
@@ -1765,11 +2175,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   private resetAutoThemeSchedule(): void {
     this.clearAutoThemeSchedule();
-    if (
-      this.mapTheme.themePreference() !== 'auto' ||
-      !this.map ||
-      this.activeDemoStyleId()
-    ) {
+    if (this.mapTheme.themePreference() !== 'auto' || !this.map) {
       return;
     }
     this.syncAutoMapThemeIfNeeded();
@@ -1777,11 +2183,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private syncAutoMapThemeIfNeeded(): void {
-    if (
-      this.mapTheme.themePreference() !== 'auto' ||
-      !this.map ||
-      this.activeDemoStyleId()
-    ) {
+    if (this.mapTheme.themePreference() !== 'auto' || !this.map) {
       return;
     }
     const theme = resolveVisualTheme('auto');
@@ -1818,7 +2220,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private applyVisualThemeTreatments(map: maplibregl.Map): void {
     const theme = this.activeVisualTheme();
     applyMapLandcoverTheme(map, theme);
-    applyMapNeutroTheme(map, theme);
     syncMap3DBuildings(map, theme);
     applyMapAtmosphere(map, theme);
     ensureEventGlDotLayer(map);

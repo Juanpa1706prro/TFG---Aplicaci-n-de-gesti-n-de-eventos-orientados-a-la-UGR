@@ -1,1 +1,3 @@
-@import '../admin-edit-user/admin-edit-user.css';
+:host {
+  display: block;
+}

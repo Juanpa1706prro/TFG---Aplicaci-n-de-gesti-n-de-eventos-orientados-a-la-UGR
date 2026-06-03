@@ -42,6 +42,30 @@ export class EventsService {
     );
   }
 
+  acceptMeetingInvitation(eventId: number): Observable<EventDetailDto> {
+    return this.http.post<EventDetailDto>(
+      `${this.API_URL}/events/${eventId}/participants/me/accept`,
+      {},
+    );
+  }
+
+  rejectMeetingInvitation(eventId: number): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(
+      `${this.API_URL}/events/${eventId}/participants/me/reject`,
+      {},
+    );
+  }
+
+  inviteFriendToPublicEvent(
+    eventId: number,
+    userNumber: number,
+  ): Observable<{ message: string; invitationId: number }> {
+    return this.http.post<{ message: string; invitationId: number }>(
+      `${this.API_URL}/events/${eventId}/invitations`,
+      { userNumber },
+    );
+  }
+
   create(
     payload: CreateEventPayload,
   ): Observable<{ message: string; event: CreatedEventDto }> {

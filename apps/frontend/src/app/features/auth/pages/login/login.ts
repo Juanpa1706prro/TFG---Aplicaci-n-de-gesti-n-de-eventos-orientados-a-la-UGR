@@ -11,34 +11,27 @@ import { UserSession } from '@core/interfaces/user-interface';
   styleUrl: './login.css',
 })
 export class LoginComponent implements OnInit {
-  // ---- Properties ----
-  public loginForm!: FormGroup;
+  loginForm!: FormGroup;
+  loading = false;
+  errorMessage: string | null = null;
 
-  // ---- Constructor ----
   constructor(
-    private fb: FormBuilder,
-    private authService: AuthService,
-    private router: Router,
+    private readonly fb: FormBuilder,
+    private readonly authService: AuthService,
+    private readonly router: Router,
   ) {}
 
-  // ---- Lifecycle Hooks ----
   ngOnInit(): void {
     this.buildForms();
   }
 
-  // ---- Form Initialization ----
-  protected buildForms() {
+  protected buildForms(): void {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required]],
     });
   }
 
-  // ---- Navigation and actions ----
-
-  /**
-   * Navigation after login: onboarding first time, then map.
-   */
   protected navigateAfterAuth(res: UserSession): void {
     if (!res?.userNumber) {
       return;
@@ -54,21 +47,25 @@ export class LoginComponent implements OnInit {
     void this.router.navigate(['/u', res.userNumber, 'map']);
   }
 
-  /**
-   * Handles the login form submission.
-   * Validates the form, calls the authentication service, and handles the backend response.
-   */
   public onLogin(): void {
-    if (this.loginForm.valid) {
-      this.authService.login(this.loginForm.value).subscribe({
-        next: (res) => {
-          this.navigateAfterAuth(res);
-        },
-        error: (err) => {
-          console.error('Error logging in:', err);
-          alert('Error: ' + (err.error?.message || 'Could not log in'));
-        },
-      });
+    if (!this.loginForm.valid || this.loading) {
+      this.loginForm.markAllAsTouched();
+      return;
     }
+
+    this.loading = true;
+    this.errorMessage = null;
+
+    this.authService.login(this.loginForm.value).subscribe({
+      next: (res) => {
+        this.loading = false;
+        this.navigateAfterAuth(res);
+      },
+      error: (err) => {
+        this.loading = false;
+        this.errorMessage =
+          err?.error?.message ?? 'No se pudo iniciar sesión. Comprueba tus datos.';
+      },
+    });
   }
 }

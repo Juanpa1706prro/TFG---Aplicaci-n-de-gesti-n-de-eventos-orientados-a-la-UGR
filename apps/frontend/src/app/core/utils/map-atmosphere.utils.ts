@@ -45,14 +45,6 @@ const NIGHT_SKY: MapSkyConfig = {
   'atmosphere-blend': 0.88,
 };
 
-/** Neutro: cielo perla suave, coherente con fondo papel. */
-const NEUTRO_SKY: MapSkyConfig = {
-  'sky-color': '#d4dce4',
-  'horizon-color': '#f5f4f0',
-  'sky-horizon-blend': 0.48,
-  'atmosphere-blend': 0.62,
-};
-
 function skyForTheme(theme: MapVisualTheme): MapSkyConfig | null {
   switch (theme) {
     case 'dawn':
@@ -61,8 +53,6 @@ function skyForTheme(theme: MapVisualTheme): MapSkyConfig | null {
       return SUNSET_SKY;
     case 'night':
       return NIGHT_SKY;
-    case 'neutro':
-      return NEUTRO_SKY;
     case 'day':
     default:
       return null;

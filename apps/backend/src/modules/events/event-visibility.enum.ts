@@ -4,8 +4,8 @@
 // -------------------------------------------------------------------
 
 /**
- * PUBLIC: visible to the community on map and lists.
- * PRIVATE: e.g. tutorials; only creator and assigned managers on the map.
+ * PUBLIC: open community event on map and lists.
+ * PRIVATE: meeting (reunión); only creator and invited participants.
  */
 export enum EventVisibility {
   PUBLIC = 'public',

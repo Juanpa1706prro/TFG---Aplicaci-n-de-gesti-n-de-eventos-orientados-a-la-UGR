@@ -17,6 +17,10 @@ import {
 } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { EventsService } from '@core/services/events.service';
+import { FriendsService } from '@core/services/friends.service';
+import { AuthService } from '@core/services/auth.services';
+import { ShellUiService } from '@core/services/shell-ui.service';
+import { FriendListItemDto } from '@core/interfaces/friend-interface';
 import {
   EventManagerAssignmentRole,
   EventVisibility,
@@ -66,9 +70,17 @@ function defaultDatetimeLocalEventEnd(): string {
 
 const USER_FACULTY_CODE_LIST = Object.values(UserFaculty) as UserFaculty[];
 
+/** Centro aproximado de Granada (PTS) para abrir el mapa antes de colocar marca. */
+const DEFAULT_MAP_CENTER: [number, number] = [-3.6245, 37.197];
+
 type ManagerRow = {
   userNumber: string;
   role: EventManagerAssignmentRole;
+};
+
+type ParticipantChip = {
+  userNumber: number;
+  label: string;
 };
 
 @Component({
@@ -83,8 +95,11 @@ export class CreateEventComponent implements OnInit, OnDestroy {
 
   private readonly fb = inject(FormBuilder);
   private readonly eventsService = inject(EventsService);
+  private readonly friendsService = inject(FriendsService);
+  private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly shellUi = inject(ShellUiService);
 
   /** Mapa a pantalla completa para colocar el marcador con el ratón. */
   private pickerMap: maplibregl.Map | null = null;
@@ -106,6 +121,11 @@ export class CreateEventComponent implements OnInit, OnDestroy {
   loadError = false;
   errorMessage: string | null = null;
   managerRows: ManagerRow[] = [];
+  participantChips: ParticipantChip[] = [];
+  participantUserNumberInput = '';
+  friends: FriendListItemDto[] = [];
+  friendsLoading = false;
+  friendsLoadError: string | null = null;
   private editEventId: number | null = null;
   hasExistingPhoto = false;
   photoPreviewUrl: string | null = null;
@@ -113,28 +133,56 @@ export class CreateEventComponent implements OnInit, OnDestroy {
   photoRemoved = false;
   photoFieldError: string | null = null;
 
-  readonly form = this.fb.nonNullable.group({
-    title: ['', [Validators.required, Validators.maxLength(300)]],
-    description: ['', [Validators.required, Validators.maxLength(8000)]],
-    facultyPreset: [''],
-    startsAt: [defaultDatetimeLocalNextHour(), Validators.required],
-    endsAt: [defaultDatetimeLocalEventEnd(), Validators.required],
-    location: ['', [Validators.required, Validators.maxLength(500)]],
-    latitude: [
-      37.197,
-      [Validators.required, Validators.min(-90), Validators.max(90)],
-    ],
-    longitude: [
-      -3.6245,
-      [Validators.required, Validators.min(-180), Validators.max(180)],
-    ],
-    visibility: [EventVisibility.PUBLIC],
-    unlimitedAttendees: [true],
-    maxAttendees: [
+  readonly form = this.fb.group({
+    title: this.fb.control('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.maxLength(300)],
+    }),
+    description: this.fb.control('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.maxLength(8000)],
+    }),
+    facultyPreset: this.fb.control('', { nonNullable: true }),
+    startsAt: this.fb.control(defaultDatetimeLocalNextHour(), {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    endsAt: this.fb.control(defaultDatetimeLocalEventEnd(), {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    location: this.fb.control('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.maxLength(500)],
+    }),
+    latitude: this.fb.control<number | null>(null, [
+      Validators.required,
+      Validators.min(-90),
+      Validators.max(90),
+    ]),
+    longitude: this.fb.control<number | null>(null, [
+      Validators.required,
+      Validators.min(-180),
+      Validators.max(180),
+    ]),
+    visibility: this.fb.control(EventVisibility.PUBLIC, { nonNullable: true }),
+    unlimitedAttendees: this.fb.control(true, { nonNullable: true }),
+    maxAttendees: this.fb.control(
       { value: 50, disabled: true },
       [Validators.min(1), Validators.max(1_000_000)],
-    ],
+    ),
   });
+
+  get hasMapPoint(): boolean {
+    const lat = this.form.controls.latitude.value;
+    const lng = this.form.controls.longitude.value;
+    return (
+      lat != null &&
+      lng != null &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lng)
+    );
+  }
 
   constructor() {
     this.form.controls.unlimitedAttendees.valueChanges
@@ -167,15 +215,38 @@ export class CreateEventComponent implements OnInit, OnDestroy {
         );
         this.syncPickerMarkerToFormCoords();
       });
+
+    this.form.controls.visibility.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe((visibility) => {
+        if (this.isEditMode) {
+          return;
+        }
+        if (visibility === EventVisibility.PRIVATE) {
+          this.managerRows = [];
+        } else {
+          this.participantChips = [];
+          this.participantUserNumberInput = '';
+        }
+      });
   }
 
   get isEditMode(): boolean {
     return this.editEventId != null;
   }
 
+  get isMeetingCreateMode(): boolean {
+    return !this.isEditMode && this.form.controls.visibility.value === EventVisibility.PRIVATE;
+  }
+
+  get isPublicCreateMode(): boolean {
+    return !this.isEditMode && this.form.controls.visibility.value === EventVisibility.PUBLIC;
+  }
+
   ngOnInit(): void {
     const raw = this.route.snapshot.paramMap.get('eventId');
     if (!raw) {
+      this.loadFriendsForParticipants();
       return;
     }
     const eventId = Number.parseInt(raw, 10);
@@ -261,6 +332,7 @@ export class CreateEventComponent implements OnInit, OnDestroy {
   }
 
   private afterSaveNavigate(): void {
+    this.shellUi.requestMapRefresh();
     const n = this.currentUserNumber();
     if (this.editEventId != null) {
       void this.router.navigate(['/u', n, 'map'], {
@@ -336,10 +408,11 @@ export class CreateEventComponent implements OnInit, OnDestroy {
     }
     const lat = this.form.controls.latitude.value;
     const lng = this.form.controls.longitude.value;
-    const center: [number, number] = [
-      Number.isFinite(lng) ? lng : -3.6245,
-      Number.isFinite(lat) ? lat : 37.197,
-    ];
+    const hasCoords =
+      lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng);
+    const center: [number, number] = hasCoords
+      ? [lng, lat]
+      : DEFAULT_MAP_CENTER;
 
     const map = new maplibregl.Map({
       container: el,
@@ -359,8 +432,8 @@ export class CreateEventComponent implements OnInit, OnDestroy {
 
     map.on('load', () => {
       map.resize();
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        this.placeOrMovePickerMarker(map, lng, lat);
+      if (hasCoords) {
+        this.placeOrMovePickerMarker(map, lng!, lat!);
       }
       map.on('click', (e) => {
         const { lng: clickLng, lat: clickLat } = e.lngLat;
@@ -386,7 +459,12 @@ export class CreateEventComponent implements OnInit, OnDestroy {
     }
     const lat = this.form.controls.latitude.value;
     const lng = this.form.controls.longitude.value;
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    if (
+      lat == null ||
+      lng == null ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng)
+    ) {
       return;
     }
     this.placeOrMovePickerMarker(this.pickerMap, lng, lat);
@@ -439,6 +517,71 @@ export class CreateEventComponent implements OnInit, OnDestroy {
     this.managerRows.splice(index, 1);
   }
 
+  private loadFriendsForParticipants(): void {
+    this.friendsLoading = true;
+    this.friendsLoadError = null;
+    this.friendsService.getFriends('name_asc').subscribe({
+      next: (items) => {
+        this.friends = items;
+        this.friendsLoading = false;
+      },
+      error: () => {
+        this.friendsLoadError = 'No se pudo cargar la lista de amigos.';
+        this.friendsLoading = false;
+      },
+    });
+  }
+
+  friendDisplayName(friend: FriendListItemDto): string {
+    const parts = [friend.user.firstName, friend.user.lastName].filter(Boolean);
+    if (parts.length > 0) {
+      return parts.join(' ');
+    }
+    return `#${friend.user.userNumber}`;
+  }
+
+  isParticipantAdded(userNumber: number): boolean {
+    return this.participantChips.some((chip) => chip.userNumber === userNumber);
+  }
+
+  addFriendParticipant(friend: FriendListItemDto): void {
+    this.addParticipantChip(friend.user.userNumber, this.friendDisplayName(friend));
+  }
+
+  addParticipantFromInput(): void {
+    const trimmed = this.participantUserNumberInput.trim();
+    if (!trimmed) {
+      this.errorMessage = 'Indica el número de perfil del participante.';
+      return;
+    }
+    const num = Number.parseInt(trimmed, 10);
+    if (!Number.isFinite(num) || num < 100_000 || num > 999_999) {
+      this.errorMessage = `Número de usuario no válido: ${trimmed} (debe ser 6 dígitos).`;
+      return;
+    }
+    this.errorMessage = null;
+    this.addParticipantChip(num, `#${num}`);
+    this.participantUserNumberInput = '';
+  }
+
+  removeParticipantChip(index: number): void {
+    this.participantChips.splice(index, 1);
+  }
+
+  private addParticipantChip(userNumber: number, label: string): void {
+    const selfNumber = this.auth.currentUserValue?.userNumber;
+    if (selfNumber != null && userNumber === selfNumber) {
+      this.errorMessage = 'No puedes añadirte a ti mismo (ya eres el creador de la reunión).';
+      return;
+    }
+    if (this.isParticipantAdded(userNumber)) {
+      this.errorMessage = `El usuario #${userNumber} ya está en la lista.`;
+      return;
+    }
+    this.errorMessage = null;
+    this.participantChips.push({ userNumber, label });
+  }
+
   private currentUserNumber(): string {
     return requiredRouteParamFromPath(this.route.snapshot, 'userNumber');
   }
@@ -456,6 +599,11 @@ export class CreateEventComponent implements OnInit, OnDestroy {
 
   submit(): void {
     this.errorMessage = null;
+    if (!this.hasMapPoint) {
+      this.errorMessage =
+        'Indica dónde será el evento: elige un centro UGR o coloca la marca en el mapa.';
+      return;
+    }
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -472,6 +620,9 @@ export class CreateEventComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const latitude = v.latitude!;
+    const longitude = v.longitude!;
+
     const managers: CreateEventPayload['managers'] = [];
     for (const row of this.managerRows) {
       const trimmed = row.userNumber.trim();
@@ -486,6 +637,14 @@ export class CreateEventComponent implements OnInit, OnDestroy {
       managers.push({ userNumber: num, role: row.role });
     }
 
+    if (v.visibility === EventVisibility.PRIVATE) {
+      if (this.participantChips.length === 0) {
+        this.errorMessage =
+          'Una reunión requiere al menos otra persona además de ti. Añade participantes.';
+        return;
+      }
+    }
+
     this.submitting = true;
 
     if (this.editEventId != null) {
@@ -494,11 +653,10 @@ export class CreateEventComponent implements OnInit, OnDestroy {
         title: v.title.trim(),
         description: v.description.trim(),
         location: v.location.trim(),
-        latitude: v.latitude,
-        longitude: v.longitude,
+        latitude,
+        longitude,
         startsAt: startsAt.toISOString(),
         endsAt: endsAt.toISOString(),
-        visibility: v.visibility,
         maxAttendees: v.unlimitedAttendees ? null : (v.maxAttendees as number),
       };
       this.eventsService.updateEvent(eventId, updatePayload).subscribe({
@@ -520,17 +678,24 @@ export class CreateEventComponent implements OnInit, OnDestroy {
       title: v.title.trim(),
       description: v.description.trim(),
       location: v.location.trim(),
-      latitude: v.latitude,
-      longitude: v.longitude,
+      latitude,
+      longitude,
       startsAt: startsAt.toISOString(),
       endsAt: endsAt.toISOString(),
       ...(v.visibility === EventVisibility.PRIVATE
-        ? { visibility: EventVisibility.PRIVATE }
+        ? {
+            visibility: EventVisibility.PRIVATE,
+            participants: this.participantChips.map((chip) => ({
+              userNumber: chip.userNumber,
+            })),
+          }
         : {}),
       ...(v.unlimitedAttendees
         ? {}
         : { maxAttendees: v.maxAttendees as number }),
-      ...(managers.length ? { managers } : {}),
+      ...(v.visibility === EventVisibility.PUBLIC && managers.length
+        ? { managers }
+        : {}),
     };
 
     this.eventsService.create(payload).subscribe({
@@ -548,7 +713,12 @@ export class CreateEventComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.submitting = false;
-        this.errorMessage = this.readHttpError(err, 'No se pudo crear el evento.');
+        this.errorMessage = this.readHttpError(
+          err,
+          v.visibility === EventVisibility.PRIVATE
+            ? 'No se pudo crear la reunión.'
+            : 'No se pudo crear el evento.',
+        );
       },
     });
   }

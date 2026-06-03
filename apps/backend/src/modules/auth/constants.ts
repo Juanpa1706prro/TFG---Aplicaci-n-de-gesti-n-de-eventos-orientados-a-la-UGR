@@ -1,13 +1,22 @@
 // -------------------------------------------------------------------
-// JWT configuration constants
-// Signing secrets for access and refresh tokens.
+// JWT configuration — secrets loaded from environment variables.
+// Set JWT_ACCESS_SECRET and JWT_REFRESH_SECRET in apps/backend/.env
 // -------------------------------------------------------------------
+
+function requireEnv(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(
+      `Missing required environment variable: ${name}. Copy apps/backend/.env.example to .env and set JWT secrets.`,
+    );
+  }
+  return value;
+}
 
 /**
  * JWT signing secrets used by AuthService and JwtAuthGuard.
- * @remarks Load from environment variables in production deployments.
  */
 export const jwtConstants = {
-  accessSecret: '88Zy2gaPMZJo2IRyN+rBrtWqwGmwujgpUrjxdT9FlCs=',
-  refreshSecret: 'PDvtBX4WkcWSft+xeLawahhOCzGj8XDLKcQahOoCzM6I=',
+  accessSecret: requireEnv('JWT_ACCESS_SECRET'),
+  refreshSecret: requireEnv('JWT_REFRESH_SECRET'),
 };

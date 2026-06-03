@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import {
@@ -8,11 +8,14 @@ import {
   RouterLinkActive,
   RouterOutlet,
 } from '@angular/router';
-import { filter, map } from 'rxjs';
+import { filter, interval, map } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthService } from '@core/services/auth.services';
+import { NotificationsService } from '@core/services/notifications.service';
 import { ShellUiService } from '@core/services/shell-ui.service';
 import { MapComponent } from '@features/map/map';
+import { AiAssistantPanelComponent } from '@features/ai-assistant/ai-assistant-panel.component';
+import { NotificationsPanelComponent } from '@features/notifications/notifications-panel.component';
 import { GlobalCapability, SystemRole } from '@core/constants/user-enums';
 import { FullUserPayload, UserProfileDetails } from '@core/interfaces/user.profile-interface';
 import { API_BASE_URL } from '@core/config/api.config';
@@ -31,7 +34,15 @@ import {
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet, MapComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    RouterLinkActive,
+    RouterOutlet,
+    MapComponent,
+    AiAssistantPanelComponent,
+    NotificationsPanelComponent,
+  ],
   templateUrl: './app-shell.html',
   styleUrl: './app-shell.css',
 })
@@ -41,6 +52,7 @@ export class AppShellComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly notificationsService = inject(NotificationsService);
   readonly shellUi = inject(ShellUiService);
   readonly adminMenuItems = ADMIN_SIDEBAR_MENU_ITEMS;
 
@@ -49,8 +61,32 @@ export class AppShellComponent implements OnInit {
 
   /** Pantallas de formulario/overlay: el mapa de fondo no debe capturar ratón. */
   readonly blocksMapInteraction = signal(false);
+  readonly unreadNotificationCount = signal(0);
+
+  constructor() {
+    effect(() => {
+      void this.shellUi.notificationRefreshTick();
+      this.refreshUnreadCount();
+    });
+  }
 
   ngOnInit(): void {
+    this.refreshUnreadCount();
+
+    interval(60_000)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (document.visibilityState === 'visible') {
+          this.refreshUnreadCount();
+        }
+      });
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.onVisibilityChange);
+      this.destroyRef.onDestroy(() => {
+        document.removeEventListener('visibilitychange', this.onVisibilityChange);
+      });
+    }
     this.blocksMapInteraction.set(this.urlBlocksMap(this.router.url));
     this.router.events
       .pipe(
@@ -165,8 +201,40 @@ export class AppShellComponent implements OnInit {
     this.shellUi.backToMainSidebar();
   }
 
+  toggleAssistant(): void {
+    this.shellUi.toggleAssistant();
+  }
+
+  toggleNotifications(): void {
+    this.shellUi.toggleNotifications();
+    if (this.shellUi.notificationsOpen()) {
+      this.refreshUnreadCount();
+    }
+  }
+
+  unreadBadgeLabel(): string {
+    const count = this.unreadNotificationCount();
+    if (count <= 0) {
+      return '';
+    }
+    return count > 99 ? '99+' : String(count);
+  }
+
   logout(): void {
     void this.auth.logout().subscribe();
+  }
+
+  private readonly onVisibilityChange = (): void => {
+    if (document.visibilityState === 'visible') {
+      this.refreshUnreadCount();
+    }
+  };
+
+  private refreshUnreadCount(): void {
+    this.notificationsService.getUnreadCount().subscribe({
+      next: (res) => this.unreadNotificationCount.set(res.count),
+      error: () => this.unreadNotificationCount.set(0),
+    });
   }
 
   private urlBlocksMap(url: string): boolean {
