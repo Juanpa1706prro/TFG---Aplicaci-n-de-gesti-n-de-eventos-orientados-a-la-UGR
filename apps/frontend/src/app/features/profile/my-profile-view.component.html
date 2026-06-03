@@ -1,0 +1,135 @@
+<div class="profile-container">
+  <div class="profile-card">
+    <div class="profile-header">
+      @if (profile().hasProfilePicture) {
+        <img
+          class="profile-avatar"
+          [src]="profilePhotoSrc()"
+          alt="Foto de perfil"
+        />
+      } @else {
+        <div class="profile-avatar profile-avatar-fallback" aria-hidden="true">
+          {{ avatarInitials() }}
+        </div>
+      }
+      <div class="profile-header-text">
+        <h1>{{ displayTitle() }}</h1>
+        <p class="profile-subtitle">Usuario #{{ profile().userNumber }}</p>
+      </div>
+      <a
+        class="profile-edit-btn ugr-btn-secondary"
+        [routerLink]="['/u', profile().userNumber, 'profile', 'edit']"
+      >
+        Editar datos
+      </a>
+    </div>
+
+    <section class="profile-section profile-section--first">
+      <h2>Perfil</h2>
+      <div class="profile-grid">
+        <div class="info-group">
+          <label>Nombre de usuario</label>
+          <p class="data-value">{{ profile().userName ?? '—' }}</p>
+        </div>
+        <div class="info-group">
+          <label>Nombre</label>
+          <p class="data-value">
+            {{ profile().firstName ?? '—' }} {{ profile().lastName ?? '' }}
+          </p>
+        </div>
+
+        @if (profile().email) {
+          <div class="info-group">
+            <label>Email</label>
+            <p class="data-value">{{ profile().email }}</p>
+          </div>
+        }
+
+        @if (profile().birthDate) {
+          <div class="info-group">
+            <label>Fecha de nacimiento</label>
+            <p class="data-value">{{ profile().birthDate | date : 'longDate' }}</p>
+          </div>
+        }
+
+        @if (profile().gender) {
+          <div class="info-group">
+            <label>Género</label>
+            <p class="data-value">{{ profile().gender }}</p>
+          </div>
+        }
+
+        @if (profile().phoneNumber) {
+          <div class="info-group">
+            <label>Teléfono</label>
+            <p class="data-value">{{ profile().phoneNumber }}</p>
+          </div>
+        }
+      </div>
+
+      @if (profile().activeStaffFunction) {
+        <div class="info-group">
+          <label>Perfil activo en la UGR</label>
+          <p class="data-value profile-role-chips">
+            <span class="function-chip function-chip--active">{{
+              activeStaffLabel()
+            }}</span>
+          </p>
+        </div>
+      } @else if (needsPersonaSelection()) {
+        <div class="profile-persona-hint">
+          <p>Tienes varias funciones en la universidad. Elige con cuál quieres actuar en la app.</p>
+          <a routerLink="/auth/select-profile">Elegir perfil activo</a>
+        </div>
+      }
+
+      @if (profile().bio) {
+        <div class="info-group">
+          <label>Bio</label>
+          <p class="data-value">{{ profile().bio }}</p>
+        </div>
+      }
+    </section>
+
+    @if (activeRoleSection(); as section) {
+      <section class="profile-section">
+        <h2>{{ section.title }}</h2>
+        <div class="profile-grid">
+          @for (field of section.fields; track field.key) {
+            <div class="info-group">
+              <label>{{ field.label }}</label>
+              <p class="data-value">{{ field.value }}</p>
+            </div>
+          }
+        </div>
+      </section>
+    } @else if (profile().activeStaffFunction) {
+      <section class="profile-section">
+        <h2>{{ activeStaffLabel() }}</h2>
+        <p class="profile-section-empty">No hay datos registrados para este perfil.</p>
+      </section>
+    }
+
+    @if (profile().staffFunctions.length > 1) {
+      <section class="profile-section profile-section--muted">
+        <h2>Otras funciones en tu cuenta</h2>
+        <p class="data-value profile-role-chips">
+          @for (fn of profile().staffFunctions; track fn) {
+            @if (fn !== profile().activeStaffFunction) {
+              <span class="function-chip">{{ staffFunctionChipLabel(fn) }}</span>
+            }
+          }
+        </p>
+        @if (profile().activeStaffFunction) {
+          <p class="profile-section-note">
+            <a routerLink="/auth/select-profile">Cambiar perfil activo</a>
+          </p>
+        }
+      </section>
+    }
+
+    <p class="account-actions">
+      <a [routerLink]="['/u', profile().userNumber, 'account']">Mi cuenta y seguridad</a>
+    </p>
+  </div>
+</div>

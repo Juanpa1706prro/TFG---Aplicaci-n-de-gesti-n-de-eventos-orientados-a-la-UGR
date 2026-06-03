@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Body,
   Res,
@@ -17,7 +18,7 @@ import { JwtService } from '@nestjs/jwt';
 
 // -------------------------------------------------------------------
 // Authentication Controller
-// Exposes endpoints for user registration, login, logout and token refresh..
+// Exposes endpoints for user registration, login, logout and token refresh.
 // Base route: /auth
 // -------------------------------------------------------------------
 @Controller('auth')
@@ -31,6 +32,22 @@ export class AuthController {
     private readonly jwtService: JwtService,
   ) {}
 
+  /**
+   * Returns the authenticated user's session from the cookie (same payload as after login).
+   * Not public: requires a valid access JWT.
+   * @param {object} req - Request carrying the authenticated user id (sub).
+   * @returns {Promise<any>} Session payload for the current user.
+   * @throws {UnauthorizedException} If the user is not authenticated.
+   */
+  @Get('me')
+  async me(@Req() req: { user?: { sub: number } }) {
+    const sub = req.user?.sub;
+    if (sub == null) {
+      throw new UnauthorizedException('No autenticado');
+    }
+    return this.authService.getMe(sub);
+  }
+
   // ------------------------------------------------------------
   // Properties
   // ------------------------------------------------------------
@@ -40,7 +57,7 @@ export class AuthController {
    */
   private readonly baseCookieOptions: CookieOptions = {
     httpOnly: true,
-    secure: false, // true solo en producción con HTTPS
+    secure: false, // set to true in production with HTTPS
     sameSite: 'lax',
   };
 
@@ -56,7 +73,11 @@ export class AuthController {
   @Public()
   @Post('register')
   async register(@Body() body: RegisterDto) {
-    return this.authService.register(body.email, body.password);
+    return this.authService.register(
+      body.email,
+      body.password,
+      body.operatorKey,
+    );
   }
 
   /**
@@ -79,13 +100,14 @@ export class AuthController {
 
     res.cookie('access_token', session.accessToken, {
       ...this.baseCookieOptions,
+      path: '/',
       maxAge: 15 * 60 * 1000,
     });
 
     res.cookie('refresh_token', session.refreshToken, {
       ...this.baseCookieOptions,
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/auth/refresh',
     });
 
     return session.user;
@@ -110,29 +132,54 @@ export class AuthController {
     if (!refreshToken)
       throw new UnauthorizedException('No refresh token found');
 
+    let userIdForLogout: number | null = null;
+
     try {
       const payload = await this.authService.verifyRefreshToken(refreshToken);
+      userIdForLogout = payload.sub;
 
       const tokens = await this.authService.refreshTokens(
         payload.sub,
         refreshToken,
+        payload.ver,
       );
 
       res.cookie('access_token', tokens.accessToken, {
         ...this.baseCookieOptions,
+        path: '/',
         maxAge: 15 * 60 * 1000,
       });
 
       res.cookie('refresh_token', tokens.refreshToken, {
         ...this.baseCookieOptions,
+        path: '/',
         maxAge: 7 * 24 * 60 * 60 * 1000,
-        path: '/auth/refresh',
       });
 
       return { message: 'Tokens rotated' };
-    } catch {
-      // If the refresh token is completely invalid/expired, force a clean logout
-      this.logout(req, res);
+    } catch (err) {
+      if (userIdForLogout != null) {
+        await this.authService.logout(userIdForLogout);
+      } else {
+        try {
+          const decoded = await this.jwtService.verifyAsync<{ sub: number }>(
+            refreshToken,
+            { secret: jwtConstants.refreshSecret, ignoreExpiration: true },
+          );
+          if (decoded?.sub != null) {
+            await this.authService.logout(decoded.sub);
+          }
+        } catch {
+          // unreadable refresh token: only clear cookies
+        }
+      }
+
+      res.clearCookie('access_token', { path: '/' });
+      res.clearCookie('refresh_token', { path: '/' });
+
+      if (err instanceof UnauthorizedException) {
+        throw err;
+      }
       throw new ForbiddenException('Session invalid or outdated');
     }
   }
@@ -159,8 +206,8 @@ export class AuthController {
     }
 
     // Destroy cookies in the client's browser
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token', { path: '/auth/refresh' });
+    res.clearCookie('access_token', { path: '/' });
+    res.clearCookie('refresh_token', { path: '/' });
 
     return { message: 'Closed session' };
   }

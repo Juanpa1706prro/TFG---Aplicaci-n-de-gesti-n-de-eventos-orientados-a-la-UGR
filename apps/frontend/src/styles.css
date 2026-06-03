@@ -1,14 +1,55 @@
-/* You can add global styles to this file, and also import other style files */
+@import './styles/design-tokens/index.css';
+@import './styles/auth-flow-overlay.css';
+@import './styles/map-overlay-panel.css';
+@import './styles/admin-overlay-panel.css';
+
+/* Estilos globales — design system "The Editorial Academic" */
 html,
 body {
   height: 100%;
   margin: 0;
   padding: 0;
   overflow: hidden; /* Evita scrolls raros en el mapa */
+  font-family: var(--font-body);
+  font-size: var(--text-body-lg);
+  line-height: var(--text-body-lg-lh);
+  color: var(--color-on-surface);
+  background: var(--color-surface);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  color: var(--color-on-surface);
+  font-weight: 700;
 }
 
 app-root {
   display: block;
   height: 100%;
   width: 100%;
+}
+
+/**
+ * Carteles de eventos en el mapa (DOM creado con createElement, fuera de encapsulación Angular).
+ * Los clusters usan las reglas del componente; los eventos necesitan estilos globales.
+ */
+@keyframes ugr-event-map-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.event-map-marker-float {
+  animation: ugr-event-map-float 2.8s ease-in-out infinite;
+}
+
+.event-map-marker-float.map-marker-float--paused {
+  animation-play-state: paused;
 }

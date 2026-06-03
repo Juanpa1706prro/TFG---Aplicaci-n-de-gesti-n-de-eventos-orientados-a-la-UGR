@@ -1,0 +1,39 @@
+/**
+ * Tipografía — Noto Serif (autoridad), Work Sans (lectura), Inter (metadatos)
+ */
+
+:root {
+  --font-display: 'Noto Serif', Georgia, 'Times New Roman', serif;
+  --font-body: 'Work Sans', system-ui, -apple-system, sans-serif;
+  --font-label: 'Inter', system-ui, sans-serif;
+
+  --text-display-lg: 3.5rem;
+  --text-display-lg-lh: 1.1;
+  --text-display-lg-tracking: -0.02em;
+
+  --text-title-lg: 1.375rem;
+  --text-title-lg-lh: 1.35;
+
+  --text-body-lg: 1rem;
+  --text-body-lg-lh: 1.55;
+
+  --text-label-md: 0.75rem;
+  --text-label-md-lh: 1.2;
+  --text-label-md-tracking: 0.05em;
+}
+
+.ugr-font-display {
+  font-family: var(--font-display);
+}
+
+.ugr-font-body {
+  font-family: var(--font-body);
+}
+
+.ugr-font-label {
+  font-family: var(--font-label);
+  font-size: var(--text-label-md);
+  line-height: var(--text-label-md-lh);
+  letter-spacing: var(--text-label-md-tracking);
+  text-transform: uppercase;
+}

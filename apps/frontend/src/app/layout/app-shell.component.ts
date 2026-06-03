@@ -1,0 +1,249 @@
+import { Component, DestroyRef, effect, inject, OnInit, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
+import {
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
+import { filter, interval, map } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { AuthService } from '@core/services/auth.services';
+import { NotificationsService } from '@core/services/notifications.service';
+import { ShellUiService } from '@core/services/shell-ui.service';
+import { MapComponent } from '@features/map/map';
+import { AiAssistantPanelComponent } from '@features/ai-assistant/ai-assistant-panel.component';
+import { NotificationsPanelComponent } from '@features/notifications/notifications-panel.component';
+import { GlobalCapability, SystemRole } from '@core/constants/user-enums';
+import { FullUserPayload, UserProfileDetails } from '@core/interfaces/user.profile-interface';
+import { API_BASE_URL } from '@core/config/api.config';
+import { sessionProfilePhotoUrl } from '@core/utils/image-api.util';
+import { UserSession } from '@core/interfaces/user-interface';
+import {
+  canOpenAdminSidebar,
+  isElevatedSystemRole,
+  systemRoleLabel,
+} from '@core/utils/system-role-display.utils';
+import {
+  ADMIN_SIDEBAR_MENU_ITEMS,
+  AdminSidebarMenuItem,
+} from './admin-sidebar-menu.config';
+
+@Component({
+  selector: 'app-shell',
+  standalone: true,
+  imports: [
+    CommonModule,
+    RouterLink,
+    RouterLinkActive,
+    RouterOutlet,
+    MapComponent,
+    AiAssistantPanelComponent,
+    NotificationsPanelComponent,
+  ],
+  templateUrl: './app-shell.html',
+  styleUrl: './app-shell.css',
+})
+export class AppShellComponent implements OnInit {
+  private readonly API_URL = API_BASE_URL;
+  private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly notificationsService = inject(NotificationsService);
+  readonly shellUi = inject(ShellUiService);
+  readonly adminMenuItems = ADMIN_SIDEBAR_MENU_ITEMS;
+
+  user: UserSession | null = null;
+  profile: UserProfileDetails | null = null;
+
+  /** Pantallas de formulario/overlay: el mapa de fondo no debe capturar ratón. */
+  readonly blocksMapInteraction = signal(false);
+  readonly unreadNotificationCount = signal(0);
+
+  constructor() {
+    effect(() => {
+      void this.shellUi.notificationRefreshTick();
+      this.refreshUnreadCount();
+    });
+  }
+
+  ngOnInit(): void {
+    this.refreshUnreadCount();
+
+    interval(60_000)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (document.visibilityState === 'visible') {
+          this.refreshUnreadCount();
+        }
+      });
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.onVisibilityChange);
+      this.destroyRef.onDestroy(() => {
+        document.removeEventListener('visibilitychange', this.onVisibilityChange);
+      });
+    }
+    this.blocksMapInteraction.set(this.urlBlocksMap(this.router.url));
+    this.router.events
+      .pipe(
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+        map((e) => e.urlAfterRedirects),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((url) => this.blocksMapInteraction.set(this.urlBlocksMap(url)));
+
+    this.auth.currentUser$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((user) => {
+        this.user = user;
+      });
+
+    this.http
+      .get<{ user: FullUserPayload }>(`${this.API_URL}/user/profile`)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          this.profile = res.user.profile;
+        },
+        error: () => {
+          this.profile = null;
+        },
+      });
+  }
+
+  get username(): string {
+    if (this.profile?.userName?.trim()) {
+      return this.profile.userName.trim();
+    }
+    return this.user?.email.split('@')[0] ?? 'Usuario';
+  }
+
+  get avatarInitials(): string {
+    return this.username.slice(0, 2).toUpperCase();
+  }
+
+  get sessionProfilePhotoSrc(): string {
+    return sessionProfilePhotoUrl();
+  }
+
+  get canCreateEvents(): boolean {
+    return (
+      this.user?.globalCapabilities.includes(
+        GlobalCapability.CREATE_AND_MANAGE_OWN_EVENTS,
+      ) === true
+    );
+  }
+
+  get showOperatorRoleEntry(): boolean {
+    return isElevatedSystemRole(this.user?.role);
+  }
+
+  get operatorRoleLabel(): string {
+    return systemRoleLabel(this.user?.role);
+  }
+
+  get isAdminRole(): boolean {
+    return this.user?.role === SystemRole.ADMIN;
+  }
+
+  get sidebarAriaLabel(): string {
+    switch (this.shellUi.sidebarView()) {
+      case 'settings':
+        return 'Configuración';
+      case 'admin':
+        return 'Administración';
+      default:
+        return 'Navegación principal';
+    }
+  }
+
+  toggleSidebar(): void {
+    this.shellUi.toggleSidebar();
+  }
+
+  closeSidebar(): void {
+    this.shellUi.closeSidebar();
+  }
+
+  openSettingsSidebar(): void {
+    this.shellUi.openSettingsSidebar();
+  }
+
+  onOperatorRoleClick(): void {
+    if (!canOpenAdminSidebar(this.user?.role)) {
+      return;
+    }
+    this.shellUi.openAdminSidebar();
+  }
+
+  onAdminMenuItemClick(item: AdminSidebarMenuItem): void {
+    if (this.user == null || !this.isAdminMenuItemEnabled(item)) {
+      return;
+    }
+    this.shellUi.closeSidebar();
+    const base = ['/u', this.user.userNumber, 'admin'] as const;
+    if (item.id === 'users') {
+      void this.router.navigate([...base, 'users']);
+    } else if (item.id === 'events') {
+      void this.router.navigate([...base, 'events']);
+    }
+  }
+
+  isAdminMenuItemEnabled(item: AdminSidebarMenuItem): boolean {
+    return item.id === 'users' || item.id === 'events';
+  }
+
+  backToMainSidebar(): void {
+    this.shellUi.backToMainSidebar();
+  }
+
+  toggleAssistant(): void {
+    this.shellUi.toggleAssistant();
+  }
+
+  toggleNotifications(): void {
+    this.shellUi.toggleNotifications();
+    if (this.shellUi.notificationsOpen()) {
+      this.refreshUnreadCount();
+    }
+  }
+
+  unreadBadgeLabel(): string {
+    const count = this.unreadNotificationCount();
+    if (count <= 0) {
+      return '';
+    }
+    return count > 99 ? '99+' : String(count);
+  }
+
+  logout(): void {
+    void this.auth.logout().subscribe();
+  }
+
+  private readonly onVisibilityChange = (): void => {
+    if (document.visibilityState === 'visible') {
+      this.refreshUnreadCount();
+    }
+  };
+
+  private refreshUnreadCount(): void {
+    this.notificationsService.getUnreadCount().subscribe({
+      next: (res) => this.unreadNotificationCount.set(res.count),
+      error: () => this.unreadNotificationCount.set(0),
+    });
+  }
+
+  private urlBlocksMap(url: string): boolean {
+    return (
+      /\/events\/new(\/|$)/.test(url) ||
+      /\/events\/\d+\/edit(\/|$)/.test(url) ||
+      /\/profile(\/|$)/.test(url) ||
+      /\/account(\/|$)/.test(url) ||
+      /\/admin(\/|$)/.test(url)
+    );
+  }
+}

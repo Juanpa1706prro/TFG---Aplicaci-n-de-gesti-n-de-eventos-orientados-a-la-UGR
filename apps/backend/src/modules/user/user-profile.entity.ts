@@ -6,13 +6,18 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { User } from './user.entity';
-import { UserFaculty, UserGender, UserCampus, UserDegree } from './user-enums';
+import { UserGender } from './user-enums';
 
+// -------------------------------------------------------------------
+// User profile entity
+// Public identity and personal data (table `user_profiles`).
+// -------------------------------------------------------------------
 @Entity('user_profiles')
 export class UserProfile {
   // ------------------------------------------------------------
-  // Atributes.
+  // Attributes
   // ------------------------------------------------------------
+
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -21,8 +26,6 @@ export class UserProfile {
 
   @Column({ unique: true })
   userNumber: number;
-
-  //--- Personal Data ---
 
   @Column({ nullable: true })
   firstName: string;
@@ -34,32 +37,22 @@ export class UserProfile {
   birthDate: Date;
 
   @Column({ type: 'enum', enum: UserGender, nullable: true })
-  gender: UserGender; 
+  gender: UserGender;
 
   @Column({ nullable: true })
   phoneNumber: string;
 
-  // --- Academic Data ---
-
-  @Column({ type: 'enum', enum: UserFaculty, nullable: true })
-  faculty: UserFaculty;
-
-  @Column({ type: 'enum', enum: UserCampus, nullable: true })
-  campus: UserCampus;
-
-  @Column({ type: 'enum', enum: UserDegree, nullable: true })
-  degree: UserDegree;
-
-  // --- Other data ---
-
   @Column({ type: 'text', nullable: true })
   bio: string;
 
-  @Column({ nullable: true })
-  profilePicture: string;
+  @Column({ type: 'bytea', nullable: true })
+  profilePictureData: Buffer | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  profilePictureMimeType: string | null;
 
   // ------------------------------------------------------------
-  // Relations.
+  // Relations
   // ------------------------------------------------------------
 
   @OneToOne(() => User, { onDelete: 'CASCADE' })

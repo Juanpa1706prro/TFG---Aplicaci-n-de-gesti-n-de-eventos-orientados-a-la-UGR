@@ -1,0 +1,136 @@
+<app-column-overlay (close)="closeToMap()">
+  <div class="profile-container">
+    <div class="profile-card profile-card--edit">
+      <header class="profile-edit-header">
+        <p class="profile-edit-eyebrow ugr-font-label">Perfil</p>
+        <h1>Editar datos</h1>
+        <p class="profile-edit-lead">
+          Actualiza tu información personal visible en el perfil.
+        </p>
+      </header>
+
+      @if (loading()) {
+        <p class="loading-state" role="status">Cargando datos…</p>
+      } @else if (loadError()) {
+        <p class="ugr-auth-banner ugr-auth-banner--error" role="alert">
+          No se han podido cargar tus datos.
+        </p>
+        <button type="button" class="ugr-btn-secondary" (click)="cancel()">
+          Volver al perfil
+        </button>
+      } @else {
+        @if (errorMessage(); as err) {
+          <p class="ugr-auth-banner ugr-auth-banner--error" role="alert">{{ err }}</p>
+        }
+
+        <form [formGroup]="form" (ngSubmit)="submit()" class="profile-edit-form" novalidate>
+          <h2 class="profile-edit-section-title">Datos personales</h2>
+          <div class="profile-grid">
+            <div class="ugr-field">
+              <label for="edit-firstName">Nombre <span class="ugr-req">*</span></label>
+              <input
+                id="edit-firstName"
+                class="ugr-input"
+                type="text"
+                formControlName="firstName"
+              />
+            </div>
+            <div class="ugr-field">
+              <label for="edit-lastName">Apellidos <span class="ugr-req">*</span></label>
+              <input
+                id="edit-lastName"
+                class="ugr-input"
+                type="text"
+                formControlName="lastName"
+              />
+            </div>
+          </div>
+
+          <div class="ugr-field">
+            <label for="edit-gender">Género</label>
+            <select id="edit-gender" class="ugr-select" formControlName="gender">
+              <option [ngValue]="null">Sin especificar</option>
+              @for (g of genderOptions; track g) {
+                <option [ngValue]="g">{{ g }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="ugr-field">
+            <label for="edit-birthDate">Fecha de nacimiento</label>
+            <input
+              id="edit-birthDate"
+              class="ugr-input"
+              type="date"
+              formControlName="birthDate"
+            />
+          </div>
+
+          <div class="ugr-field">
+            <label for="edit-phone">Teléfono</label>
+            <input
+              id="edit-phone"
+              class="ugr-input"
+              type="tel"
+              formControlName="phoneNumber"
+              placeholder="+34 600 000 000"
+            />
+          </div>
+
+          <div class="ugr-field">
+            <label for="edit-bio">Bio</label>
+            <textarea
+              id="edit-bio"
+              class="ugr-textarea"
+              rows="4"
+              formControlName="bio"
+              placeholder="Cuéntanos algo sobre ti (máx. 500 caracteres)"
+            ></textarea>
+          </div>
+
+          <h2 class="profile-edit-section-title">Foto de perfil</h2>
+          <div class="ugr-field profile-edit-photo-field">
+            <label for="edit-picture">Imagen</label>
+            <input
+              id="edit-picture"
+              class="profile-edit-file"
+              type="file"
+              [accept]="imageAccept"
+              (change)="onPhotoSelected($event)"
+            />
+            <p class="ugr-field-hint">JPEG, PNG o WebP. Máximo 2 MB.</p>
+            @if (photoFieldError) {
+              <p class="ugr-field-error">{{ photoFieldError }}</p>
+            }
+            @if (photoPreviewUrl) {
+              <div class="profile-edit-photo-preview">
+                <img [src]="photoPreviewUrl" alt="Vista previa de la foto de perfil" />
+                <button type="button" class="ugr-btn-secondary" (click)="clearPhoto()">
+                  Quitar foto
+                </button>
+              </div>
+            }
+          </div>
+
+          <div class="profile-edit-actions">
+            <button
+              type="submit"
+              class="ugr-btn-primary"
+              [disabled]="submitting()"
+            >
+              {{ submitting() ? 'Guardando…' : 'Guardar cambios' }}
+            </button>
+            <button
+              type="button"
+              class="ugr-btn-secondary"
+              [disabled]="submitting()"
+              (click)="cancel()"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      }
+    </div>
+  </div>
+</app-column-overlay>

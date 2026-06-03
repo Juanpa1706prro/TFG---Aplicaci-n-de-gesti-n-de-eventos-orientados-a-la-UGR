@@ -1,13 +1,1276 @@
-/* Esto hace que el "tag" <app-map> ocupe espacio */
 :host {
   display: block;
   width: 100%;
   height: 100%;
 }
 
+.map-page {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.map-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  width: 100%;
+  align-items: stretch;
+  position: relative;
+}
+
+/* Área del mapa + controles (no cubre el sidebar de detalle) */
+.map-viewport {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
 .map-container {
-  width: 100vw; /* 100% del ancho de la ventana */
-  height: 100vh; /* 100% del alto de la ventana */
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Luz rasante solo sobre el lienzo (los marcadores quedan por encima). */
+.map-container--dawn ::ng-deep .maplibregl-canvas-container::after,
+.map-container--sunset ::ng-deep .maplibregl-canvas-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.map-container--dawn ::ng-deep .maplibregl-canvas-container::after {
+  mix-blend-mode: soft-light;
+}
+
+/* Amanecer: franja fina cálida en el horizonte + cielo ligeramente frío. */
+.map-container--dawn ::ng-deep .maplibregl-canvas-container::after {
+  background:
+    linear-gradient(
+      to top,
+      rgba(255, 214, 170, 0.2) 0%,
+      rgba(255, 232, 205, 0.07) 14%,
+      transparent 38%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(200, 220, 240, 0.12) 0%,
+      transparent 28%
+    );
+}
+
+/* Atardecer: horizonte anaranjado + bruma cálida sobre el mapa. */
+.map-container--sunset ::ng-deep .maplibregl-canvas-container::after {
+  mix-blend-mode: soft-light;
+  background:
+    linear-gradient(
+      to top,
+      rgba(255, 138, 65, 0.34) 0%,
+      rgba(255, 175, 115, 0.18) 20%,
+      rgba(255, 195, 140, 0.07) 40%,
+      transparent 58%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 185, 125, 0.09) 0%,
+      rgba(255, 155, 90, 0.06) 45%,
+      transparent 75%
+    );
+}
+
+/* Atardecer: filtro naranja un poco más presente. */
+.map-container--sunset ::ng-deep .maplibregl-canvas {
+  filter: saturate(1.26) sepia(0.14) hue-rotate(-12deg) brightness(1.05);
+}
+
+/* Noche (Fiord): legible, parques y agua con color. */
+.map-container--night ::ng-deep .maplibregl-canvas {
+  filter: brightness(1.2) contrast(0.94) saturate(1.05);
+}
+
+.map-map-controls--hidden,
+.map-theme-toolbar--hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Por debajo del sidebar (z-index 20–30) */
+.map-map-controls {
+  position: absolute;
+  left: 50%;
+  bottom: 1.1rem;
+  z-index: 12;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.map-locate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--border-ghost);
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-on-surface);
+  background: color-mix(in srgb, var(--color-surface-container-lowest) 96%, transparent);
+  box-shadow: var(--shadow-ambient);
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.map-locate-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface-container-lowest));
+  color: var(--color-primary);
+}
+
+.map-locate-btn:disabled {
+  opacity: 0.75;
+  cursor: wait;
+}
+
+.map-locate-btn__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+/* Estilo del mapa: arriba a la derecha; comprimido, menú al hover */
+.map-theme-toolbar {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  z-index: 12;
+  pointer-events: auto;
+}
+
+.map-theme-control {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.map-theme-control__current {
+  display: inline-block;
+  padding: 0.2rem 0.42rem;
+  border-radius: 5px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: var(--color-on-surface);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
+  backdrop-filter: blur(6px);
+  cursor: default;
+  white-space: nowrap;
+}
+
+.map-theme-control__menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  padding-top: 0.3rem;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 100%;
+  padding: 2px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(6px);
+  z-index: 2;
+}
+
+/* Puente invisible para no perder el hover al bajar al menú */
+.map-theme-control__menu::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 0.3rem;
+}
+
+.map-theme-control:hover .map-theme-control__menu,
+.map-theme-control:focus-within .map-theme-control__menu {
+  display: flex;
+}
+
+.map-theme-btn {
+  border: none;
+  margin: 0;
+  padding: 0.2rem 0.42rem;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: var(--color-on-surface-variant);
+  background: transparent;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.map-theme-btn:hover:not(.map-theme-btn--active) {
+  color: var(--color-on-surface);
+  background: rgba(241, 245, 249, 0.95);
+}
+
+.map-theme-btn--active {
+  color: var(--color-on-surface);
+  background: var(--color-surface-container-high);
+}
+
+.map-theme-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+/* Ocultar atribución MapLibre / OpenFreeMap si el estilo la inyecta */
+:host ::ng-deep .maplibregl-ctrl-attrib,
+:host ::ng-deep .maplibregl-ctrl-logo {
+  display: none !important;
+}
+
+/* Solo brújula: ocultar zoom por si el control del estilo lo añade */
+:host ::ng-deep .maplibregl-ctrl-zoom-in,
+:host ::ng-deep .maplibregl-ctrl-zoom-out {
+  display: none !important;
+}
+
+/* Marcador flotante: tamaño fijo en px (viewport); MapLibre solo lo desplaza */
+:host ::ng-deep .event-map-marker-root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+:host ::ng-deep .event-map-marker-float {
+  pointer-events: auto;
+  margin-bottom: 6px;
+  /* La animación vive en src/styles.css (DOM dinámico); ver applyEventMarkerFloatAnimation */
+}
+
+@keyframes event-marker-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* Pausa de flotación (clase en cada .event-map-marker-float / .event-map-cluster-float) */
+:host ::ng-deep .event-map-marker-float.map-marker-float--paused,
+:host ::ng-deep .event-map-cluster-float.map-marker-float--paused {
+  animation-play-state: paused;
+}
+
+:host ::ng-deep .map-marker-float--paused .event-map-marker,
+:host ::ng-deep .map-marker-float--paused .event-map-cluster {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host ::ng-deep .event-map-marker-float,
+  :host ::ng-deep .event-map-cluster-float {
+    animation: none;
+  }
+}
+
+:host ::ng-deep .event-map-marker__shadow {
+  display: block;
+  width: 56px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(15, 23, 42, 0.5) 0%,
+    rgba(15, 23, 42, 0.22) 45%,
+    transparent 72%
+  );
+  transform: scaleY(0.5);
+  filter: blur(1.5px);
+  flex-shrink: 0;
+}
+
+:host ::ng-deep .event-map-marker {
+  display: flex;
+  flex-direction: column;
+  width: 128px;
+  max-width: 128px;
+  flex-shrink: 0;
   margin: 0;
   padding: 0;
+  border: none;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+  background: var(--color-surface-container-lowest);
+  box-shadow:
+    0 6px 18px rgba(15, 23, 42, 0.28),
+    0 2px 6px rgba(15, 23, 42, 0.18);
+  transform-origin: center bottom;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+:host ::ng-deep .event-map-marker:hover {
+  box-shadow:
+    0 10px 26px rgba(15, 23, 42, 0.38),
+    0 4px 10px rgba(15, 23, 42, 0.22);
+  transform: scale(1.03);
+}
+
+/* Sin borde de estado por defecto (upcoming / ended). */
+:host ::ng-deep .event-map-marker--public,
+:host ::ng-deep .event-map-marker--private {
+  box-shadow:
+    0 6px 18px rgba(15, 23, 42, 0.28),
+    0 2px 6px rgba(15, 23, 42, 0.18);
+}
+
+:host ::ng-deep .event-map-marker-phase--live:not(.event-map-marker--selected) {
+  box-shadow:
+    0 6px 18px rgba(15, 23, 42, 0.28),
+    0 0 0 2px #16a34a;
+}
+
+:host ::ng-deep .event-map-marker-phase--ending:not(.event-map-marker--selected) {
+  box-shadow:
+    0 6px 18px rgba(15, 23, 42, 0.28),
+    0 0 0 2px #dc2626;
+}
+
+:host ::ng-deep .event-map-marker--selected {
+  transform: scale(1.06);
+  box-shadow:
+    0 12px 30px rgba(15, 23, 42, 0.4),
+    0 0 0 3px var(--color-outline);
+}
+
+:host ::ng-deep .event-map-marker__photo {
+  width: 100%;
+  height: 64px;
+  background: var(--color-surface-container-high);
+  flex-shrink: 0;
+}
+
+:host ::ng-deep .event-map-marker__photo--empty {
+  background:
+    linear-gradient(135deg, var(--color-surface-container-high) 0%, var(--color-outline) 100%)
+    center / cover no-repeat;
+}
+
+:host ::ng-deep .event-map-marker__photo--empty::after {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' fill='%23f8fafc' viewBox='0 0 16 16'%3E%3Cpath d='M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0'/%3E%3Cpath d='M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v.217l7.235 4.27a1 1 0 0 0 1.53-.957L12.5 6.5l-2.755-1.63a1 1 0 0 0-1.09.013L2 9.823V4z'/%3E%3C/svg%3E")
+    center / 28px no-repeat;
+  opacity: 0.85;
+}
+
+:host ::ng-deep .event-map-marker__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+:host ::ng-deep .event-map-marker__body {
+  padding: 6px 8px 8px;
+  background: #fff;
+}
+
+:host ::ng-deep .event-map-marker__title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-on-surface);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+:host ::ng-deep .event-map-marker__time {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+/* Vista lejana: un punto por evento (sin agrupar en mega-cluster) */
+:host ::ng-deep .event-map-marker-root--dot {
+  pointer-events: none;
+}
+
+:host ::ng-deep .event-map-marker-dot {
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+:host ::ng-deep .event-map-marker-dot--public,
+:host ::ng-deep .event-map-marker-dot--private {
+  background: var(--color-on-surface-variant);
+}
+
+:host ::ng-deep .event-map-marker-dot.event-map-marker-phase--live:not(
+    .event-map-marker-dot--selected
+  ) {
+  background: #16a34a;
+}
+
+:host ::ng-deep .event-map-marker-dot.event-map-marker-phase--ending:not(
+    .event-map-marker-dot--selected
+  ) {
+  background: #dc2626;
+}
+
+:host ::ng-deep .event-map-marker-dot.event-map-marker-phase--ended:not(
+    .event-map-marker-dot--selected
+  ) {
+  background: var(--color-on-surface-variant);
+}
+
+:host ::ng-deep .event-map-marker-dot:hover {
+  transform: scale(1.2);
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.45);
+}
+
+:host ::ng-deep .event-map-marker-dot--selected {
+  transform: scale(1.35);
+  background: var(--color-outline);
+  box-shadow:
+    0 0 0 2px var(--color-surface-container-high),
+    0 3px 12px rgba(15, 23, 42, 0.45);
+}
+
+:host ::ng-deep .event-map-marker-dot__shadow {
+  display: block;
+  width: 18px;
+  height: 6px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(15, 23, 42, 0.4) 0%,
+    transparent 70%
+  );
+  transform: scaleY(0.6);
+  filter: blur(1px);
+  flex-shrink: 0;
+}
+
+/* Agrupación: esfera con recuento */
+:host ::ng-deep .event-map-cluster-root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+:host ::ng-deep .event-map-cluster-float {
+  pointer-events: auto;
+  margin-bottom: 4px;
+  animation: event-marker-float 2.8s ease-in-out infinite;
+}
+
+:host ::ng-deep .event-map-cluster__shadow {
+  display: block;
+  width: 40px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(15, 23, 42, 0.45) 0%,
+    transparent 72%
+  );
+  transform: scaleY(0.5);
+  filter: blur(1px);
+}
+
+:host ::ng-deep .event-map-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  background: var(--gradient-primary-cta);
+  color: var(--color-on-primary);
+  box-shadow:
+    0 8px 20px color-mix(in srgb, var(--color-primary) 40%, transparent),
+    0 0 0 2px rgba(255, 255, 255, 0.85);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+:host ::ng-deep .event-map-cluster:hover {
+  transform: scale(1.06);
+  box-shadow:
+    0 10px 24px color-mix(in srgb, var(--color-primary-fixed-dim) 55%, transparent),
+    0 0 0 3px #fbbf24;
+}
+
+:host ::ng-deep .event-map-cluster__count {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Panel modal cluster: estilos base en styles/map-overlay-panel.css */
+
+/* Panel de detalle (derecha): superficie editorial clara. */
+.map-detail-panel {
+  position: relative;
+  z-index: 10;
+  width: min(380px, 42vw);
+  flex-shrink: 0;
+  overflow: auto;
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+  box-shadow: var(--shadow-ambient);
+  padding: var(--spacing-4) var(--spacing-4) var(--spacing-5);
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+}
+
+.map-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-3);
+  padding-bottom: var(--spacing-3);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-primary) 4%, var(--color-surface-container-lowest)) 0%,
+    var(--color-surface-container-lowest) 100%
+  );
+}
+
+.map-detail-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--color-on-surface);
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.map-detail-close {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border-ghost);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container-low);
+  color: var(--color-on-surface);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.map-detail-close:hover {
+  background: var(--color-surface-container-high);
+  color: var(--color-primary);
+}
+
+.map-detail-photo {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: var(--spacing-3);
+  background: var(--color-surface-container-high);
+}
+
+.map-detail-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.map-detail-photo--empty {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-primary) 20%, var(--color-surface-container-high)),
+    color-mix(in srgb, var(--color-secondary) 18%, var(--color-surface-container-high))
+  );
+}
+
+.map-detail-photo--empty::after {
+  content: 'Sin imagen';
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--color-on-surface-variant);
+  font-size: 0.85rem;
+}
+
+.map-detail-time {
+  margin: 0 0 var(--spacing-3);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-primary);
+}
+
+.map-detail-muted {
+  margin: 0 0 var(--spacing-3);
+  font-size: 0.82rem;
+  color: var(--color-on-surface-variant);
+}
+
+.map-detail-muted--inset {
+  padding: 0 0.35rem 0.5rem;
+}
+
+.map-detail-creator {
+  margin: 0 0 var(--spacing-3);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--color-on-surface);
+}
+
+.map-detail-creator-link {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.map-detail-creator-link:hover {
+  text-decoration: underline;
+}
+
+.map-detail-accordion {
+  margin: 0 0 var(--spacing-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container-low);
+  overflow: hidden;
+}
+
+.map-detail-accordion__summary {
+  cursor: pointer;
+  list-style: none;
+  padding: var(--spacing-2) var(--spacing-3);
+  font-family: var(--font-label);
+  font-size: var(--text-label-md);
+  font-weight: 600;
+  letter-spacing: var(--text-label-md-tracking);
+  text-transform: uppercase;
+  color: var(--color-on-surface-variant);
+  user-select: none;
+}
+
+.map-detail-accordion__summary::-webkit-details-marker {
+  display: none;
+}
+
+.map-detail-accordion__summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 0.4rem;
+  transition: transform 0.15s ease;
+}
+
+.map-detail-accordion[open] .map-detail-accordion__summary::before {
+  transform: rotate(90deg);
+}
+
+.map-detail-people {
+  list-style: none;
+  margin: 0;
+  padding: 0 0.45rem 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.map-detail-person {
+  margin: 0;
+  min-width: 0;
+}
+
+.map-detail-person__link {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.35rem 0.4rem;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.map-detail-person__link:hover {
+  background: var(--color-surface-bright);
+}
+
+.map-detail-person__avatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--color-on-surface-variant);
+}
+
+.map-detail-person__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.map-detail-person__avatar--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-on-primary);
+  background: var(--gradient-primary-cta);
+}
+
+.map-detail-person__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.84rem;
+  line-height: 1.35;
+  color: var(--color-on-surface);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.map-detail-attend-btn {
+  display: block;
+  width: 100%;
+  margin: 0 0 var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-4);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--gradient-primary-cta);
+  color: var(--color-on-primary);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.map-detail-attend-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.map-detail-attend-btn--joined {
+  background: var(--color-surface-container-high);
+  color: var(--color-on-surface);
+  border: 1px solid var(--border-ghost);
+}
+
+.map-detail-attend-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.map-detail-rsvp-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-2);
+  margin: 0 0 var(--spacing-3);
+}
+
+.map-detail-rsvp-actions .map-detail-attend-btn {
+  margin: 0;
+}
+
+.map-detail-rsvp-btn {
+  padding: var(--spacing-3) var(--spacing-4);
+  border: 1px solid var(--border-ghost);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container-high);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.map-detail-rsvp-btn--reject:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface-container-high));
+  color: var(--color-primary);
+}
+
+.map-detail-rsvp-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.map-detail-rsvp-status {
+  margin: 0 0 var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-4);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-secondary) 10%, var(--color-surface-container-low));
+  color: var(--color-secondary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.map-detail-meeting-participant {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.map-detail-meeting-participant .map-detail-person__link {
+  min-width: 0;
+}
+
+.map-detail-meeting-participant__check {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--border-ghost);
+  color: transparent;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.map-detail-meeting-participant__check--confirmed {
+  border-color: color-mix(in srgb, var(--color-secondary) 45%, transparent);
+  background: color-mix(in srgb, var(--color-secondary) 12%, var(--color-surface-container-lowest));
+  color: var(--color-secondary);
+}
+
+.map-detail-meeting-participant__status {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-on-surface-variant);
+}
+
+.map-detail-meeting-participant__status--confirmed {
+  color: var(--color-secondary);
+}
+
+.map-detail-error {
+  margin: calc(var(--spacing-2) * -1) 0 var(--spacing-3);
+  font-size: 0.8rem;
+  color: var(--color-primary);
+  line-height: 1.4;
+}
+
+.map-detail-owner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.65rem 0 0.25rem;
+}
+
+.map-detail-owner-btn {
+  flex: 1;
+  min-width: 7.5rem;
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-family: system-ui, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.map-detail-owner-btn--edit {
+  color: var(--color-on-secondary-container);
+  background: color-mix(in srgb, var(--color-secondary) 12%, var(--color-surface-container-lowest));
+  border-color: var(--color-secondary-container);
+}
+
+.map-detail-owner-btn--edit:hover {
+  background: color-mix(in srgb, var(--color-secondary) 18%, var(--color-surface-container-lowest));
+}
+
+.map-detail-owner-btn--delete {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface-container-lowest));
+  border-color: color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+.map-detail-owner-btn--delete:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface-container-lowest));
+}
+
+.map-detail-owner-btn--secondary {
+  color: var(--color-on-surface);
+  background: var(--color-surface-container-low);
+  border-color: var(--border-ghost);
+}
+
+.map-detail-owner-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.map-detail-invite-btn {
+  margin-top: 0.55rem;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container-low);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.map-detail-invite-btn:hover {
+  background: var(--color-surface-container-high);
+}
+
+.map-detail-directions {
+  margin: 0 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.map-detail-travel-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-2);
+  padding: var(--spacing-1);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container-low);
+}
+
+.map-detail-travel-mode__btn {
+  padding: var(--spacing-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-on-surface-variant);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.map-detail-travel-mode__btn:hover:not(:disabled) {
+  color: var(--color-on-surface);
+  background: var(--color-surface-container-high);
+}
+
+.map-detail-travel-mode__btn--active {
+  background: var(--gradient-primary-cta);
+  color: var(--color-on-primary);
+}
+
+.map-detail-travel-mode__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.map-detail-directions-btn {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: var(--spacing-3) var(--spacing-4);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--gradient-primary-cta);
+  color: var(--color-on-primary);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.map-detail-directions-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.map-detail-directions-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.map-detail-directions-external {
+  display: block;
+  width: 100%;
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--border-ghost);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.map-detail-directions-external:hover {
+  background: var(--color-surface-container-low);
+}
+
+.map-detail-route-summary {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.map-detail-route-attribution {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--color-on-surface-variant);
+}
+
+.map-detail-route-clear {
+  align-self: flex-start;
+  padding: var(--spacing-1) var(--spacing-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-container-low);
+  color: var(--color-on-surface);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.map-detail-route-clear:hover {
+  background: var(--color-surface-container-high);
+  color: var(--color-primary);
+}
+
+.map-detail-directions-error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-primary);
+  line-height: 1.35;
+}
+
+.map-detail-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.map-detail-row {
+  margin: 0;
+}
+
+.map-detail-row dt {
+  font-family: var(--font-label);
+  font-size: var(--text-label-md);
+  font-weight: 600;
+  letter-spacing: var(--text-label-md-tracking);
+  text-transform: uppercase;
+  color: var(--color-on-surface-variant);
+  margin-bottom: var(--spacing-1);
+}
+
+.map-detail-row dd {
+  margin: 0;
+  color: var(--color-on-surface);
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 720px) {
+  .map-body {
+    flex-direction: column;
+  }
+
+  .map-detail-panel {
+    width: 100%;
+    max-height: 45vh;
+    box-shadow: none;
+    border-top: 1px solid var(--border-ghost);
+  }
+}
+
+/* Tu ubicación — patrón «blue dot» (Google Maps / MapLibre GeolocateControl). */
+:host ::ng-deep .ugr-user-location {
+  position: relative;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+:host ::ng-deep .ugr-user-location__accuracy {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, transparent);
+  box-sizing: border-box;
+  transition: width 0.35s ease, height 0.35s ease;
+}
+
+:host ::ng-deep .ugr-user-location__pulse {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-primary) 28%, transparent);
+  animation: ugr-user-location-pulse 2.4s ease-out infinite;
+}
+
+:host ::ng-deep .ugr-user-location__stem {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 4px;
+  height: 30px;
+  margin-left: -2px;
+  border-radius: 3px;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--color-primary) 35%, transparent),
+    var(--color-primary) 55%,
+    var(--color-secondary-container)
+  );
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-primary) 35%, transparent);
+  transform-origin: bottom center;
+}
+
+:host ::ng-deep .ugr-user-location__dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 3px solid #fff;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-primary) 45%, transparent),
+    0 2px 10px rgba(15, 23, 42, 0.28);
+  box-sizing: border-box;
+  transition: top 0.2s ease, bottom 0.2s ease, margin 0.2s ease;
+}
+
+/* Vista inclinada (3D): poste vertical + punto; sin anillo plano en el suelo. */
+:host ::ng-deep .ugr-user-location--pitched .ugr-user-location__accuracy,
+:host ::ng-deep .ugr-user-location--pitched .ugr-user-location__pulse {
+  display: none;
+}
+
+:host ::ng-deep .ugr-user-location--pitched .ugr-user-location__stem {
+  display: block;
+}
+
+:host ::ng-deep .ugr-user-location--pitched .ugr-user-location__dot {
+  top: auto;
+  bottom: 30px;
+  margin: 0 0 0 -8px;
+}
+
+:host ::ng-deep .ugr-user-location-ground {
+  width: 18px;
+  height: 10px;
+  margin: -5px 0 0 -9px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-primary) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
+}
+
+@keyframes ugr-user-location-pulse {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.75;
+  }
+  70% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host ::ng-deep .ugr-user-location__pulse {
+    animation: none;
+    opacity: 0.35;
+    transform: scale(1);
+  }
 }

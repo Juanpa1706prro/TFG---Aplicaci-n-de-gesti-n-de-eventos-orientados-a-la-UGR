@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, output } from '@angular/core';
 import {
   ReactiveFormsModule,
   FormBuilder,
@@ -16,25 +16,25 @@ import { AuthService } from '@core/services/auth.services';
   styleUrl: './register.css',
 })
 export class RegisterComponent implements OnInit {
-  // ---- Properties ----
-  registerForm!: FormGroup;
+  readonly registered = output<string>();
 
-  // ---- Constructor ----
+  registerForm!: FormGroup;
+  loading = false;
+  errorMessage: string | null = null;
+
   constructor(
-    private fb: FormBuilder,
-    private authService: AuthService,
+    private readonly fb: FormBuilder,
+    private readonly authService: AuthService,
   ) {}
 
-  // ---- Lifecycle Hooks ----
   ngOnInit(): void {
     this.buildForms();
   }
 
-  // ---- Form Initialization ----
-  protected buildForms() {
+  protected buildForms(): void {
     this.registerForm = this.fb.group(
       {
-        email: ['', [Validators.required, Validators.email]],
+        email: ['', [Validators.required, Validators.email, this.ugrEmail]],
         password: [
           '',
           [
@@ -46,44 +46,56 @@ export class RegisterComponent implements OnInit {
           ],
         ],
         confirmPassword: ['', Validators.required],
+        operatorKey: [''],
       },
       { validators: this.passwordMatchValidator },
     );
   }
 
-  // ---- Actions ----
-
-  /**
-   * Handles the registration form submission.
-   * Validates the form, sends the payload to the backend, and alerts the user of the result.
-   */
   onRegister(): void {
-    if (this.registerForm.valid) {
-      console.log('Enviando datos al servicio...');
-
-      const { email, password } = this.registerForm.value;
-
-      // Llamamos al servicio y NOS SUSCRIBIMOS para que se ejecute
-      this.authService.register({ email, password }).subscribe({
-        next: (res) => {
-          console.log('¡Respuesta del servidor!', res);
-          alert('Usuario creado con éxito');
-        },
-        error: (err) => {
-          console.error('El servidor ha rechazado la petición:', err);
-          alert('Error: ' + (err.error?.message || 'No se pudo conectar con el servidor'));
-        },
-      });
+    if (!this.registerForm.valid || this.loading) {
+      this.registerForm.markAllAsTouched();
+      return;
     }
+
+    const { email, password, operatorKey } = this.registerForm.value;
+    const payload: { email: string; password: string; operatorKey?: string } = {
+      email,
+      password,
+    };
+    const key = (operatorKey as string)?.trim();
+    if (key) {
+      payload.operatorKey = key;
+    }
+
+    this.loading = true;
+    this.errorMessage = null;
+
+    this.authService.register(payload).subscribe({
+      next: () => {
+        this.loading = false;
+        this.registerForm.reset();
+        this.registered.emit('Cuenta creada. Ya puedes iniciar sesión.');
+      },
+      error: (err) => {
+        this.loading = false;
+        this.errorMessage =
+          err?.error?.message ?? 'No se pudo crear la cuenta. Inténtalo de nuevo.';
+      },
+    });
   }
 
-  // ---- Custom Validators ----
+  protected ugrEmail(control: AbstractControl): ValidationErrors | null {
+    const raw = (control.value as string)?.trim().toLowerCase();
+    if (!raw) {
+      return null;
+    }
+    if (raw.endsWith('@correo.ugr.es') || raw.endsWith('@ugr.es')) {
+      return null;
+    }
+    return { ugrEmail: true };
+  }
 
-  /**
-   * Validates that the control's value contains at least one uppercase letter.
-   * @param {AbstractControl} control - The form control to validate.
-   * @returns {ValidationErrors | null} An error object if validation fails, else null.
-   */
   protected hasUppercase(control: AbstractControl): ValidationErrors | null {
     const value = control.value;
     if (value && !/[A-Z]/.test(value)) {
@@ -92,11 +104,6 @@ export class RegisterComponent implements OnInit {
     return null;
   }
 
-  /**
-   * Validates that the control's value contains at least one number.
-   * @param {AbstractControl} control - The form control to validate.
-   * @returns {ValidationErrors | null} An error object if validation fails, else null.
-   */
   protected hasNumber(control: AbstractControl): ValidationErrors | null {
     const value = control.value;
     if (value && !/\d/.test(value)) {
@@ -105,11 +112,6 @@ export class RegisterComponent implements OnInit {
     return null;
   }
 
-  /**
-   * Validates that the control's value contains at least one special character.
-   * @param {AbstractControl} control - The form control to validate.
-   * @returns {ValidationErrors | null} An error object if validation fails, else null.
-   */
   protected hasSpecialCharacter(control: AbstractControl): ValidationErrors | null {
     const value = control.value;
     if (value && !/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
@@ -118,11 +120,6 @@ export class RegisterComponent implements OnInit {
     return null;
   }
 
-  /**
-   * Validates that the password and confirmPassword fields match.
-   * @param {AbstractControl} control - The form group containing both password fields.
-   * @returns {ValidationErrors | null} An error object if validation fails, else null.
-   */
   protected passwordMatchValidator(control: AbstractControl): ValidationErrors | null {
     const password = control.get('password')?.value;
     const confirmPassword = control.get('confirmPassword')?.value;

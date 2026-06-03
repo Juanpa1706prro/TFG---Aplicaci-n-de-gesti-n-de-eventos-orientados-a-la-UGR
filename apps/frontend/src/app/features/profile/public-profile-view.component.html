@@ -1,0 +1,170 @@
+<div class="profile-container">
+  <div class="profile-card">
+    <div class="profile-header">
+      @if (profile().hasProfilePicture) {
+        <img
+          class="profile-avatar"
+          [src]="publicProfilePhotoSrc()"
+          alt="Foto de perfil"
+        />
+      } @else {
+        <div class="profile-avatar profile-avatar-fallback" aria-hidden="true">
+          {{ avatarInitials() }}
+        </div>
+      }
+        <div class="profile-header-text">
+          <p class="profile-context-label">Perfil de</p>
+          <h1>{{ displayTitle() }}</h1>
+          <p class="profile-subtitle">Usuario #{{ profile().userNumber }}</p>
+        </div>
+    </div>
+
+    @if (friendStatus()) {
+      <div class="profile-friend-actions">
+        @switch (friendStatus()) {
+          @case ('none') {
+            <button
+              type="button"
+              class="profile-friend-btn profile-friend-btn--primary ugr-btn-primary"
+              [disabled]="friendActionLoading()"
+              (click)="sendFriendRequest.emit()"
+            >
+              {{ friendActionLoading() ? 'Enviando…' : 'Enviar solicitud de amistad' }}
+            </button>
+          }
+          @case ('pending_outgoing') {
+            <span class="profile-friend-badge profile-friend-badge--pending">
+              Solicitud de amistad enviada
+            </span>
+          }
+          @case ('pending_incoming') {
+            <span class="profile-friend-badge profile-friend-badge--incoming">
+              Te ha enviado una solicitud de amistad
+            </span>
+            <button
+              type="button"
+              class="profile-friend-btn profile-friend-btn--primary ugr-btn-primary"
+              [disabled]="friendActionLoading()"
+              (click)="acceptFriendRequest.emit()"
+            >
+              {{ friendActionLoading() ? 'Procesando…' : 'Aceptar' }}
+            </button>
+            <button
+              type="button"
+              class="profile-friend-btn profile-friend-btn--secondary ugr-btn-secondary"
+              [disabled]="friendActionLoading()"
+              (click)="rejectFriendRequest.emit()"
+            >
+              {{ friendActionLoading() ? 'Procesando…' : 'Rechazar' }}
+            </button>
+          }
+          @case ('friends') {
+            <button
+              type="button"
+              class="profile-friend-badge profile-friend-badge--friends profile-friend-badge--clickable"
+              [disabled]="friendActionLoading()"
+              (click)="openUnfriendConfirm.emit()"
+            >
+              Amigos
+            </button>
+          }
+        }
+        @if (friendActionError()) {
+          <p class="profile-friend-error">{{ friendActionError() }}</p>
+        }
+      </div>
+    }
+
+    <section class="profile-section profile-section--first">
+      <h2>Perfil</h2>
+      <div class="profile-grid">
+        <div class="info-group">
+          <label>Nombre de usuario</label>
+          <p class="data-value">{{ profile().userName }}</p>
+        </div>
+        <div class="info-group">
+          <label>Nombre</label>
+          <p class="data-value">
+            {{ profile().firstName ?? '—' }} {{ profile().lastName ?? '' }}
+          </p>
+        </div>
+      </div>
+
+      @if (profile().staffFunctions.length) {
+        <div class="info-group">
+          <label>Funciones en la UGR</label>
+          <p class="data-value profile-role-chips">
+            @for (fn of profile().staffFunctions; track fn) {
+              <span class="function-chip">{{ staffFunctionChipLabel(fn) }}</span>
+            }
+          </p>
+        </div>
+      }
+
+      @if (profile().bio) {
+        <div class="info-group">
+          <label>Bio</label>
+          <p class="data-value">{{ profile().bio }}</p>
+        </div>
+      }
+    </section>
+
+    @for (section of roleSections(); track section.function) {
+      <section class="profile-section">
+        <h2>{{ section.title }}</h2>
+        <div class="profile-grid">
+          @for (field of section.fields; track field.key) {
+            <div class="info-group">
+              <label>{{ field.label }}</label>
+              <p class="data-value">{{ field.value }}</p>
+            </div>
+          }
+        </div>
+      </section>
+    }
+  </div>
+
+  @if (showUnfriendConfirm()) {
+    <div
+      class="profile-confirm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="unfriend-confirm-title"
+    >
+      <button
+        type="button"
+        class="profile-confirm__dim"
+        aria-label="Cerrar"
+        [disabled]="friendActionLoading()"
+        (click)="closeUnfriendConfirm.emit()"
+      ></button>
+      <div class="profile-confirm__panel">
+        <h2 id="unfriend-confirm-title" class="profile-confirm__title">
+          ¿Dejar de ser amigos?
+        </h2>
+        <p class="profile-confirm__text">
+          ¿Seguro que quieres dejar de ser amigo de
+          <strong>{{ displayName() }}</strong>?
+        </p>
+        <div class="profile-confirm__actions">
+          <button
+            type="button"
+            class="profile-confirm__btn profile-confirm__btn--cancel"
+            [disabled]="friendActionLoading()"
+            (click)="closeUnfriendConfirm.emit()"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="profile-confirm__btn profile-confirm__btn--danger"
+            [disabled]="friendActionLoading()"
+            (click)="confirmUnfriend.emit()"
+          >
+            {{ friendActionLoading() ? 'Eliminando…' : 'Aceptar' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

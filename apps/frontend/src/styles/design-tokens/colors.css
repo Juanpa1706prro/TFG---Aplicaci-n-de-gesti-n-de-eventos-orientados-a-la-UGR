@@ -1,0 +1,44 @@
+/**
+ * UGR Eventos — "The Editorial Academic"
+ * Fuente: DESIGN.md (Burgundy of Knowledge + Granada Blue)
+ *
+ * Usar siempre variables CSS en componentes: var(--color-primary), etc.
+ */
+
+:root {
+  /* —— Marca —— */
+  --color-primary: #9b002e;
+  --color-primary-container: #c8013e;
+  --color-on-primary: #ffffff;
+  --color-primary-fixed-dim: #7a0024;
+
+  /** Granada Blue (secundario; tono base alineado con secondary-container) */
+  --color-secondary: #004a77;
+  --color-secondary-container: #4a96fd;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #002e5f;
+
+  /* —— Superficies (capas de papel) —— */
+  --color-surface: #fcf8f9;
+  --color-surface-container-low: #f6f3f4;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #ebe7e8;
+  --color-surface-bright: #ffffff;
+
+  /* —— Texto —— */
+  --color-on-surface: #1c1b1c;
+  --color-on-surface-variant: #5c3f41;
+
+  /* —— Contornos (evitar bordes opacos al 100 %) —— */
+  --color-outline: #906f70;
+  --color-outline-variant: #e4bdbf;
+
+  /* —— Interacción —— */
+  --color-surface-tint: #be003a;
+
+  /* —— Alias cortos (opcional en plantillas) —— */
+  --ugr-primary: var(--color-primary);
+  --ugr-secondary: var(--color-secondary);
+  --ugr-surface: var(--color-surface);
+  --ugr-on-surface: var(--color-on-surface);
+}

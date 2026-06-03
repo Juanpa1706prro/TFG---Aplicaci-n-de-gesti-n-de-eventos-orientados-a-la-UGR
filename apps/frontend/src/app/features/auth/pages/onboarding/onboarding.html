@@ -1,38 +1,225 @@
-<!doctype html>
-<html>
-  <head>
-    <title>TFG</title>
-  </head>
-  <body>
-    <div class="onboarding-container">
-      <h1>¡Bienvenido a la comunidad UGR! 🎓</h1>
-      <p>Para empezar, necesitamos completar unos datos básicos de tu perfil.</p>
+<div class="ugr-auth-flow">
+  <article class="ugr-auth-flow__panel">
+    <header>
+      <img class="ugr-auth-flow__logo" [src]="logoUrl" [alt]="logoAlt" />
+      <p class="ugr-auth-flow__eyebrow ugr-font-label">Configuración inicial</p>
+      <h1 class="ugr-auth-flow__title">Completa tu perfil</h1>
 
-      <form [formGroup]="onboardingForm" (ngSubmit)="submitProfile()">
-        <div class="row">
-          <input formControlName="firstName" placeholder="Nombre" />
-          <input formControlName="lastName" placeholder="Apellidos" />
+      @if (isCorreoStudent) {
+        <p class="ugr-auth-flow__lead">
+          Tu correo es de <strong>estudiante</strong> (@correo.ugr.es). Indica nombre, apellidos y datos
+          académicos. Los campos de la sección «Opcional» no son necesarios para continuar.
+        </p>
+      } @else if (ugrWizardStep === 1) {
+        <span class="ugr-auth-flow__step">Paso 1 de 2</span>
+        <p class="ugr-auth-flow__lead">
+          Cuenta de personal UGR (@ugr.es). Indica todas las funciones que te representan (puedes marcar
+          varias). En el siguiente paso completarás los datos que correspondan.
+        </p>
+      } @else {
+        <span class="ugr-auth-flow__step">Paso 2 de 2</span>
+        <p class="ugr-auth-flow__lead">
+          Datos personales y los bloques obligatorios según las funciones elegidas.
+        </p>
+      }
+    </header>
+
+    @if (errorMessage) {
+      <p class="ugr-auth-banner ugr-auth-banner--error" role="alert">{{ errorMessage }}</p>
+    }
+
+    @if (isCorreoStudent) {
+      <form [formGroup]="form" (ngSubmit)="submit()" class="onboarding-form">
+        <h2 class="ugr-auth-flow__section-title">Datos personales</h2>
+        <div class="ugr-auth-flow__form-row">
+          <div class="ugr-field">
+            <label for="ob-first">Nombre <span class="ugr-req">*</span></label>
+            <input id="ob-first" class="ugr-input" type="text" formControlName="firstName" />
+          </div>
+          <div class="ugr-field">
+            <label for="ob-last">Apellidos <span class="ugr-req">*</span></label>
+            <input id="ob-last" class="ugr-input" type="text" formControlName="lastName" />
+          </div>
         </div>
 
-        <select formControlName="gender">
-          <option [ngValue]="null" disabled>Selecciona tu Género</option>
-          <option *ngFor="let g of genders" [value]="g">{{ g }}</option>
-        </select>
+        <h2 class="ugr-auth-flow__section-title">Datos académicos <span class="ugr-req">*</span></h2>
+        <div class="ugr-field">
+          <label for="ob-faculty">Facultad / Escuela</label>
+          <select id="ob-faculty" class="ugr-select" formControlName="faculty">
+            <option [ngValue]="null" disabled>Selecciona</option>
+            @for (opt of facultyOptions; track opt.code) {
+              <option [ngValue]="opt.code">{{ opt.label }}</option>
+            }
+          </select>
+        </div>
+        <div class="ugr-field">
+          <label for="ob-campus">Campus principal</label>
+          <select id="ob-campus" class="ugr-select" formControlName="campus">
+            <option [ngValue]="null" disabled>Selecciona</option>
+            @for (kv of campusEntries; track kv[0]) {
+              <option [ngValue]="kv[1]">{{ kv[1] }}</option>
+            }
+          </select>
+        </div>
+        <div class="ugr-field">
+          <label for="ob-degree">Titulación</label>
+          <select id="ob-degree" class="ugr-select" formControlName="degree">
+            <option [ngValue]="null" disabled>Selecciona</option>
+            @for (opt of degreeOptions; track opt.code) {
+              <option [ngValue]="opt.code">{{ opt.label }}</option>
+            }
+          </select>
+        </div>
 
-        <select formControlName="faculty">
-          <option [ngValue]="null" disabled>Selecciona tu Facultad</option>
-          <option *ngFor="let f of faculties" [value]="f">{{ f }}</option>
-        </select>
+        <h2 class="ugr-auth-flow__section-title">Opcional</h2>
+        <p class="ugr-field-hint">No son obligatorios para salir de esta pantalla.</p>
+        <div class="ugr-field">
+          <label for="ob-gender">Género</label>
+          <select id="ob-gender" class="ugr-select" formControlName="gender">
+            <option [ngValue]="null">Prefiero no indicar / más tarde</option>
+            @for (g of genderOptions; track g) {
+              <option [ngValue]="g">{{ g }}</option>
+            }
+          </select>
+        </div>
+        <div class="ugr-field">
+          <label for="ob-birth">Fecha de nacimiento</label>
+          <input id="ob-birth" class="ugr-input" type="date" formControlName="birthDate" />
+        </div>
+        <div class="ugr-field">
+          <label for="ob-phone">Teléfono</label>
+          <input
+            id="ob-phone"
+            class="ugr-input"
+            type="tel"
+            formControlName="phoneNumber"
+            placeholder="+34 600 000 000"
+          />
+        </div>
 
-        <textarea
-          formControlName="bio"
-          placeholder="Cuéntanos un poco sobre ti (opcional)..."
-        ></textarea>
-
-        <button type="submit" [disabled]="onboardingForm.invalid">
-          Completar Registro y entrar al Mapa
-        </button>
+        <div class="ugr-auth-flow__actions">
+          <button type="submit" class="ugr-btn-primary" [disabled]="submitting">
+            {{ submitting ? 'Guardando…' : 'Guardar y continuar' }}
+          </button>
+        </div>
       </form>
-    </div>
-  </body>
-</html>
+    } @else if (ugrWizardStep === 1) {
+      <div class="onboarding-form">
+        <h2 class="ugr-auth-flow__section-title">Función en la UGR <span class="ugr-req">*</span></h2>
+        <p class="ugr-field-hint">Puedes marcar varias.</p>
+        <div class="ugr-chip-grid">
+          @for (opt of staffOptions; track opt.key) {
+            <button
+              type="button"
+              class="ugr-chip"
+              [class.ugr-chip--active]="isSelected(opt.key)"
+              (click)="toggleFn(opt.key)"
+            >
+              {{ opt.label }}
+            </button>
+          }
+        </div>
+        <div class="ugr-auth-flow__actions">
+          <button type="button" class="ugr-btn-primary" (click)="continueUgrStep1()">
+            Continuar
+          </button>
+        </div>
+      </div>
+    } @else {
+      <button type="button" class="ugr-link-back" (click)="backUgrStep1()">
+        ← Cambiar funciones
+      </button>
+
+      <form [formGroup]="form" (ngSubmit)="submit()" class="onboarding-form">
+        <h2 class="ugr-auth-flow__section-title">Datos personales</h2>
+        <div class="ugr-auth-flow__form-row">
+          <div class="ugr-field">
+            <label for="ob2-first">Nombre <span class="ugr-req">*</span></label>
+            <input id="ob2-first" class="ugr-input" type="text" formControlName="firstName" />
+          </div>
+          <div class="ugr-field">
+            <label for="ob2-last">Apellidos <span class="ugr-req">*</span></label>
+            <input id="ob2-last" class="ugr-input" type="text" formControlName="lastName" />
+          </div>
+        </div>
+
+        @if (includesTeachingOrResearch()) {
+          <h2 class="ugr-auth-flow__section-title">Docencia / investigación <span class="ugr-req">*</span></h2>
+          <div class="ugr-field">
+            <label for="ob-dept">Departamento o instituto</label>
+            <input
+              id="ob-dept"
+              class="ugr-input"
+              type="text"
+              formControlName="department"
+              placeholder="Ej.: Departamento de Lenguajes y Sistemas Informáticos"
+            />
+          </div>
+        }
+
+        @if (includesStudent()) {
+          <h2 class="ugr-auth-flow__section-title">Datos académicos (estudiante) <span class="ugr-req">*</span></h2>
+          <div class="ugr-field">
+            <label for="ob2-faculty">Facultad / Escuela</label>
+            <select id="ob2-faculty" class="ugr-select" formControlName="faculty">
+              <option [ngValue]="null" disabled>Selecciona</option>
+              @for (opt of facultyOptions; track opt.code) {
+                <option [ngValue]="opt.code">{{ opt.label }}</option>
+              }
+            </select>
+          </div>
+          <div class="ugr-field">
+            <label for="ob2-campus">Campus principal</label>
+            <select id="ob2-campus" class="ugr-select" formControlName="campus">
+              <option [ngValue]="null" disabled>Selecciona</option>
+              @for (kv of campusEntries; track kv[0]) {
+                <option [ngValue]="kv[1]">{{ kv[1] }}</option>
+              }
+            </select>
+          </div>
+          <div class="ugr-field">
+            <label for="ob2-degree">Titulación</label>
+            <select id="ob2-degree" class="ugr-select" formControlName="degree">
+              <option [ngValue]="null" disabled>Selecciona</option>
+              @for (opt of degreeOptions; track opt.code) {
+                <option [ngValue]="opt.code">{{ opt.label }}</option>
+              }
+            </select>
+          </div>
+        }
+
+        <h2 class="ugr-auth-flow__section-title">Opcional</h2>
+        <p class="ugr-field-hint">No son obligatorios para salir de esta pantalla.</p>
+        <div class="ugr-field">
+          <label for="ob2-gender">Género</label>
+          <select id="ob2-gender" class="ugr-select" formControlName="gender">
+            <option [ngValue]="null">Prefiero no indicar / más tarde</option>
+            @for (g of genderOptions; track g) {
+              <option [ngValue]="g">{{ g }}</option>
+            }
+          </select>
+        </div>
+        <div class="ugr-field">
+          <label for="ob2-birth">Fecha de nacimiento</label>
+          <input id="ob2-birth" class="ugr-input" type="date" formControlName="birthDate" />
+        </div>
+        <div class="ugr-field">
+          <label for="ob2-phone">Teléfono</label>
+          <input
+            id="ob2-phone"
+            class="ugr-input"
+            type="tel"
+            formControlName="phoneNumber"
+            placeholder="+34 600 000 000"
+          />
+        </div>
+
+        <div class="ugr-auth-flow__actions">
+          <button type="submit" class="ugr-btn-primary" [disabled]="submitting">
+            {{ submitting ? 'Guardando…' : 'Guardar y continuar' }}
+          </button>
+        </div>
+      </form>
+    }
+  </article>
+</div>

@@ -1,0 +1,296 @@
+/**
+ * Primitivos reutilizables (botones, inputs). Sin bordes 1px opacos entre secciones.
+ */
+
+.ugr-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-5);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--gradient-primary-cta);
+  color: var(--color-on-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-body-lg);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.ugr-btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+.ugr-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ugr-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-5);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-ghost);
+  background: transparent;
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: var(--text-body-lg);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ugr-btn-secondary:hover {
+  background: var(--color-surface-container-high);
+}
+
+.ugr-surface-card {
+  background: var(--color-surface-container-lowest);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.ugr-surface-card:hover {
+  background: var(--color-surface-bright);
+}
+
+.ugr-glass-panel {
+  background: var(--glass-surface);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+/** Campo editorial (fondo + trazo inferior, sin caja cerrada) */
+.ugr-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-5);
+}
+
+.ugr-field label {
+  font-family: var(--font-label);
+  font-size: var(--text-label-md);
+  font-weight: 600;
+  letter-spacing: var(--text-label-md-tracking);
+  text-transform: uppercase;
+  color: var(--color-on-surface-variant);
+}
+
+.ugr-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--spacing-3) var(--spacing-2);
+  border: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border-bottom: 2px solid var(--color-outline);
+  background: var(--color-surface-container-high);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: var(--text-body-lg);
+  line-height: var(--text-body-lg-lh);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.ugr-input::placeholder {
+  color: color-mix(in srgb, var(--color-on-surface-variant) 55%, transparent);
+}
+
+.ugr-input:hover {
+  background: color-mix(
+    in srgb,
+    var(--color-surface-container-high) 85%,
+    var(--color-surface-container-lowest)
+  );
+}
+
+.ugr-input:focus {
+  outline: none;
+  border-bottom-color: var(--color-primary);
+  background: var(--color-surface-container-lowest);
+  box-shadow: 0 2px 0 0 color-mix(in srgb, var(--color-surface-tint) 35%, transparent);
+}
+
+.ugr-input:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.ugr-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--spacing-3) var(--spacing-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  border-bottom: 2px solid var(--color-outline);
+  background: var(--color-surface-container-high);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: var(--text-body-lg);
+  line-height: var(--text-body-lg-lh);
+  resize: vertical;
+  min-height: 5rem;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.ugr-textarea:focus {
+  outline: none;
+  border-bottom-color: var(--color-primary);
+  background: var(--color-surface-container-lowest);
+}
+
+.ugr-field-error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-primary);
+  line-height: 1.35;
+}
+
+.ugr-field-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-on-surface-variant);
+  line-height: 1.4;
+}
+
+.ugr-auth-banner {
+  margin: 0 0 var(--spacing-5);
+  padding: var(--spacing-3) var(--spacing-4);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-secondary-container) 22%, var(--color-surface));
+  color: var(--color-on-secondary-container);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.ugr-auth-banner--error {
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+  color: var(--color-primary);
+}
+
+.ugr-select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--spacing-3) var(--spacing-2);
+  border: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border-bottom: 2px solid var(--color-outline);
+  background: var(--color-surface-container-high);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: var(--text-body-lg);
+  cursor: pointer;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--color-on-surface-variant) 50%),
+    linear-gradient(135deg, var(--color-on-surface-variant) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% + 2px),
+    calc(100% - 12px) calc(50% + 2px);
+  background-size:
+    6px 6px,
+    6px 6px;
+  background-repeat: no-repeat;
+}
+
+.ugr-select:focus {
+  outline: none;
+  border-bottom-color: var(--color-primary);
+  background-color: var(--color-surface-container-lowest);
+}
+
+.ugr-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-6);
+}
+
+.ugr-chip {
+  border: 1px solid var(--border-ghost);
+  border-radius: 999px;
+  padding: var(--spacing-2) var(--spacing-4);
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.ugr-chip:hover {
+  background: var(--color-surface-container-high);
+}
+
+.ugr-chip--active {
+  border-color: transparent;
+  background: var(--gradient-primary-cta);
+  color: var(--color-on-primary);
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--color-on-primary) 25%, transparent);
+}
+
+.ugr-persona-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+  gap: var(--spacing-4);
+}
+
+.ugr-persona-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-2);
+  text-align: left;
+  padding: var(--spacing-4) var(--spacing-4) var(--spacing-5);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container-low);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.ugr-persona-card:hover:not(:disabled) {
+  background: var(--color-surface-bright);
+}
+
+.ugr-persona-card:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ugr-persona-card__label {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+
+.ugr-persona-card__meta {
+  font-size: 0.78rem;
+  color: var(--color-on-surface-variant);
+}
+
+.ugr-persona-card__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-surface-tint);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.ugr-persona-card:hover:not(:disabled) .ugr-persona-card__dot {
+  opacity: 1;
+}

@@ -1,0 +1,71 @@
+.map-detail-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-4);
+  background: color-mix(in srgb, var(--color-on-surface) 35%, transparent);
+}
+
+.map-detail-confirm__box {
+  width: min(100%, 320px);
+  padding: var(--spacing-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container-lowest);
+  box-shadow: var(--shadow-ambient);
+}
+
+.map-detail-confirm__box h3 {
+  margin: 0 0 var(--spacing-2);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--color-on-surface);
+}
+
+.map-detail-confirm__box p {
+  margin: 0 0 0.85rem;
+  font-size: 0.88rem;
+  color: var(--color-on-surface-variant);
+}
+
+.map-detail-confirm__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.map-detail-owner-btn {
+  flex: 1;
+  min-width: 7.5rem;
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-family: system-ui, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.map-detail-owner-btn--delete {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface-container-lowest));
+  border-color: color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+.map-detail-owner-btn--delete:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface-container-lowest));
+}
+
+.map-detail-owner-btn--secondary {
+  color: var(--color-on-surface);
+  background: var(--color-surface-container-low);
+  border-color: var(--border-ghost);
+}
+
+.map-detail-owner-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}

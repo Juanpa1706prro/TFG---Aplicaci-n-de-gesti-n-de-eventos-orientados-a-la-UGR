@@ -1,0 +1,131 @@
+/**
+ * Pantallas de flujo de autenticación / perfil a pantalla completa
+ * (onboarding, selección de persona). Usa design tokens.
+ */
+
+.ugr-auth-flow {
+  min-height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--spacing-8) var(--spacing-4);
+  padding-bottom: max(var(--spacing-8), env(safe-area-inset-bottom, 0px));
+  background: var(--color-surface-container-low);
+}
+
+.ugr-auth-flow__panel {
+  width: min(44rem, 100%);
+  padding: clamp(var(--spacing-6), 4vw, var(--spacing-10));
+  background: var(--color-surface-container-lowest);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-ambient);
+}
+
+.ugr-auth-flow__logo {
+  display: block;
+  width: clamp(10rem, 42vw, 18rem);
+  height: auto;
+  margin: 0 auto var(--spacing-6);
+  object-fit: contain;
+}
+
+.ugr-auth-flow__eyebrow {
+  margin: 0 0 var(--spacing-3);
+  color: var(--color-on-surface-variant);
+}
+
+.ugr-auth-flow__title {
+  margin: 0 0 var(--spacing-3);
+  font-family: var(--font-display);
+  font-size: clamp(1.65rem, 4vw, 2rem);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--color-primary);
+}
+
+.ugr-auth-flow__lead {
+  margin: 0 0 var(--spacing-6);
+  font-size: var(--text-body-lg);
+  line-height: var(--text-body-lg-lh);
+  color: var(--color-on-surface-variant);
+  max-width: 38rem;
+}
+
+.ugr-auth-flow__lead strong {
+  color: var(--color-on-surface);
+  font-weight: 600;
+}
+
+.ugr-auth-flow__step {
+  display: inline-block;
+  margin-bottom: var(--spacing-4);
+  padding: var(--spacing-1) var(--spacing-3);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-secondary-container) 28%, var(--color-surface));
+  color: var(--color-on-secondary-container);
+  font-family: var(--font-label);
+  font-size: var(--text-label-md);
+  font-weight: 600;
+  letter-spacing: var(--text-label-md-tracking);
+  text-transform: uppercase;
+}
+
+.ugr-auth-flow__section-title {
+  margin: var(--spacing-8) 0 var(--spacing-4);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.ugr-auth-flow__section-title:first-child {
+  margin-top: 0;
+}
+
+.ugr-auth-flow__form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-4);
+}
+
+@media (max-width: 640px) {
+  .ugr-auth-flow__form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ugr-auth-flow__actions {
+  margin-top: var(--spacing-8);
+}
+
+.ugr-auth-flow__actions .ugr-btn-primary {
+  width: 100%;
+}
+
+.ugr-req {
+  color: var(--color-surface-tint);
+  font-weight: 600;
+}
+
+.ugr-link-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin: 0 0 var(--spacing-5);
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--color-primary-fixed-dim) 50%, transparent);
+  text-underline-offset: 3px;
+}
+
+.ugr-link-back:hover {
+  color: var(--color-surface-tint);
+}

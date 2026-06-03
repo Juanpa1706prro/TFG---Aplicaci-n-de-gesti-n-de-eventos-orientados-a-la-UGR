@@ -1,0 +1,24 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { FriendRequest } from './friend-request.entity';
+import { Friendship } from './friendship.entity';
+import { FriendsService } from './friends.service';
+import { FriendsController } from './friends.controller';
+import { UsersModule } from '../user/user.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+
+// -------------------------------------------------------------------
+// Friends Module
+// Friend requests, friendships and relationship status. Base route: /friends
+// -------------------------------------------------------------------
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([FriendRequest, Friendship]),
+    UsersModule,
+    NotificationsModule,
+  ],
+  providers: [FriendsService],
+  controllers: [FriendsController],
+  exports: [FriendsService],
+})
+export class FriendsModule {}

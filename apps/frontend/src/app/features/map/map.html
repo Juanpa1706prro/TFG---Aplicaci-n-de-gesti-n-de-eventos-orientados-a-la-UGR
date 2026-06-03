@@ -1,5 +1,359 @@
-<button class="back-btn" (click)="logOut()">← Salir al Login (Test)</button>
+<div class="map-page">
+  <div class="map-body">
+    <div class="map-viewport">
+      <div
+        #mapContainer
+        class="map-container"
+        [class.map-container--dawn]="activeVisualTheme() === 'dawn'"
+        [class.map-container--sunset]="activeVisualTheme() === 'sunset'"
+        [class.map-container--night]="activeVisualTheme() === 'night'"
+      ></div>
 
-<button (click)="goToProfile()" class="btn-profile">👤 Ir a mi Perfil</button>
+      @if (directionsViewActive()) {
+        <app-map-directions-overlay
+          [travelMode]="directionsTravelMode()"
+          [loading]="directionsLoading()"
+          [routeDisplay]="routeDisplay()"
+          [error]="directionsError()"
+          (travelModeChange)="setDirectionsTravelMode($event)"
+          (closed)="exitDirectionsView()"
+        />
+      }
 
-<div #mapContainer class="map-container"></div>
+      <div
+        class="map-map-controls"
+        [class.map-map-controls--hidden]="directionsViewActive()"
+        (click)="$event.stopPropagation()"
+      >
+        <button
+          type="button"
+          class="map-locate-btn"
+          [disabled]="locatingUser()"
+          aria-label="Ir a mi ubicación"
+          (click)="goToMyLocation()"
+        >
+          <span class="map-locate-btn__icon" aria-hidden="true">◎</span>
+          <span class="map-locate-btn__label">
+            {{ locatingUser() ? 'Localizando…' : 'Mi ubicación' }}
+          </span>
+        </button>
+      </div>
+
+      <div
+        class="map-theme-toolbar"
+        [class.map-theme-toolbar--hidden]="directionsViewActive()"
+        (click)="$event.stopPropagation()"
+      >
+        <div
+          class="map-theme-control"
+          role="group"
+          [attr.aria-label]="'Estilo del mapa: ' + mapTheme.themeLabel()"
+        >
+          <span class="map-theme-control__current">{{ mapTheme.themeLabel() }}</span>
+          <div class="map-theme-control__menu" role="menu">
+            @for (opt of mapTheme.themeOptions; track opt.value) {
+              <button
+                type="button"
+                class="map-theme-btn"
+                role="menuitem"
+                [class.map-theme-btn--active]="mapTheme.themePreference() === opt.value"
+                [attr.aria-pressed]="mapTheme.themePreference() === opt.value"
+                (click)="selectThemePreference(opt.value)"
+              >
+                {{ opt.label }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    @if (clusterPanelEvents(); as clusterEvents) {
+      <app-map-cluster-panel
+        [events]="clusterEvents"
+        (closed)="closeClusterPanel()"
+        (eventSelected)="selectEventFromCluster($event)"
+      />
+    }
+
+    @if (selectedEvent(); as ev) {
+      @if (!directionsViewActive()) {
+        <aside class="map-detail-panel" aria-label="Detalle del evento" (click)="$event.stopPropagation()">
+          <header class="map-detail-header">
+            <h2 class="map-detail-title">{{ ev.title }}</h2>
+            <button type="button" class="map-detail-close" (click)="closeDetail()" aria-label="Cerrar detalle">
+              ×
+            </button>
+          </header>
+
+          <div class="map-detail-photo" [class.map-detail-photo--empty]="!hasPhoto(ev)">
+            @if (hasPhoto(ev)) {
+              <img [src]="eventPhotoSrc(ev.id)" [alt]="ev.title" />
+            }
+          </div>
+
+          <p class="map-detail-time">{{ detailTimeLabel(ev) }}</p>
+
+          @if (eventDetailLoading()) {
+            <p class="map-detail-muted">Cargando información del evento…</p>
+          } @else if (eventDetail(); as detail) {
+            <p class="map-detail-creator">
+              Creado por
+              <a class="map-detail-creator-link" [routerLink]="profileRoute(detail.creator.userNumber)">
+                {{ participantName(detail.creator) }}
+              </a>
+            </p>
+
+            @if (detail.managers.length > 0 && !detail.isMeeting) {
+              <details class="map-detail-accordion">
+                <summary class="map-detail-accordion__summary">
+                  Gestores del evento ({{ detail.managers.length }})
+                </summary>
+                <ul class="map-detail-people">
+                  @for (person of detail.managers; track person.userNumber) {
+                    <li class="map-detail-person">
+                      <a class="map-detail-person__link" [routerLink]="profileRoute(person.userNumber)">
+                        <span class="map-detail-person__avatar" [class.map-detail-person__avatar--empty]="!hasPhoto(person)">
+                          @if (hasPhoto(person)) {
+                            <img [src]="userPhotoSrc(person.userNumber)" alt="" loading="lazy" />
+                          } @else {
+                            <span aria-hidden="true">{{ participantInitials(person) }}</span>
+                          }
+                        </span>
+                        <span class="map-detail-person__name">{{ participantName(person) }}</span>
+                      </a>
+                    </li>
+                  }
+                </ul>
+              </details>
+            }
+
+            @if (detail.isMeeting) {
+              <details class="map-detail-accordion" [open]="detail.participants.length > 0">
+                <summary class="map-detail-accordion__summary">
+                  Participantes ({{ meetingParticipantsSummary(detail) }})
+                </summary>
+                @if (detail.participants.length === 0) {
+                  <p class="map-detail-muted map-detail-muted--inset">Sin participantes invitados.</p>
+                } @else {
+                  <ul class="map-detail-people">
+                    @for (row of detail.participants; track row.user.userNumber) {
+                      <li
+                        class="map-detail-person map-detail-meeting-participant"
+                        [class.map-detail-meeting-participant--confirmed]="isParticipantConfirmed(row.status)"
+                      >
+                        <span
+                          class="map-detail-meeting-participant__check"
+                          [class.map-detail-meeting-participant__check--confirmed]="isParticipantConfirmed(row.status)"
+                          aria-hidden="true"
+                        >
+                          @if (isParticipantConfirmed(row.status)) {
+                            ✓
+                          }
+                        </span>
+                        <a class="map-detail-person__link" [routerLink]="profileRoute(row.user.userNumber)">
+                          <span
+                            class="map-detail-person__avatar"
+                            [class.map-detail-person__avatar--empty]="!hasPhoto(row.user)"
+                          >
+                            @if (hasPhoto(row.user)) {
+                              <img [src]="userPhotoSrc(row.user.userNumber)" alt="" loading="lazy" />
+                            } @else {
+                              <span aria-hidden="true">{{ participantInitials(row.user) }}</span>
+                            }
+                          </span>
+                          <span class="map-detail-person__name">{{ participantName(row.user) }}</span>
+                        </a>
+                        <span
+                          class="map-detail-meeting-participant__status"
+                          [class.map-detail-meeting-participant__status--confirmed]="isParticipantConfirmed(row.status)"
+                        >
+                          {{ participantStatusLabel(row.status) }}
+                        </span>
+                      </li>
+                    }
+                  </ul>
+                }
+              </details>
+            } @else {
+              <details class="map-detail-accordion" [open]="detail.attendees.length > 0">
+                <summary class="map-detail-accordion__summary">
+                  Asistentes ({{ detail.attendeeCount }})
+                </summary>
+                @if (detail.attendees.length === 0) {
+                  <p class="map-detail-muted map-detail-muted--inset">Nadie apuntado todavía.</p>
+                } @else {
+                  <ul class="map-detail-people">
+                    @for (person of detail.attendees; track person.userNumber) {
+                      <li class="map-detail-person">
+                        <a class="map-detail-person__link" [routerLink]="profileRoute(person.userNumber)">
+                          <span class="map-detail-person__avatar" [class.map-detail-person__avatar--empty]="!hasPhoto(person)">
+                            @if (hasPhoto(person)) {
+                              <img [src]="userPhotoSrc(person.userNumber)" alt="" loading="lazy" />
+                            } @else {
+                              <span aria-hidden="true">{{ participantInitials(person) }}</span>
+                            }
+                          </span>
+                          <span class="map-detail-person__name">{{ participantName(person) }}</span>
+                        </a>
+                      </li>
+                    }
+                  </ul>
+                }
+              </details>
+            }
+
+            @if (detail.isMeeting && !detail.viewerIsCreator) {
+              @if (detail.viewerParticipantStatus === EventParticipantStatus.PENDING) {
+                <div class="map-detail-rsvp-actions">
+                  <button
+                    type="button"
+                    class="map-detail-attend-btn"
+                    [disabled]="attendActionLoading()"
+                    (click)="acceptMeetingInvitation()"
+                  >
+                    {{ attendActionLoading() ? 'Actualizando…' : 'Asistir' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="map-detail-rsvp-btn map-detail-rsvp-btn--reject"
+                    [disabled]="attendActionLoading()"
+                    (click)="rejectMeetingInvitation()"
+                  >
+                    Rechazar
+                  </button>
+                </div>
+              } @else if (detail.viewerParticipantStatus === EventParticipantStatus.ACCEPTED) {
+                <p class="map-detail-rsvp-status">Asistiré</p>
+              }
+            } @else if (!detail.isMeeting) {
+              <button
+                type="button"
+                class="map-detail-attend-btn"
+                [class.map-detail-attend-btn--joined]="detail.isAttending"
+                [disabled]="attendActionLoading() || (!detail.isAttending && !canToggleAttendance(detail))"
+                (click)="toggleAttendance()"
+              >
+                @if (attendActionLoading()) {
+                  Actualizando…
+                } @else if (detail.isAttending) {
+                  Apuntado
+                } @else {
+                  Asistir
+                }
+              </button>
+
+              @if (detail.visibility === EventVisibility.PUBLIC) {
+                <button
+                  type="button"
+                  class="map-detail-invite-btn"
+                  (click)="openInviteFriendsOverlay()"
+                >
+                  Invitar amigo
+                </button>
+              }
+            }
+
+            @if (attendError()) {
+              <p class="map-detail-error" role="alert">{{ attendError() }}</p>
+            }
+
+            @if (detail.viewerIsCreator) {
+              <div class="map-detail-owner-actions">
+                <button
+                  type="button"
+                  class="map-detail-owner-btn map-detail-owner-btn--edit"
+                  (click)="openEditOwnEvent()"
+                >
+                  {{ detail.isMeeting ? 'Editar reunión' : 'Editar evento' }}
+                </button>
+                <button
+                  type="button"
+                  class="map-detail-owner-btn map-detail-owner-btn--delete"
+                  (click)="openOwnerDeleteConfirm()"
+                >
+                  {{ detail.isMeeting ? 'Eliminar reunión' : 'Eliminar evento' }}
+                </button>
+              </div>
+              @if (ownerDeleteError()) {
+                <p class="map-detail-error" role="alert">{{ ownerDeleteError() }}</p>
+              }
+            }
+          }
+
+          <div class="map-detail-directions">
+            <button
+              type="button"
+              class="map-detail-directions-btn"
+              [disabled]="routingUiBlocked || directionsLoading()"
+              [attr.title]="
+                routingUiBlocked
+                  ? 'Indicaciones en el mapa pendientes de autorización de Google'
+                  : null
+              "
+              (click)="openDirections(ev)"
+            >
+              {{ directionsButtonLabel() }}
+            </button>
+          </div>
+
+          <dl class="map-detail-list">
+            <div class="map-detail-row">
+              <dt>Descripción</dt>
+              <dd>{{ ev.description || 'Sin descripción.' }}</dd>
+            </div>
+            <div class="map-detail-row">
+              <dt>Visibilidad</dt>
+              <dd>{{ visibilityLabel(ev.visibility) }}</dd>
+            </div>
+            <div class="map-detail-row">
+              <dt>Ubicación</dt>
+              <dd>{{ ev.location }}</dd>
+            </div>
+            @if (eventDetail(); as detailMeta) {
+              <div class="map-detail-row">
+                <dt>{{ detailMeta.isMeeting ? 'Participación' : 'Plazas' }}</dt>
+                <dd>
+                  {{
+                    detailMeta.isMeeting
+                      ? meetingParticipantsSummary(detailMeta)
+                      : attendeesCountLabel(detailMeta)
+                  }}
+                </dd>
+              </div>
+            }
+            <div class="map-detail-row">
+              <dt>Inicio</dt>
+              <dd>{{ ev.startsAt | date : 'medium' }}</dd>
+            </div>
+            <div class="map-detail-row">
+              <dt>Fin</dt>
+              <dd>{{ ev.endsAt | date : 'medium' }}</dd>
+            </div>
+          </dl>
+        </aside>
+      }
+    }
+
+    @if (showInviteFriends()) {
+      <app-map-invite-friends-dialog
+        [friends]="inviteFriendsList()"
+        [loading]="inviteFriendsLoading()"
+        [error]="inviteFriendsError()"
+        [success]="inviteFriendsSuccess()"
+        [inviteActionUserNumber]="inviteActionUserNumber()"
+        [invitedUserNumbers]="invitedFriendNumbers()"
+        (closed)="closeInviteFriendsOverlay()"
+        (invite)="inviteFriendToEvent($event)"
+      />
+    }
+
+    @if (showOwnerDeleteConfirm()) {
+      <app-map-event-delete-dialog
+        [loading]="ownerDeleteLoading()"
+        (closed)="closeOwnerDeleteConfirm()"
+        (confirmed)="confirmOwnerDelete()"
+      />
+    }
+  </div>
+</div>

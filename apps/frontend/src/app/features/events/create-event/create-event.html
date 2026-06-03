@@ -1,0 +1,293 @@
+<div class="create-event-page">
+  <div class="create-event-card">
+    <header class="create-event-header">
+      <p class="create-event-eyebrow ugr-font-label">Eventos</p>
+      <h1>
+        @if (isEditMode) {
+          Editar evento
+        } @else if (isMeetingCreateMode) {
+          Nueva reunión
+        } @else {
+          Nuevo evento
+        }
+      </h1>
+      <p class="create-event-lead">
+        @if (isEditMode) {
+          Modifica los datos del evento. Solo el creador puede editarlo o eliminarlo.
+        } @else {
+          Elige un centro UGR o coloca la marca en el mapa. Crea un evento público o una reunión con participantes invitados (tipos distintos; no se pueden convertir después).
+        }
+      </p>
+    </header>
+
+    @if (pageLoading) {
+      <p class="create-event-hint" role="status">Cargando evento…</p>
+    } @else if (loadError) {
+      <p class="ugr-auth-banner ugr-auth-banner--error" role="alert">
+        No se pudo cargar el evento o no tienes permiso para editarlo.
+      </p>
+    } @else {
+      @if (errorMessage) {
+        <p class="ugr-auth-banner ugr-auth-banner--error" role="alert">{{ errorMessage }}</p>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="submit()" class="create-event-form" novalidate>
+        <div class="ugr-field">
+          <label for="ev-title">Título <span class="ugr-req">*</span></label>
+          <input id="ev-title" class="ugr-input" type="text" formControlName="title" maxlength="300" />
+        </div>
+
+        <div class="ugr-field">
+          <label for="ev-description">Descripción <span class="ugr-req">*</span></label>
+          <textarea id="ev-description" class="ugr-textarea" formControlName="description" rows="5" maxlength="8000"></textarea>
+        </div>
+
+        <div class="ugr-field create-event-photo-field">
+          <label for="ev-photo">Foto del evento</label>
+          <input
+            id="ev-photo"
+            class="create-event-file"
+            type="file"
+            [accept]="imageAccept"
+            (change)="onPhotoSelected($event)"
+          />
+          <p class="ugr-field-hint">JPEG, PNG o WebP. Máximo 2 MB.</p>
+          @if (photoFieldError) {
+            <p class="ugr-field-error">{{ photoFieldError }}</p>
+          }
+          @if (photoPreviewUrl) {
+            <div class="create-event-photo-preview">
+              <img [src]="photoPreviewUrl" alt="Vista previa" />
+              <button type="button" class="ugr-btn-secondary" (click)="clearPhoto()">Quitar foto</button>
+            </div>
+          }
+        </div>
+
+        <div class="ugr-field">
+          <label for="ev-starts">Inicio del evento <span class="ugr-req">*</span></label>
+          <input id="ev-starts" class="ugr-input" type="datetime-local" formControlName="startsAt" />
+        </div>
+
+        <div class="ugr-field">
+          <label for="ev-ends">Fin del evento <span class="ugr-req">*</span></label>
+          <input id="ev-ends" class="ugr-input" type="datetime-local" formControlName="endsAt" />
+          <p class="ugr-field-hint">
+            Al finalizar deja de mostrarse en el mapa. Se conserva en histórico mediante soft delete.
+          </p>
+        </div>
+
+        <div class="ugr-field">
+          <label for="faculty-preset">Centro / facultad (opcional)</label>
+          <select id="faculty-preset" class="ugr-select create-event-select-preset" formControlName="facultyPreset">
+            <option [ngValue]="''">Otro — colocar marca en el mapa</option>
+            @for (code of facultyPresetList; track code) {
+              <option [ngValue]="code">{{ USER_FACULTY_LABELS[code] }}</option>
+            }
+          </select>
+          <p class="ugr-field-hint">
+            Si eliges un centro, se rellena la ubicación y el punto en el mapa. También puedes mover la marca después con el mapa.
+          </p>
+        </div>
+
+        <div class="ugr-field">
+          <label for="ev-location">Ubicación (texto) <span class="ugr-req">*</span></label>
+          <input
+            id="ev-location"
+            class="ugr-input"
+            type="text"
+            formControlName="location"
+            placeholder="Ej.: Aula C1, ETSIIT, UGR"
+          />
+        </div>
+
+        <fieldset class="create-event-map-fields">
+          <legend>Punto en el mapa <span class="ugr-req">*</span></legend>
+          <p class="ugr-field-hint create-event-map-hint">
+            Pulsa el botón para abrir el mapa: un clic coloca la marca; también puedes arrastrarla.
+            No hace falta escribir coordenadas: se guardan al elegir facultad o al marcar en el mapa.
+          </p>
+          @if (hasMapPoint) {
+            <p class="create-event-map-status" role="status">Marca colocada en el mapa.</p>
+          } @else {
+            <p class="create-event-map-status create-event-map-status--pending" role="status">
+              Elige un centro UGR arriba o coloca la marca en el mapa.
+            </p>
+          }
+          <button type="button" class="create-event-map-picker-btn" (click)="openLocationPicker()">
+            Abrir mapa y colocar la marca
+          </button>
+          <div class="ugr-field create-event-visibility">
+            <span class="create-event-label-block">Visibilidad</span>
+            @if (isEditMode) {
+              <p class="ugr-field-hint">
+                {{
+                  form.controls.visibility.value === EventVisibility.PRIVATE
+                    ? 'Reunión (tipo fijo; no se puede cambiar a evento público).'
+                    : 'Evento público (tipo fijo; no se puede cambiar a reunión).'
+                }}
+              </p>
+            } @else {
+              <label class="create-event-radio">
+                <input type="radio" formControlName="visibility" [value]="EventVisibility.PUBLIC" />
+                Evento público (visible para la comunidad en el mapa)
+              </label>
+              <label class="create-event-radio">
+                <input type="radio" formControlName="visibility" [value]="EventVisibility.PRIVATE" />
+                Reunión (solo participantes invitados; mínimo otra persona además de ti)
+              </label>
+            }
+          </div>
+        </fieldset>
+
+        <div class="ugr-field">
+          <label class="create-event-checkbox">
+            <input type="checkbox" formControlName="unlimitedAttendees" />
+            Sin límite de asistentes
+          </label>
+        </div>
+
+        <div class="ugr-field">
+          <label for="ev-max">Máximo de asistentes</label>
+          <input id="ev-max" class="ugr-input" type="number" formControlName="maxAttendees" min="1" max="1000000" />
+        </div>
+
+        @if (isPublicCreateMode) {
+          <h2 class="create-event-section-title">Editores y moderadores</h2>
+          <p class="ugr-field-hint create-event-managers-hint">
+            Opcional: añade el <strong>número de usuario UGR</strong> (el de 6 dígitos del perfil) de quien pueda
+            ayudar a gestionar el evento.
+          </p>
+
+          @for (row of managerRows; track $index) {
+            <div class="create-event-manager-row">
+              <input
+                class="ugr-input"
+                type="text"
+                inputmode="numeric"
+                maxlength="6"
+                placeholder="Nº usuario"
+                [(ngModel)]="row.userNumber"
+                [ngModelOptions]="{ standalone: true }"
+              />
+              <select class="ugr-select" [(ngModel)]="row.role" [ngModelOptions]="{ standalone: true }">
+                <option [ngValue]="EventManagerAssignmentRole.EDITOR">{{ roleLabels[EventManagerAssignmentRole.EDITOR] }}</option>
+                <option [ngValue]="EventManagerAssignmentRole.MODERATOR">{{ roleLabels[EventManagerAssignmentRole.MODERATOR] }}</option>
+              </select>
+              <button type="button" class="create-event-btn-remove" (click)="removeManagerRow($index)">Quitar</button>
+            </div>
+          }
+
+          <button type="button" class="ugr-btn-secondary create-event-add-manager" (click)="addManagerRow()">
+            + Añadir editor o moderador
+          </button>
+        }
+
+        @if (isMeetingCreateMode) {
+          <h2 class="create-event-section-title">Participantes <span class="ugr-req">*</span></h2>
+          <p class="ugr-field-hint create-event-managers-hint">
+            Añade al menos otra persona además de ti. Solo verán la reunión en el mapa quienes invites aquí.
+          </p>
+
+          @if (participantChips.length > 0) {
+            <ul class="create-event-participant-chips" aria-label="Participantes añadidos">
+              @for (chip of participantChips; track chip.userNumber) {
+                <li class="create-event-participant-chip">
+                  <span>{{ chip.label }} · #{{ chip.userNumber }}</span>
+                  <button
+                    type="button"
+                    class="create-event-participant-chip__remove"
+                    (click)="removeParticipantChip($index)"
+                    [attr.aria-label]="'Quitar participante ' + chip.label"
+                  >
+                    ×
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+
+          <div class="create-event-participant-add-row">
+            <input
+              class="ugr-input"
+              type="text"
+              inputmode="numeric"
+              maxlength="6"
+              placeholder="Nº de perfil (6 dígitos)"
+              [(ngModel)]="participantUserNumberInput"
+              [ngModelOptions]="{ standalone: true }"
+              (keydown.enter)="$event.preventDefault(); addParticipantFromInput()"
+            />
+            <button type="button" class="ugr-btn-secondary" (click)="addParticipantFromInput()">
+              Añadir por número
+            </button>
+          </div>
+
+          <div class="create-event-friends-block">
+            <h3 class="create-event-friends-title">Mis amigos</h3>
+            @if (friendsLoading) {
+              <p class="create-event-hint" role="status">Cargando amigos…</p>
+            } @else if (friendsLoadError) {
+              <p class="ugr-field-error">{{ friendsLoadError }}</p>
+            } @else if (friends.length === 0) {
+              <p class="create-event-hint">No tienes amigos todavía. Usa el número de perfil arriba.</p>
+            } @else {
+              <ul class="create-event-friends-list">
+                @for (friend of friends; track friend.friendshipId) {
+                  <li class="create-event-friends-row">
+                    <span class="create-event-friends-row__name">
+                      {{ friendDisplayName(friend) }}
+                      <span class="create-event-friends-row__meta">#{{ friend.user.userNumber }}</span>
+                    </span>
+                    @if (isParticipantAdded(friend.user.userNumber)) {
+                      <span class="create-event-friends-row__added">Añadido</span>
+                    } @else {
+                      <button
+                        type="button"
+                        class="ugr-btn-secondary create-event-friends-row__btn"
+                        (click)="addFriendParticipant(friend)"
+                      >
+                        Añadir
+                      </button>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        }
+
+        <div class="create-event-actions">
+          <button type="button" class="ugr-btn-secondary" (click)="cancel()">Cancelar</button>
+          <button type="submit" class="ugr-btn-primary" [disabled]="submitting || pageLoading">
+            @if (isEditMode) {
+              {{ submitting ? 'Guardando…' : 'Guardar cambios' }}
+            } @else {
+              {{ submitting ? 'Creando…' : isMeetingCreateMode ? 'Crear reunión' : 'Crear evento' }}
+            }
+          </button>
+        </div>
+      </form>
+    }
+  </div>
+
+  @if (locationPickerOpen) {
+    <div class="location-picker-overlay" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+      <div class="location-picker-top">
+        <div>
+          <h2 id="picker-title">Elegir ubicación</h2>
+          <p class="picker-help">Pulsa en el mapa para colocar la marca. Puedes arrastrarla o volver a pulsar en otro sitio.</p>
+        </div>
+        <button type="button" class="picker-close" (click)="closeLocationPicker()" aria-label="Cerrar">✕</button>
+      </div>
+      <div #pickerMapHost class="location-picker-map-host"></div>
+      <div class="location-picker-footer">
+        @if (hasMapPoint) {
+          <span class="picker-coords">Ubicación seleccionada</span>
+        } @else {
+          <span class="picker-coords">Pulsa en el mapa para colocar la marca</span>
+        }
+        <button type="button" class="ugr-btn-primary picker-done" (click)="closeLocationPicker()">Hecho</button>
+      </div>
+    </div>
+  }
+</div>

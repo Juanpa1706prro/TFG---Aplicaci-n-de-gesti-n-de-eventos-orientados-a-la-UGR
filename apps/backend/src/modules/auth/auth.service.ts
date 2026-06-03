@@ -5,20 +5,33 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UsersService } from 'src/modules/user/user.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { UsersService } from '../user/user.service';
 import { User } from '../user/user.entity';
 import { jwtConstants } from './constants';
 import * as bcrypt from 'bcrypt';
-import { UserRole } from '../user/user-enums';
 import { UserProfile } from '../user/user-profile.entity';
+import { resolveSystemRoleFromOperatorKey } from './operator-key.util';
 
-interface JwtPayload {
+// -------------------------------------------------------------------
+// Authentication Service
+// Handles registration, login, token refresh and session management.
+// -------------------------------------------------------------------
+
+// ------------------------------------------------------------
+// Types
+// ------------------------------------------------------------
+
+interface AccessJwtPayload {
   sub: number;
 }
 
-// ------------------------------------------------------------
-// Authentication Service.
-// ------------------------------------------------------------
+interface RefreshJwtPayload {
+  sub: number;
+  ver: number;
+}
+
 @Injectable()
 export class AuthService {
   // ------------------------------------------------------------
@@ -28,20 +41,27 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   // ------------------------------------------------------------
-  // Methods.
+  // Public methods
   // ------------------------------------------------------------
 
   /**
    * Registers a new user in the system.
    * @param {string} email - The user's email address.
    * @param {string} pass - The user's plain-text password.
+   * @param {string} [operatorKey] - Optional demo key to assign ADMIN, MANAGER or MODERATOR.
    * @returns {Promise<any>} The newly created user entity.
    * @throws {ConflictException} If the email already exists in the database.
    */
-  async register(email: string, pass: string) {
+  async register(
+    email: string,
+    pass: string,
+    operatorKey?: string,
+  ) {
     // Generate salt and hash the password
     const salt = await bcrypt.genSalt();
     const hashedPassword = await bcrypt.hash(pass, salt);
@@ -50,14 +70,8 @@ export class AuthService {
     const user = new User();
     user.email = email;
     user.password = hashedPassword;
-
-    if (email.endsWith('@correo.ugr.es')) {
-      user.role = UserRole.STUDENT;
-    } else if (email.endsWith('@ugr.es')) {
-      user.role = UserRole.PROFESSOR;
-    } else {
-      user.role = UserRole.STUDENT; // Fallback por defecto
-    }
+    user.role = resolveSystemRoleFromOperatorKey(operatorKey);
+    user.onboardingCompleted = false;
 
     const profile = new UserProfile();
     profile.userNumber = randomUserNumber;
@@ -80,57 +94,73 @@ export class AuthService {
    * Authenticates a user on the system.
    * @param {string} email - The user's email address.
    * @param {string} pass - The user's plain-text password.
-   * @returns {Promise<{ accessToken: string, refreshToken: string, user: any } | null>} An object containing the signed JWT and sanitized user data, or null if credentials are invalid.
+   * @returns {Promise<{ accessToken: string, refreshToken: string, user: any } | null>} Signed tokens and sanitized user data, or null if credentials are invalid.
    */
   async login(email: string, pass: string) {
-
     const user = await this.usersService.findByEmail(email);
     if (!user) return null;
-
 
     const isMatch = await bcrypt.compare(pass, user.password);
     if (!isMatch) return null;
 
-    const payload = {
+    const refreshVersion = 1;
+    const accessToken = await this.generateAccessToken({ sub: user.id });
+    const refreshToken = await this.generateRefreshToken({
       sub: user.id,
-    };
+      ver: refreshVersion,
+    });
 
-    const [accessToken, refreshToken] = await Promise.all([
-      this.generateAccessToken(payload),
-      this.generateRefreshToken(payload),
-    ]);
+    await this.persistRefreshSession(user.id, refreshToken, refreshVersion);
 
-    await this.updateRefreshTokenHash(user.id, refreshToken);
+    await this.usersService.resetActivePersonaAfterLoginIfMultipleStaffFunctions(
+      user.id,
+    );
+    await this.usersService.ensureDefaultActivePersonaIfMissing(user.id);
+    const hydrated = await this.usersService.findByEmail(email);
+    if (!hydrated) {
+      return null;
+    }
 
     return {
       accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        userNumber: user.profile.userNumber,
-      },
+      user: this.usersService.toPublicSession(hydrated),
     };
   }
-  catch(error) {
-    console.error('Error during login:', error);
-    throw new UnauthorizedException('An error occurred during login');
+
+  /**
+   * Returns the current session for an authenticated user (same shape as login response user).
+   * @param {number} userId - Authenticated user id from the access JWT.
+   * @returns {Promise<any>} Public session payload for the user.
+   * @throws {UnauthorizedException} If the user does not exist.
+   */
+  async getMe(userId: number) {
+    await this.usersService.ensureDefaultActivePersonaIfMissing(userId);
+    const user = await this.usersService.findByID(userId);
+    if (!user) {
+      throw new UnauthorizedException('Usuario no encontrado');
+    }
+    return this.usersService.toPublicSession(user);
   }
 
   /**
    * Logs out the user by removing their refresh token hash from the database.
    * @param {number} userId - The ID of the user logging out.
+   * @returns {Promise<void>}
    */
   async logout(userId: number) {
-    await this.usersService.update(userId, { hashedRefreshToken: null });
+    await this.usersService.update(userId, {
+      hashedRefreshToken: null,
+      refreshTokenVersion: 0,
+    });
   }
 
   /**
    * Generates a short-lived access token.
-   * @param {JwtPayload} payload - The user data to embed in the token.
+   * @param {AccessJwtPayload} payload - The user data to embed in the token.
    * @returns {Promise<string>} The signed JWT access token.
    */
-  async generateAccessToken(payload: JwtPayload): Promise<string> {
+  async generateAccessToken(payload: AccessJwtPayload): Promise<string> {
     return this.jwtService.signAsync(payload, {
       secret: jwtConstants.accessSecret,
       expiresIn: '15m',
@@ -139,10 +169,10 @@ export class AuthService {
 
   /**
    * Generates a long-lived refresh token.
-   * @param payload - The user data to embed in the refresh token.
-   * @returns {Promise<string>} The signed JWT access token.
+   * @param {RefreshJwtPayload} payload - The user data to embed in the refresh token.
+   * @returns {Promise<string>} The signed JWT refresh token.
    */
-  async generateRefreshToken(payload: JwtPayload): Promise<string> {
+  async generateRefreshToken(payload: RefreshJwtPayload): Promise<string> {
     return this.jwtService.signAsync(payload, {
       secret: jwtConstants.refreshSecret,
       expiresIn: '7d',
@@ -150,64 +180,106 @@ export class AuthService {
   }
 
   /**
-   * Validates an existing refresh token and generates a fresh pair of tokens.
-   * Implements token rotation for enhanced security.
-   * @param {number} userId - The ID of the user requesting token refresh.
-   * @param {string} rawToken - The raw refresh token provided by the client (from cookie).
-   * @returns {Promise<{ accessToken: string, refreshToken: string }>} The new token pair.
-   * @throws {ForbiddenException} If the token is invalid, old, or the user is logged out.
+   * Rotates access and refresh tokens on each use (RFC 9700 / OAuth BCP).
+   * JWT version and DB version detect reuse of an already-rotated refresh token.
+   * @param {number} userId - User id from the refresh JWT.
+   * @param {string} rawToken - Raw refresh token from the cookie.
+   * @param {number} tokenVersion - Version claim from the refresh JWT.
+   * @returns {Promise<{ accessToken: string; refreshToken: string }>} New token pair.
+   * @throws {ForbiddenException} If the session is missing, outdated or reused.
    */
-  async refreshTokens(userId: number, rawToken: string) {
-    const user = await this.usersService.findByID(userId);
+  async refreshTokens(
+    userId: number,
+    rawToken: string,
+    tokenVersion: number,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    return this.userRepository.manager.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      const user = await userRepo.findOne({
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    // Deny access if user does not exist or has no refresh token hash (logged out)
-    if (!user || !user.hashedRefreshToken) {
-      throw new ForbiddenException('Access denied: Session not found');
-    }
+      if (!user || !user.hashedRefreshToken) {
+        throw new ForbiddenException('Access denied: Session not found');
+      }
 
-    // Compare the provided plain-text token against the database hash
-    const rtMatches = await bcrypt.compare(rawToken, user.hashedRefreshToken);
-    if (!rtMatches) {
-      throw new ForbiddenException('Access denied: Invalid or outdated token');
-    }
+      if (user.refreshTokenVersion !== tokenVersion) {
+        throw new ForbiddenException(
+          'Refresh token reuse detected or session outdated',
+        );
+      }
 
-    // Generate a new pair of tokens if validation succeeds
-    const payload: JwtPayload = { sub: user.id };
-    const [accessToken, refreshToken] = await Promise.all([
-      this.generateAccessToken(payload),
-      this.generateRefreshToken(payload),
-    ]);
+      const rtMatches = await bcrypt.compare(rawToken, user.hashedRefreshToken);
+      if (!rtMatches) {
+        throw new ForbiddenException('Access denied: Invalid refresh token');
+      }
 
-    // Token Rotation: Update the database hash with the newly generated refresh token
-    await this.updateRefreshTokenHash(user.id, refreshToken);
+      const nextVersion = user.refreshTokenVersion + 1;
+      const accessToken = await this.generateAccessToken({ sub: user.id });
+      const refreshToken = await this.generateRefreshToken({
+        sub: user.id,
+        ver: nextVersion,
+      });
 
-    return { accessToken, refreshToken };
-  }
+      const salt = await bcrypt.genSalt();
+      const hash = await bcrypt.hash(refreshToken, salt);
+      user.hashedRefreshToken = hash;
+      user.refreshTokenVersion = nextVersion;
+      await userRepo.save(user);
 
-  /**
-   * Hashes a plain-text refresh token and stores it in the database.
-   * @param {number} userId - The ID of the user.
-   * @param {string} refreshToken - The plain-text refresh token to hash.
-   */
-  async updateRefreshTokenHash(userId: number, refreshToken: string) {
-    const salt = await bcrypt.genSalt();
-    const hash = await bcrypt.hash(refreshToken, salt);
-    await this.usersService.update(userId, { hashedRefreshToken: hash });
+      return { accessToken, refreshToken };
+    });
   }
 
   /**
    * Verifies the cryptographic signature and expiration of a refresh token.
-   * @param token - The raw refresh token to validate.
-   * @returns {Promise<JwtPayload>} The decoded payload if the token is valid.
+   * @param {string} token - Raw refresh token from the cookie.
+   * @returns {Promise<RefreshJwtPayload>} Verified payload with sub and ver.
    * @throws {UnauthorizedException} If the token is invalid or expired.
    */
-  async verifyRefreshToken(token: string): Promise<JwtPayload> {
+  async verifyRefreshToken(token: string): Promise<RefreshJwtPayload> {
     try {
-      return await this.jwtService.verifyAsync<JwtPayload>(token, {
+      const payload = await this.jwtService.verifyAsync<RefreshJwtPayload>(token, {
         secret: jwtConstants.refreshSecret,
       });
-    } catch {
+      if (
+        payload.sub == null ||
+        payload.ver == null ||
+        !Number.isFinite(payload.ver)
+      ) {
+        throw new UnauthorizedException('Invalid refresh token payload');
+      }
+      return payload;
+    } catch (err) {
+      if (err instanceof UnauthorizedException) {
+        throw err;
+      }
       throw new UnauthorizedException('Invalid or outdated Refresh token');
     }
+  }
+
+  // ------------------------------------------------------------
+  // Private helpers
+  // ------------------------------------------------------------
+
+  /**
+   * Hashes and persists the refresh token and its version for a user session.
+   * @param {number} userId - User id.
+   * @param {string} refreshToken - Raw refresh JWT to store hashed.
+   * @param {number} version - Refresh token version for rotation checks.
+   * @returns {Promise<void>}
+   */
+  private async persistRefreshSession(
+    userId: number,
+    refreshToken: string,
+    version: number,
+  ): Promise<void> {
+    const salt = await bcrypt.genSalt();
+    const hash = await bcrypt.hash(refreshToken, salt);
+    await this.usersService.update(userId, {
+      hashedRefreshToken: hash,
+      refreshTokenVersion: version,
+    });
   }
 }

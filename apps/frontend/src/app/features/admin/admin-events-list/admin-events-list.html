@@ -1,0 +1,122 @@
+<div class="admin-overlay" role="dialog" aria-modal="true" aria-label="Eventos registrados">
+  <button
+    type="button"
+    class="admin-overlay__dim"
+    aria-label="Cerrar y volver al mapa"
+    (click)="closePage()"
+  ></button>
+
+  <section class="admin-overlay__panel">
+    <header class="admin-overlay__header">
+      <div>
+        <h1 class="admin-overlay__title">Eventos</h1>
+        <p class="admin-overlay__subtitle">
+          Todos los eventos de la plataforma. Filtra por estado, busca por título o lugar.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="admin-overlay__close"
+        aria-label="Cerrar"
+        (click)="closePage()"
+      >
+        ×
+      </button>
+    </header>
+
+    <div class="admin-overlay__toolbar">
+      <label class="admin-overlay__search">
+        <span class="admin-overlay__search-label">Buscar</span>
+        <input
+          type="search"
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="onSearchInput()"
+          placeholder="Título o ubicación…"
+          autocomplete="off"
+        />
+      </label>
+
+      <div class="admin-overlay__sort admin-overlay__sort--events">
+        <label>
+          <span>Estado</span>
+          <select [(ngModel)]="statusFilter" (change)="onFiltersChange()">
+            <option value="all">Todos</option>
+            <option value="active">En curso</option>
+            <option value="finished">Terminados</option>
+          </select>
+        </label>
+        <label>
+          <span>Ordenar por</span>
+          <select [(ngModel)]="sortField" (change)="onFiltersChange()">
+            <option value="createdAt">Fecha de creación</option>
+            <option value="title">Nombre (título)</option>
+          </select>
+        </label>
+        <label>
+          <span>Dirección</span>
+          <select [(ngModel)]="sortOrder" (change)="onFiltersChange()">
+            <option value="desc">Descendente</option>
+            <option value="asc">Ascendente</option>
+          </select>
+        </label>
+        <label class="admin-overlay__check">
+          <input
+            type="checkbox"
+            [(ngModel)]="includeDeleted"
+            (change)="onFiltersChange()"
+          />
+          <span>Incluir eliminados</span>
+        </label>
+      </div>
+    </div>
+
+    <div #scrollRoot class="admin-overlay__body">
+      @if (loading() && events().length === 0) {
+        <p class="admin-overlay__status">Cargando eventos…</p>
+      } @else if (loadError() && events().length === 0) {
+        <p class="admin-overlay__status admin-overlay__status--error">{{ loadError() }}</p>
+      } @else if (!loading() && !refreshing() && events().length === 0) {
+        <p class="admin-overlay__status">No hay eventos que coincidan con los filtros.</p>
+      } @else {
+        @if (loadError()) {
+          <p class="admin-overlay__status admin-overlay__status--error">{{ loadError() }}</p>
+        }
+        @if (refreshing()) {
+          <p class="admin-overlay__status">Actualizando listado…</p>
+        }
+        <ul class="admin-user-list" [class.admin-user-list--dimmed]="refreshing()">
+          @for (event of events(); track event.id) {
+            <li>
+              <button type="button" class="admin-user-row admin-event-row" (click)="openEvent(event)">
+                <span class="admin-event-row__main">
+                  <span class="admin-user-row__name">{{ event.title }}</span>
+                  <span class="admin-user-row__meta">
+                    #{{ event.id }} · {{ event.location }}
+                    @if (event.creatorLabel) {
+                      · {{ event.creatorLabel }}
+                    }
+                  </span>
+                </span>
+                <span class="admin-user-row__aside">
+                  <span
+                    class="admin-event-badge"
+                    [class.admin-event-badge--deleted]="event.deletedAt"
+                    [class.admin-event-badge--finished]="!event.deletedAt && event.finished"
+                  >
+                    {{ statusBadge(event) }}
+                  </span>
+                  <span class="admin-user-row__role">{{ visibilityLabel(event.visibility) }}</span>
+                  <span class="admin-user-row__date">{{ eventTimeLabel(event) }}</span>
+                </span>
+              </button>
+            </li>
+          }
+        </ul>
+        @if (loadingMore()) {
+          <p class="admin-overlay__status">Cargando más…</p>
+        }
+        <div #loadMoreSentinel class="admin-overlay__sentinel" aria-hidden="true"></div>
+      }
+    </div>
+  </section>
+</div>

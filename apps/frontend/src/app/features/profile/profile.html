@@ -1,23 +1,27 @@
-<!doctype html>
-<html>
-  @if (userProfile) {
-    <div class="profile-container">
-      <div class="profile-header"></div>
-      <div class="profile-card">
-        <div class="info-group">
-          <label>Email de contacto:</label>
-          <p class="data-value">{{ userProfile.email }}</p>
-        </div>
-
-        <div class="info-group">
-          <label>Número de Usuario (VIP):</label>
-          <p class="data-value">#{{ userProfile.userNumber }}</p>
-        </div>
-      </div>
+<app-column-overlay (close)="closeToMap()">
+  @if (publicProfile) {
+    <app-public-profile-view
+      [profile]="publicProfile"
+      [friendStatus]="friendStatus()"
+      [friendActionLoading]="friendActionLoading()"
+      [friendActionError]="friendActionError()"
+      [showUnfriendConfirm]="showUnfriendConfirm()"
+      (sendFriendRequest)="sendFriendRequest()"
+      (acceptFriendRequest)="acceptFriendRequest()"
+      (rejectFriendRequest)="rejectFriendRequest()"
+      (openUnfriendConfirm)="openUnfriendConfirm()"
+      (closeUnfriendConfirm)="closeUnfriendConfirm()"
+      (confirmUnfriend)="confirmUnfriend()"
+    />
+  } @else if (profileView) {
+    <app-my-profile-view [profile]="profileView" />
+  } @else if (loadError) {
+    <div class="loading-state" role="alert">
+      <p>No se ha podido cargar este perfil.</p>
     </div>
   } @else {
-    <div class="loading-state">
-      <p>⏳ Cargando tu información de perfil...</p>
+    <div class="loading-state" role="status">
+      <p>Cargando perfil…</p>
     </div>
   }
-</html>
+</app-column-overlay>

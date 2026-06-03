@@ -1,0 +1,280 @@
+<div class="app-shell" [class.sidebar-open]="shellUi.sidebarOpen()">
+  @if (shellUi.sidebarOpen()) {
+    <button
+      type="button"
+      class="sidebar-backdrop"
+      aria-label="Cerrar menú"
+      (click)="closeSidebar()"
+    ></button>
+  }
+
+  <aside class="sidebar" [attr.aria-label]="sidebarAriaLabel">
+    <button
+      type="button"
+      class="sidebar-tab"
+      [attr.aria-expanded]="shellUi.sidebarOpen()"
+      aria-label="Abrir o cerrar menú"
+      (click)="toggleSidebar()"
+    >
+      <span class="sidebar-tab-icon">{{ shellUi.sidebarOpen() ? '‹' : '›' }}</span>
+      <span class="sidebar-tab-text">Menú</span>
+    </button>
+
+    @if (shellUi.sidebarView() === 'main') {
+      @if (showOperatorRoleEntry) {
+        <button
+          type="button"
+          class="sidebar-role-entry"
+          [class.sidebar-role-entry--admin]="isAdminRole"
+          [class.sidebar-role-entry--static]="!isAdminRole"
+          [attr.aria-label]="
+            isAdminRole
+              ? 'Abrir panel de administración'
+              : 'Rol del sistema: ' + operatorRoleLabel
+          "
+          (click)="onOperatorRoleClick()"
+        >
+          <span class="sidebar-role-entry__label">Rol</span>
+          <span class="sidebar-role-entry__value">{{ operatorRoleLabel }}</span>
+        </button>
+      }
+
+      @if (user) {
+        <a
+          class="sidebar-brand"
+          [routerLink]="['/u', user.userNumber, 'map']"
+          aria-label="UGR Eventos — ir al mapa"
+          (click)="closeSidebar()"
+        >
+          <span class="sidebar-brand__eyebrow ugr-font-label">Universidad de Granada</span>
+          <span class="sidebar-brand__title">UGR Eventos</span>
+        </a>
+      } @else {
+        <div class="sidebar-brand">
+          <span class="sidebar-brand__eyebrow ugr-font-label">Universidad de Granada</span>
+          <span class="sidebar-brand__title">UGR Eventos</span>
+        </div>
+      }
+
+      <div class="sidebar-user">
+        @if (profile?.hasProfilePicture) {
+          <img
+            class="sidebar-avatar"
+            [src]="sessionProfilePhotoSrc"
+            alt="Foto de perfil"
+          />
+        } @else {
+          <div class="sidebar-avatar sidebar-avatar-fallback" aria-hidden="true">
+            {{ avatarInitials }}
+          </div>
+        }
+
+        <div class="sidebar-user-main">
+          <div class="sidebar-username-row">
+            <div class="sidebar-username">{{ username }}</div>
+            <div class="sidebar-notifications-anchor">
+              <button
+                type="button"
+                class="shell-notifications-bell shell-notifications-bell--sidebar"
+                [attr.aria-expanded]="shellUi.notificationsOpen()"
+                aria-label="Notificaciones"
+                (click)="toggleNotifications()"
+              >
+                <span class="shell-notifications-bell__icon" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                  </svg>
+                </span>
+                @if (unreadNotificationCount() > 0) {
+                  <span class="shell-notifications-bell__badge">{{
+                    unreadBadgeLabel()
+                  }}</span>
+                }
+              </button>
+              @if (shellUi.notificationsOpen()) {
+                <div
+                  class="shell-notifications-layer shell-notifications-layer--sidebar"
+                  (click)="$event.stopPropagation()"
+                >
+                  <app-notifications-panel />
+                </div>
+              }
+            </div>
+          </div>
+          @if (user?.email) {
+            <div class="sidebar-email">{{ user?.email }}</div>
+          }
+        </div>
+      </div>
+
+      @if (user) {
+        <nav class="sidebar-nav">
+          <a
+            class="sidebar-link"
+            [routerLink]="['/u', user.userNumber, 'map']"
+            routerLinkActive="sidebar-link-active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            (click)="closeSidebar()"
+          >
+            Mapa
+          </a>
+          <a
+            class="sidebar-link"
+            [routerLink]="['/u', user.userNumber, 'map', 'events']"
+            routerLinkActive="sidebar-link-active"
+            (click)="closeSidebar()"
+          >
+            Eventos
+          </a>
+          <a
+            class="sidebar-link"
+            [routerLink]="['/u', user.userNumber, 'map', 'friends']"
+            routerLinkActive="sidebar-link-active"
+            (click)="closeSidebar()"
+          >
+            Amigos
+          </a>
+          <a
+            class="sidebar-link"
+            [routerLink]="['/u', user.userNumber, 'profile']"
+            routerLinkActive="sidebar-link-active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            (click)="closeSidebar()"
+          >
+            Ver perfil
+          </a>
+          <button
+            type="button"
+            class="sidebar-link"
+            (click)="toggleAssistant(); closeSidebar()"
+          >
+            Asistente IA
+          </button>
+
+          <button
+            type="button"
+            class="sidebar-link"
+            (click)="openSettingsSidebar()"
+          >
+            Configuración
+          </button>
+
+          @if (canCreateEvents) {
+            <a
+              class="sidebar-link sidebar-link-accent"
+              [routerLink]="['/u', user.userNumber, 'events', 'new']"
+              routerLinkActive="sidebar-link-active"
+              (click)="closeSidebar()"
+            >
+              Crear evento
+            </a>
+          }
+        </nav>
+      }
+
+      <button type="button" class="sidebar-logout" (click)="logout()">
+        Cerrar sesión
+      </button>
+    } @else if (shellUi.sidebarView() === 'settings') {
+      <div class="sidebar-brand sidebar-brand--section">Configuración</div>
+
+      @if (user) {
+        <nav class="sidebar-nav">
+          <a
+            class="sidebar-link"
+            [routerLink]="['/u', user.userNumber, 'account']"
+            routerLinkActive="sidebar-link-active"
+            (click)="closeSidebar()"
+          >
+            Cuenta
+          </a>
+          <button type="button" class="sidebar-link">
+            Aspecto
+          </button>
+        </nav>
+      }
+
+      <button
+        type="button"
+        class="sidebar-link sidebar-link-footer"
+        (click)="backToMainSidebar()"
+      >
+        Volver al menú
+      </button>
+    } @else {
+      <div class="sidebar-brand sidebar-brand--section">Administración</div>
+      <p class="sidebar-admin-lead">
+        Gestión de usuarios y eventos de la plataforma UGR Eventos.
+      </p>
+
+      <nav class="sidebar-nav sidebar-nav--admin">
+        @for (item of adminMenuItems; track item.id) {
+          <button
+            type="button"
+            class="sidebar-link"
+            [class.sidebar-link--placeholder]="!isAdminMenuItemEnabled(item)"
+            [disabled]="!isAdminMenuItemEnabled(item)"
+            [attr.aria-label]="
+              isAdminMenuItemEnabled(item) ? item.label : item.label + ' — próximamente'
+            "
+            (click)="onAdminMenuItemClick(item)"
+          >
+            <span class="sidebar-link__text">{{ item.label }}</span>
+            <span class="sidebar-link__hint">{{ item.hint }}</span>
+          </button>
+        }
+      </nav>
+
+      <button
+        type="button"
+        class="sidebar-link sidebar-link-footer"
+        (click)="backToMainSidebar()"
+      >
+        Volver al menú
+      </button>
+    }
+  </aside>
+
+  <main class="shell-content">
+    <div class="shell-stage">
+      <div
+        class="shell-map-layer"
+        [class.shell-map-layer--blocked]="blocksMapInteraction()"
+        aria-hidden="false"
+      >
+        <app-map />
+      </div>
+      <div
+        class="shell-overlay-layer"
+        [class.shell-overlay-layer--blocking]="blocksMapInteraction()"
+      >
+        <router-outlet />
+      </div>
+    </div>
+
+    @if (shellUi.assistantOpen()) {
+      <div class="shell-assistant-layer" (click)="$event.stopPropagation()">
+        <app-ai-assistant-panel />
+      </div>
+    }
+  </main>
+
+  @if (!shellUi.assistantOpen()) {
+    <button
+      type="button"
+      class="shell-assistant-fab"
+      aria-label="Abrir asistente IA"
+      (click)="toggleAssistant()"
+    >
+      <span aria-hidden="true">✦</span>
+    </button>
+  }
+</div>

@@ -1,0 +1,23 @@
+/**
+ * body tiene overflow:hidden (mapa). Este host es el scrollport de la pantalla.
+ */
+:host {
+  display: block;
+  box-sizing: border-box;
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.onboarding-form .ugr-field-hint {
+  margin: calc(-1 * var(--spacing-2)) 0 var(--spacing-5);
+}
+
+.onboarding-form .ugr-field:last-child {
+  margin-bottom: 0;
+}

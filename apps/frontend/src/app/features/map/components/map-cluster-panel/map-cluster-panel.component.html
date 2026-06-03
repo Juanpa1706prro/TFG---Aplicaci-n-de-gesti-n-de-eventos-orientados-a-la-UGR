@@ -1,0 +1,63 @@
+<div
+  class="map-cluster-page"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Eventos agrupados"
+  (click)="$event.stopPropagation()"
+>
+  <button
+    type="button"
+    class="map-cluster-page__dim"
+    aria-label="Cerrar listado"
+    (click)="close()"
+  ></button>
+
+  <section class="map-cluster-page__panel">
+    <header class="map-cluster-page__header">
+      <div>
+        <h2 class="map-cluster-page__title">
+          {{ events().length }} eventos en esta zona
+        </h2>
+        <p class="map-cluster-page__subtitle">
+          Acerca el mapa para verlos por separado o elige uno para ver el detalle.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="map-cluster-page__close"
+        aria-label="Cerrar"
+        (click)="close()"
+      >
+        ×
+      </button>
+    </header>
+
+    <ul class="map-cluster-page__list">
+      @for (ev of events(); track ev.id) {
+        <li>
+          <button
+            type="button"
+            class="map-cluster-page__item"
+            (click)="selectEvent(ev)"
+          >
+            <span
+              class="map-cluster-page__thumb"
+              [class.map-cluster-page__thumb--empty]="!hasPhoto(ev)"
+            >
+              @if (hasPhoto(ev)) {
+                <img [src]="eventPhotoSrc(ev.id)" alt="" loading="lazy" />
+              }
+            </span>
+            <span class="map-cluster-page__item-text">
+              <span class="map-cluster-page__item-title">{{ ev.title }}</span>
+              <span class="map-cluster-page__item-time">{{ markerTimeLabel(ev) }}</span>
+              <span class="map-cluster-page__item-meta">
+                {{ visibilityLabel(ev.visibility) }} · {{ ev.location }}
+              </span>
+            </span>
+          </button>
+        </li>
+      }
+    </ul>
+  </section>
+</div>

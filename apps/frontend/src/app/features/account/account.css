@@ -1,0 +1,100 @@
+.account-card {
+  padding-top: var(--spacing-5);
+}
+
+.account-header {
+  margin-bottom: var(--spacing-6);
+  padding-bottom: var(--spacing-5);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-primary) 4%, var(--color-surface-container-lowest)) 0%,
+    var(--color-surface-container-lowest) 100%
+  );
+  border-radius: var(--radius-md);
+}
+
+.account-eyebrow {
+  margin: 0 0 var(--spacing-2);
+  color: var(--color-on-surface-variant);
+}
+
+.account-card h1 {
+  margin: 0 0 var(--spacing-2);
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 3vw, 1.65rem);
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.account-lead {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--color-on-surface-variant);
+  max-width: 28rem;
+}
+
+.account-section {
+  padding: var(--spacing-5) 0;
+}
+
+.account-section + .account-section {
+  padding-top: var(--spacing-6);
+  background: linear-gradient(
+    180deg,
+    var(--color-surface-container-low) 0%,
+    transparent var(--spacing-4)
+  );
+  border-radius: var(--radius-md);
+}
+
+.account-section--muted .account-section__title {
+  color: var(--color-on-surface-variant);
+  font-size: 0.95rem;
+}
+
+.account-section__title {
+  margin: 0 0 var(--spacing-3);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.account-section__text {
+  margin: 0;
+  font-size: var(--text-body-lg);
+  line-height: var(--text-body-lg-lh);
+  color: var(--color-on-surface);
+}
+
+.account-badge {
+  display: inline-block;
+  margin-top: var(--spacing-3);
+  padding: var(--spacing-1) var(--spacing-3);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-secondary-container) 30%, var(--color-surface));
+  color: var(--color-on-secondary-container);
+  font-family: var(--font-label);
+  font-size: var(--text-label-md);
+  font-weight: 600;
+  letter-spacing: var(--text-label-md-tracking);
+  text-transform: uppercase;
+}
+
+.account-back {
+  margin: var(--spacing-8) 0 0;
+  padding-top: var(--spacing-5);
+}
+
+.account-back a {
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--color-primary-fixed-dim) 45%, transparent);
+}
+
+.account-back a:hover {
+  color: var(--color-surface-tint);
+}

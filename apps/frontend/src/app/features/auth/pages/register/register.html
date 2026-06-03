@@ -1,24 +1,81 @@
-<form [formGroup]="registerForm" (ngSubmit)="onRegister()" class="auth-form">
-  <h2>Crear cuenta</h2>
-  <p class="subtitle">Únete a la comunidad universitaria.</p>
+<form [formGroup]="registerForm" (ngSubmit)="onRegister()" class="auth-form" novalidate>
+  <h2 class="auth-form__title">Crear cuenta</h2>
+  <p class="auth-form__subtitle">Únete con tu correo institucional de la UGR.</p>
 
-  <div class="input-field">
-    <label>Email</label>
-    <input type="email" formControlName="email" placeholder="email" />
-  </div>
+  @if (errorMessage) {
+    <p class="ugr-auth-banner ugr-auth-banner--error" role="alert">{{ errorMessage }}</p>
+  }
 
-  <div class="input-field">
-    <label>Contraseña</label>
-    <input type="password" formControlName="password" placeholder="Mínimo 6 caracteres" />
-  </div>
-
-  <div class="input-field">
-    <label>Confirmar Contraseña</label>
-    <input type="password" formControlName="confirmPassword" placeholder="Repite la contraseña" />
-    @if (registerForm.hasError('passwordMismatch')) {
-      <small class="error">Las contraseñas no coinciden</small>
+  <div class="ugr-field">
+    <label for="register-email">Correo UGR</label>
+    <input
+      id="register-email"
+      class="ugr-input"
+      type="email"
+      formControlName="email"
+      placeholder="usuario@correo.ugr.es o usuario@ugr.es"
+      autocomplete="email"
+    />
+    @if (registerForm.get('email')?.touched && registerForm.get('email')?.errors?.['ugrEmail']) {
+      <p class="ugr-field-error">Debe ser un correo @correo.ugr.es o @ugr.es</p>
+    }
+    @if (registerForm.get('email')?.touched && registerForm.get('email')?.errors?.['email']) {
+      <p class="ugr-field-error">Introduce un correo válido.</p>
     }
   </div>
 
-  <button type="submit" [disabled]="registerForm.invalid" class="btn-main">Registrarse</button>
+  <div class="ugr-field">
+    <label for="register-password">Contraseña</label>
+    <input
+      id="register-password"
+      class="ugr-input"
+      type="password"
+      formControlName="password"
+      placeholder="Mín. 6 caracteres, mayúscula, número y símbolo"
+      autocomplete="new-password"
+    />
+    @if (registerForm.get('password')?.touched && registerForm.get('password')?.invalid) {
+      <p class="ugr-field-error">
+        Incluye al menos 6 caracteres, una mayúscula, un número y un símbolo.
+      </p>
+    }
+  </div>
+
+  <div class="ugr-field">
+    <label for="register-confirm">Confirmar contraseña</label>
+    <input
+      id="register-confirm"
+      class="ugr-input"
+      type="password"
+      formControlName="confirmPassword"
+      placeholder="Repite la contraseña"
+      autocomplete="new-password"
+    />
+    @if (registerForm.hasError('passwordMismatch') && registerForm.get('confirmPassword')?.touched) {
+      <p class="ugr-field-error">Las contraseñas no coinciden</p>
+    }
+  </div>
+
+  <div class="ugr-field">
+    <label for="register-operator">Clave de operador <span class="auth-form__optional">(opcional)</span></label>
+    <input
+      id="register-operator"
+      class="ugr-input"
+      type="text"
+      formControlName="operatorKey"
+      placeholder="Solo demo: ADMIN, MANAGER, MODERATOR"
+      autocomplete="off"
+    />
+    <p class="ugr-field-hint">
+      Déjalo vacío para una cuenta normal. Las claves distinguen mayúsculas.
+    </p>
+  </div>
+
+  <button
+    type="submit"
+    class="ugr-btn-primary auth-form__submit"
+    [disabled]="registerForm.invalid || loading"
+  >
+    {{ loading ? 'Creando cuenta…' : 'Registrarse' }}
+  </button>
 </form>

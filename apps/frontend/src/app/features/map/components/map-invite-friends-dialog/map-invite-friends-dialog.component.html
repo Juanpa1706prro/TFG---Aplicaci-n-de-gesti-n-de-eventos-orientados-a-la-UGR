@@ -1,0 +1,83 @@
+<div
+  class="map-detail-invite-overlay"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="map-invite-friends-title"
+>
+  <div class="map-detail-invite-overlay__box">
+    <div class="map-detail-invite-overlay__header">
+      <h3 id="map-invite-friends-title">Recomendar a un amigo</h3>
+      <button
+        type="button"
+        class="map-detail-invite-overlay__close"
+        aria-label="Cerrar"
+        (click)="close()"
+      >
+        ×
+      </button>
+    </div>
+    <p class="map-detail-invite-overlay__hint">
+      Envía una recomendación del evento a tus amigos. No es una invitación con RSVP.
+    </p>
+    @if (success()) {
+      <p class="map-detail-invite-overlay__success" role="status">
+        {{ success() }}
+      </p>
+    }
+    @if (error()) {
+      <p class="map-detail-invite-overlay__error" role="alert">
+        {{ error() }}
+      </p>
+    }
+    @if (loading()) {
+      <p class="map-detail-invite-overlay__status">Cargando amigos…</p>
+    } @else if (friends().length === 0) {
+      <p class="map-detail-invite-overlay__status">
+        No tienes amigos a los que recomendar este evento.
+      </p>
+    } @else {
+      <ul class="map-detail-invite-list">
+        @for (friend of friends(); track friend.friendshipId) {
+          <li class="map-detail-invite-row">
+            <div class="map-detail-invite-row__profile">
+              <span
+                class="map-detail-invite-row__avatar"
+                [class.map-detail-invite-row__avatar--empty]="!friend.user.hasProfilePicture"
+              >
+                @if (friend.user.hasProfilePicture) {
+                  <img
+                    [src]="userPhotoSrc(friend.user.userNumber)"
+                    [alt]="friendDisplayName(friend)"
+                    loading="lazy"
+                  />
+                } @else {
+                  <span aria-hidden="true">{{ friendUserInitials(friend) }}</span>
+                }
+              </span>
+              <span class="map-detail-invite-row__name">
+                {{ friendDisplayName(friend) }}
+                <span class="map-detail-invite-row__meta">#{{ friend.user.userNumber }}</span>
+              </span>
+            </div>
+            @if (isFriendInvited(friend)) {
+              <span class="map-detail-invite-row__done">Recomendado</span>
+            } @else {
+              <button
+                type="button"
+                class="map-detail-invite-row__btn"
+                [disabled]="inviteActionUserNumber() !== null"
+                (click)="inviteFriend(friend)"
+              >
+                @if (inviteActionUserNumber() === friend.user.userNumber) {
+                  Enviando…
+                } @else {
+                  Recomendar
+                }
+              </button>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </div>
+</div>

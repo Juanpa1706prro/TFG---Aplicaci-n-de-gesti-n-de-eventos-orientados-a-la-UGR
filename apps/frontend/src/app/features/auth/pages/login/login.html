@@ -1,16 +1,46 @@
-<form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="auth-form">
-  <h2>¡Hola de nuevo!</h2>
-  <p class="subtitle">Entra para explorar los eventos.</p>
+<form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="auth-form" novalidate>
+  <h2 class="auth-form__title">¡Hola de nuevo!</h2>
+  <p class="auth-form__subtitle">Entra con tu correo UGR para explorar el mapa de eventos.</p>
 
-  <div class="input-field">
-    <label>Email UGR</label>
-    <input type="email" formControlName="email" placeholder="ejemplo@correo.ugr.es" />
+  @if (errorMessage) {
+    <p class="ugr-auth-banner ugr-auth-banner--error" role="alert">{{ errorMessage }}</p>
+  }
+
+  <div class="ugr-field">
+    <label for="login-email">Correo UGR</label>
+    <input
+      id="login-email"
+      class="ugr-input"
+      type="email"
+      formControlName="email"
+      placeholder="usuario@correo.ugr.es"
+      autocomplete="email"
+    />
+    @if (loginForm.get('email')?.touched && loginForm.get('email')?.invalid) {
+      <p class="ugr-field-error">Introduce un correo válido.</p>
+    }
   </div>
 
-  <div class="input-field">
-    <label>Contraseña</label>
-    <input type="password" formControlName="password" placeholder="••••••••" />
+  <div class="ugr-field">
+    <label for="login-password">Contraseña</label>
+    <input
+      id="login-password"
+      class="ugr-input"
+      type="password"
+      formControlName="password"
+      placeholder="Tu contraseña"
+      autocomplete="current-password"
+    />
+    @if (loginForm.get('password')?.touched && loginForm.get('password')?.invalid) {
+      <p class="ugr-field-error">La contraseña es obligatoria.</p>
+    }
   </div>
 
-  <button type="submit" class="btn-main">Entrar</button>
+  <button
+    type="submit"
+    class="ugr-btn-primary auth-form__submit"
+    [disabled]="loginForm.invalid || loading"
+  >
+    {{ loading ? 'Entrando…' : 'Entrar' }}
+  </button>
 </form>

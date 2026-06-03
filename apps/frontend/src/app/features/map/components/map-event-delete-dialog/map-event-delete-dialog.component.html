@@ -1,0 +1,24 @@
+<div class="map-detail-confirm" role="alertdialog" aria-modal="true">
+  <div class="map-detail-confirm__box">
+    <h3>¿Eliminar este evento?</h3>
+    <p>Dejará de mostrarse en el mapa y en los listados activos.</p>
+    <div class="map-detail-confirm__actions">
+      <button
+        type="button"
+        class="map-detail-owner-btn map-detail-owner-btn--delete"
+        [disabled]="loading()"
+        (click)="confirm()"
+      >
+        {{ loading() ? 'Eliminando…' : 'Sí, eliminar' }}
+      </button>
+      <button
+        type="button"
+        class="map-detail-owner-btn map-detail-owner-btn--secondary"
+        [disabled]="loading()"
+        (click)="cancel()"
+      >
+        Cancelar
+      </button>
+    </div>
+  </div>
+</div>
