@@ -20,8 +20,7 @@
 
 ## Preview
 
-<!-- Replace with real screenshot: map with event markers -->
-![Interactive map with university events](docs/screenshots/01-mapa-eventos.png)
+![Interactive map with university events](docs/screenshots/02-mapa.png)
 
 ---
 
@@ -37,23 +36,29 @@ Academic, cultural, and community activity at the University of Granada is often
 
 ## Screenshots
 
-| Interactive map | Event detail / creation |
+| Login | Map |
 | :---: | :---: |
-| <!-- TODO: map with event markers --> | <!-- TODO: event card or creation form --> |
-| ![Map](docs/screenshots/01-mapa-eventos.png) | ![Event](docs/screenshots/02-detalle-evento.png) |
+| ![Login](docs/screenshots/01-login.png) | ![Map](docs/screenshots/02-mapa.png) |
 
-| AI assistant | Profile / friends |
+| Left sidebar | Events list |
 | :---: | :---: |
-| <!-- TODO: assistant conversation --> | <!-- TODO: user profile or friends panel --> |
-| ![AI assistant](docs/screenshots/03-asistente-ia.png) | ![Friends](docs/screenshots/04-perfil-amigos.png) |
+| ![Left sidebar](docs/screenshots/03-sidebar-izquierda.png) | ![Events list](docs/screenshots/04-lista-eventos.png) |
 
-<!-- Optional: uncomment when admin screenshot is ready
-| Admin panel |
-| :---: |
-| ![Admin](docs/screenshots/05-panel-admin.png) |
--->
+| Event detail | Directions |
+| :---: | :---: |
+| ![Event detail](docs/screenshots/05-evento-sidebar.png) | ![Directions](docs/screenshots/06-como-llegar.png) |
 
-Screenshot guide: [`docs/screenshots/README.md`](docs/screenshots/README.md)
+| AI assistant | Other user's profile |
+| :---: | :---: |
+| ![AI assistant](docs/screenshots/07-asistente-ia.png) | ![Other user's profile](docs/screenshots/08-perfil-usuario.png) |
+
+| My profile | Friends |
+| :---: | :---: |
+| ![My profile](docs/screenshots/09-mi-perfil.png) | ![Friends](docs/screenshots/10-lista-amigos.png) |
+
+| Notifications | Admin panel |
+| :---: | :---: |
+| ![Notifications](docs/screenshots/11-notificaciones.png) | ![Admin panel](docs/screenshots/12-panel-admin.png) |
 
 ---
 
@@ -62,7 +67,7 @@ Screenshot guide: [`docs/screenshots/README.md`](docs/screenshots/README.md)
 ### Map & geolocation
 - Interactive map with **MapLibre GL** and marker clustering
 - Visual map themes (dawn, sunset, night)
-- User geolocation and walking routes via **Google Routes API** *(optional)*
+- User geolocation and in-app directions (walk / drive) via **Google Routes API**
 
 ### Events
 - Public events and private meetings with invitations
@@ -70,6 +75,7 @@ Screenshot guide: [`docs/screenshots/README.md`](docs/screenshots/README.md)
 - Personal lists filtered by role and active session persona
 
 ### Users & permissions
+- Login and registration with editorial split-screen layout
 - Registration with onboarding and profiles (student / UGR staff)
 - Active session persona selection (staff functions)
 - System roles: user, moderator, manager, and administrator
@@ -150,8 +156,8 @@ flowchart LR
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/YOUR_USER/YOUR_REPO.git
-   cd YOUR_REPO
+   git clone https://github.com/Juanpa1706prro/TFG---Aplicaci-n-de-gesti-n-de-eventos-orientados-a-la-UGR.git
+   cd TFG---Aplicaci-n-de-gesti-n-de-eventos-orientados-a-la-UGR
    ```
 
 2. **Configure environment variables**
@@ -219,7 +225,6 @@ API keys **must never** be placed in the frontend; only in `apps/backend/.env` (
 | Working application | Map, events, friends, notifications, admin, AI assistant |
 | Academic thesis | In progress ([`memoria/`](memoria/)) |
 | Public demo | Not deployed; local execution with Docker |
-| README screenshots | Pending — see [`docs/screenshots/`](docs/screenshots/) |
 
 ---
 
@@ -254,8 +259,7 @@ Academic project developed as a Bachelor's Thesis. Contact the author before reu
 
 ## Vista previa
 
-<!-- Sustituir por captura real: mapa con marcadores de eventos -->
-![Mapa interactivo con eventos universitarios](docs/screenshots/01-mapa-eventos.png)
+![Mapa interactivo con eventos universitarios](docs/screenshots/02-mapa.png)
 
 ---
 
@@ -271,23 +275,29 @@ La actividad docente, cultural y de participación en la Universidad de Granada 
 
 ## Capturas
 
-| Mapa interactivo | Detalle / creación de evento |
+| Inicio de sesión | Mapa |
 | :---: | :---: |
-| <!-- TODO: captura del mapa con marcadores --> | <!-- TODO: captura de ficha o formulario de evento --> |
-| ![Mapa](docs/screenshots/01-mapa-eventos.png) | ![Evento](docs/screenshots/02-detalle-evento.png) |
+| ![Login](docs/screenshots/01-login.png) | ![Mapa](docs/screenshots/02-mapa.png) |
 
-| Asistente IA | Perfil / amigos |
+| Sidebar izquierda | Lista de eventos |
 | :---: | :---: |
-| <!-- TODO: conversación con el asistente --> | <!-- TODO: perfil de usuario o panel de amigos --> |
-| ![Asistente IA](docs/screenshots/03-asistente-ia.png) | ![Amigos](docs/screenshots/04-perfil-amigos.png) |
+| ![Sidebar izquierda](docs/screenshots/03-sidebar-izquierda.png) | ![Lista de eventos](docs/screenshots/04-lista-eventos.png) |
 
-<!-- Opcional: descomentar cuando tengas la captura del panel admin
-| Panel de administración |
-| :---: |
-| ![Admin](docs/screenshots/05-panel-admin.png) |
--->
+| Detalle de evento | Cómo llegar |
+| :---: | :---: |
+| ![Detalle de evento](docs/screenshots/05-evento-sidebar.png) | ![Cómo llegar](docs/screenshots/06-como-llegar.png) |
 
-Guía para generar las capturas: [`docs/screenshots/README.md`](docs/screenshots/README.md)
+| Asistente IA | Perfil de otro usuario |
+| :---: | :---: |
+| ![Asistente IA](docs/screenshots/07-asistente-ia.png) | ![Perfil de otro usuario](docs/screenshots/08-perfil-usuario.png) |
+
+| Mi perfil | Lista de amigos |
+| :---: | :---: |
+| ![Mi perfil](docs/screenshots/09-mi-perfil.png) | ![Lista de amigos](docs/screenshots/10-lista-amigos.png) |
+
+| Notificaciones | Panel de administración |
+| :---: | :---: |
+| ![Notificaciones](docs/screenshots/11-notificaciones.png) | ![Panel de administración](docs/screenshots/12-panel-admin.png) |
 
 ---
 
@@ -296,7 +306,7 @@ Guía para generar las capturas: [`docs/screenshots/README.md`](docs/screenshots
 ### Mapa y geolocalización
 - Mapa interactivo con **MapLibre GL** y marcadores agrupados (clustering)
 - Temas visuales del mapa (amanecer, atardecer, noche)
-- Geolocalización del usuario y rutas a pie vía **Google Routes API** *(opcional)*
+- Geolocalización del usuario y rutas integradas en el mapa (a pie / en coche) vía **Google Routes API**
 
 ### Eventos
 - Eventos públicos y reuniones privadas con invitaciones
@@ -304,6 +314,7 @@ Guía para generar las capturas: [`docs/screenshots/README.md`](docs/screenshots
 - Listados personales filtrados por rol y persona activa en sesión
 
 ### Usuarios y permisos
+- Inicio de sesión y registro con diseño editorial a dos columnas
 - Registro con onboarding y perfiles (estudiante / personal UGR)
 - Selección de persona activa en sesión (funciones del personal)
 - Roles de sistema: usuario, moderador, manager y administrador
@@ -384,8 +395,8 @@ flowchart LR
 1. **Clonar el repositorio**
 
    ```bash
-   git clone https://github.com/TU_USUARIO/TU_REPO.git
-   cd TU_REPO
+   git clone https://github.com/Juanpa1706prro/TFG---Aplicaci-n-de-gesti-n-de-eventos-orientados-a-la-UGR.git
+   cd TFG---Aplicaci-n-de-gesti-n-de-eventos-orientados-a-la-UGR
    ```
 
 2. **Configurar variables de entorno**
@@ -453,7 +464,6 @@ Las claves **nunca** van en el frontend; solo en `apps/backend/.env` (excluido d
 | Aplicación funcional | Mapa, eventos, amistades, notificaciones, admin, asistente IA |
 | Memoria académica | En redacción ([`memoria/`](memoria/)) |
 | Demo pública | No desplegada; ejecución local con Docker |
-| Capturas del README | Pendientes — ver [`docs/screenshots/`](docs/screenshots/) |
 
 ---
 
