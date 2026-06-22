@@ -30,11 +30,13 @@ Academic, cultural, and community activity at the University of Granada is often
 
 **UGR Eventos** unifies **event management** and **geographic visualization** on an interactive map. The application supports differentiated identities (student and UGR staff), permissions based on the active session persona, public events and private meetings with invitations, a friends system, notifications, and a conversational AI assistant.
 
-> Detailed academic documentation (analysis, design, implementation, and testing) is being written in the [`memoria/`](memoria/) folder.
+> Bachelor's thesis (**GeoUGR**): analysis, design, implementation and validation documented separately (Overleaf; not included in this repository).
 
 ---
 
 ## Screenshots
+
+Interface captures of the current application (`docs/screenshots/`):
 
 | Login | Map |
 | :---: | :---: |
@@ -137,8 +139,9 @@ flowchart LR
 ├── apps/
 │   ├── frontend/     # Angular client (port 4200)
 │   └── backend/      # NestJS API (port 3000)
-├── memoria/          # LaTeX thesis document
-├── docs/             # Additional docs and screenshots
+├── docs/
+│   ├── screenshots/  # README captures (01–12)
+│   └── google-routes-setup.md
 └── docker-compose.yml
 ```
 
@@ -223,7 +226,7 @@ API keys **must never** be placed in the frontend; only in `apps/backend/.env` (
 | | |
 |---|---|
 | Working application | Map, events, friends, notifications, admin, AI assistant |
-| Academic thesis | In progress ([`memoria/`](memoria/)) |
+| Academic thesis (GeoUGR) | Documented in Overleaf (outside this repo) |
 | Public demo | Not deployed; local execution with Docker |
 
 ---
@@ -269,11 +272,13 @@ La actividad docente, cultural y de participación en la Universidad de Granada 
 
 **UGR Eventos** unifica la **gestión de eventos** y su **visualización geográfica** en un mapa interactivo. La aplicación contempla identidades diferenciadas (estudiante y personal UGR), permisos según la función activa en sesión, eventos públicos y reuniones privadas con invitaciones, sistema de amistades, notificaciones y un asistente conversacional con IA.
 
-> Documentación académica detallada (análisis, diseño, implementación y pruebas) en redacción en la carpeta [`memoria/`](memoria/).
+> Memoria del TFG (**GeoUGR**): análisis, diseño, implementación y validación documentados por separado (Overleaf; no incluidos en este repositorio).
 
 ---
 
 ## Capturas
+
+Capturas de la interfaz actual de la aplicación (`docs/screenshots/`):
 
 | Inicio de sesión | Mapa |
 | :---: | :---: |
@@ -376,8 +381,9 @@ flowchart LR
 ├── apps/
 │   ├── frontend/     # Cliente Angular (puerto 4200)
 │   └── backend/      # API NestJS (puerto 3000)
-├── memoria/          # Memoria LaTeX del TFG
-├── docs/             # Documentación complementaria y capturas
+├── docs/
+│   ├── screenshots/  # Capturas del README (01–12)
+│   └── google-routes-setup.md
 └── docker-compose.yml
 ```
 
@@ -462,7 +468,7 @@ Las claves **nunca** van en el frontend; solo en `apps/backend/.env` (excluido d
 | | |
 |---|---|
 | Aplicación funcional | Mapa, eventos, amistades, notificaciones, admin, asistente IA |
-| Memoria académica | En redacción ([`memoria/`](memoria/)) |
+| Memoria académica (GeoUGR) | En Overleaf (fuera de este repositorio) |
 | Demo pública | No desplegada; ejecución local con Docker |
 
 ---
