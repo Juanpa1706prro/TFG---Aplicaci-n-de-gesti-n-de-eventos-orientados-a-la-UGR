@@ -20,7 +20,7 @@
 
 ## Preview
 
-![Interactive map with university events](docs/screenshots/02-mapa.png)
+![Interactive map with university events](docs/screenshots/mapa.png)
 
 ---
 
@@ -40,27 +40,27 @@ Interface captures of the current application (`docs/screenshots/`):
 
 | Login | Map |
 | :---: | :---: |
-| ![Login](docs/screenshots/01-login.png) | ![Map](docs/screenshots/02-mapa.png) |
+| ![Login](docs/screenshots/login.png) | ![Map](docs/screenshots/mapa.png) |
 
 | Left sidebar | Events list |
 | :---: | :---: |
-| ![Left sidebar](docs/screenshots/03-sidebar-izquierda.png) | ![Events list](docs/screenshots/04-lista-eventos.png) |
+| ![Left sidebar](docs/screenshots/sidebar.png) | ![Events list](docs/screenshots/lista-eventos.png) |
 
 | Event detail | Directions |
 | :---: | :---: |
-| ![Event detail](docs/screenshots/05-evento-sidebar.png) | ![Directions](docs/screenshots/06-como-llegar.png) |
+| ![Event detail](docs/screenshots/detalle-evento.png) | ![Directions](docs/screenshots/ruta-evento.png) |
 
 | AI assistant | Other user's profile |
 | :---: | :---: |
-| ![AI assistant](docs/screenshots/07-asistente-ia.png) | ![Other user's profile](docs/screenshots/08-perfil-usuario.png) |
+| ![AI assistant](docs/screenshots/asistente-ia.png) | ![Other user's profile](docs/screenshots/perfil-usuario.png) |
 
 | My profile | Friends |
 | :---: | :---: |
-| ![My profile](docs/screenshots/09-mi-perfil.png) | ![Friends](docs/screenshots/10-lista-amigos.png) |
+| ![My profile](docs/screenshots/mi-perfil.png) | ![Friends](docs/screenshots/lista-amigos.png) |
 
 | Notifications | Admin panel |
 | :---: | :---: |
-| ![Notifications](docs/screenshots/11-notificaciones.png) | ![Admin panel](docs/screenshots/12-panel-admin.png) |
+| ![Notifications](docs/screenshots/notificaciones.png) | ![Admin panel](docs/screenshots/panel-admin.png) |
 
 ---
 
@@ -140,7 +140,7 @@ flowchart LR
 │   ├── frontend/     # Angular client (port 4200)
 │   └── backend/      # NestJS API (port 3000)
 ├── docs/
-│   ├── screenshots/  # README captures (01–12)
+│   ├── screenshots/  # UI captures (login, mapa, sidebar, …)
 │   └── google-routes-setup.md
 └── docker-compose.yml
 ```
@@ -262,7 +262,7 @@ Academic project developed as a Bachelor's Thesis. Contact the author before reu
 
 ## Vista previa
 
-![Mapa interactivo con eventos universitarios](docs/screenshots/02-mapa.png)
+![Mapa interactivo con eventos universitarios](docs/screenshots/mapa.png)
 
 ---
 
@@ -282,27 +282,27 @@ Capturas de la interfaz actual de la aplicación (`docs/screenshots/`):
 
 | Inicio de sesión | Mapa |
 | :---: | :---: |
-| ![Login](docs/screenshots/01-login.png) | ![Mapa](docs/screenshots/02-mapa.png) |
+| ![Login](docs/screenshots/login.png) | ![Mapa](docs/screenshots/mapa.png) |
 
 | Sidebar izquierda | Lista de eventos |
 | :---: | :---: |
-| ![Sidebar izquierda](docs/screenshots/03-sidebar-izquierda.png) | ![Lista de eventos](docs/screenshots/04-lista-eventos.png) |
+| ![Sidebar izquierda](docs/screenshots/sidebar.png) | ![Lista de eventos](docs/screenshots/lista-eventos.png) |
 
 | Detalle de evento | Cómo llegar |
 | :---: | :---: |
-| ![Detalle de evento](docs/screenshots/05-evento-sidebar.png) | ![Cómo llegar](docs/screenshots/06-como-llegar.png) |
+| ![Detalle de evento](docs/screenshots/detalle-evento.png) | ![Cómo llegar](docs/screenshots/ruta-evento.png) |
 
 | Asistente IA | Perfil de otro usuario |
 | :---: | :---: |
-| ![Asistente IA](docs/screenshots/07-asistente-ia.png) | ![Perfil de otro usuario](docs/screenshots/08-perfil-usuario.png) |
+| ![Asistente IA](docs/screenshots/asistente-ia.png) | ![Perfil de otro usuario](docs/screenshots/perfil-usuario.png) |
 
 | Mi perfil | Lista de amigos |
 | :---: | :---: |
-| ![Mi perfil](docs/screenshots/09-mi-perfil.png) | ![Lista de amigos](docs/screenshots/10-lista-amigos.png) |
+| ![Mi perfil](docs/screenshots/mi-perfil.png) | ![Lista de amigos](docs/screenshots/lista-amigos.png) |
 
 | Notificaciones | Panel de administración |
 | :---: | :---: |
-| ![Notificaciones](docs/screenshots/11-notificaciones.png) | ![Panel de administración](docs/screenshots/12-panel-admin.png) |
+| ![Notificaciones](docs/screenshots/notificaciones.png) | ![Panel de administración](docs/screenshots/panel-admin.png) |
 
 ---
 
@@ -382,7 +382,7 @@ flowchart LR
 │   ├── frontend/     # Cliente Angular (puerto 4200)
 │   └── backend/      # API NestJS (puerto 3000)
 ├── docs/
-│   ├── screenshots/  # Capturas del README (01–12)
+│   ├── screenshots/  # Capturas de la interfaz (login, mapa, sidebar, …)
 │   └── google-routes-setup.md
 └── docker-compose.yml
 ```
